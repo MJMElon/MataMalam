@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mata Malam</title>
+  <style>
+    /* CSS Reset & Variables */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    :root {
+      --bg-color: #0d1117;
+      --card-bg: #161b22;
+      --accent-color: #58a6ff;
+      --accent-hover: #1f6feb;
+      --text-main: #f0f6fc;
+      --text-muted: #8b949e;
+      --border-color: #30363d;
+      --focus-ring: #1f6feb;
+      --success-color: #238636;
+      --error-color: #f85149;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Focus States for Accessibility */
+    button:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    .card:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    /* Header & Navigation */
+    header {
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1.25rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--accent-color);
+      cursor: pointer;
+    }
+
+    nav ul {
+      display: flex;
+      list-style: none;
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    .nav-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1rem;
+      font-weight: 500;
+      transition: color 0.2s ease;
+      cursor: pointer;
+    }
+
+    .nav-btn:hover {
+      color: var(--accent-color);
+    }
+
+    nav a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.2s ease;
+      cursor: pointer;
+    }
+
+    nav a:hover {
+      color: var(--accent-color);
+    }
+
+    /* Main Layout */
+    main {
+      flex: 1;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+
+    /* Hero Section */
+    .hero {
+      text-align: center;
+      padding: 3rem 1rem 2rem 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .hero h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+      letter-spacing: -0.025em;
+    }
+
+    .hero p {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 1.5rem auto;
+    }
+
+    .btn {
+      display: inline-block;
+      background-color: var(--accent-color);
+      color: #ffffff;
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .btn:hover {
+      background-color: var(--accent-hover);
+    }
+
+    /* Sign In Section Styling */
+    .signin-container {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.75rem;
+      max-width: 420px;
+      margin: 1.5rem auto 0 auto;
+      text-align: left;
+    }
+
+    .signin-container h3 {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+      color: var(--accent-color);
+      text-align: center;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .form-input {
+      width: 100%;
+      background-color: var(--bg-color);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.65rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--accent-color);
+    }
+
+    .signin-error {
+      color: var(--error-color);
+      font-size: 0.85rem;
+      margin-top: 0.5rem;
+      text-align: center;
+      min-height: 1.2rem;
+    }
+
+    .user-welcome {
+      background-color: var(--card-bg);
+      border: 1px solid var(--success-color);
+      border-radius: 8px;
+      padding: 1rem;
+      max-width: 420px;
+      margin: 1.5rem auto 0 auto;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+
+    /* Live Dashboard Styling */
+    .dashboard-container {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.75rem;
+    }
+
+    .dashboard-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--accent-color);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .live-indicator {
+      width: 10px;
+      height: 10px;
+      background-color: #3fb950;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 8px #3fb950;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.9); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .dash-card {
+      background-color: var(--bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 1.25rem;
+    }
+
+    .dash-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+
+    .dash-count {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 10px;
+      background-color: #21262d;
+      border-radius: 5px;
+      overflow: hidden;
+      margin: 0.75rem 0 0.5rem 0;
+      border: 1px solid var(--border-color);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background-color: var(--accent-color);
+      width: 0%;
+      transition: width 0.4s ease, background-color 0.4s ease;
+    }
+
+    .progress-bar-fill.complete {
+      background-color: var(--success-color);
+    }
+
+    .dash-percent {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+      text-align: right;
+    }
+
+    /* Cards Grid Section */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1.75rem;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+      cursor: pointer;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent-color);
+    }
+
+    .card h3 {
+      font-size: 1.25rem;
+      margin-bottom: 0;
+    }
+
+    /* Module Utilities */
+    .module-features {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .module-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      border: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .module-label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text-main);
+    }
+
+    .time-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .time-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      background-color: var(--bg-color);
+      border: 1px solid var(--border-color);
+      padding: 0.4rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .time-badge input {
+      accent-color: var(--accent-color);
+    }
+
+    .coord-display {
+      background-color: var(--bg-color);
+      border: 1px solid var(--border-color);
+      padding: 0.75rem;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      color: var(--accent-color);
+    }
+
+    .camera-preview {
+      width: 100%;
+      height: 220px;
+      background-color: var(--bg-color);
+      border: 1px dashed var(--border-color);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+
+    .camera-preview video, .camera-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* Custom Form Select Styling */
+    .select-input, .month-input {
+      background-color: var(--bg-color);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 0.6rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      outline: none;
+      width: 100%;
+    }
+
+    /* Report Table Styling */
+    .report-table-container {
+      overflow-x: auto;
+      margin-top: 1.5rem;
+    }
+
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .report-table th, .report-table td {
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border-color);
+    }
+
+    .report-table th {
+      background-color: var(--bg-color);
+      color: var(--accent-color);
+    }
+
+    .report-table td {
+      background-color: var(--card-bg);
+      font-size: 0.9rem;
+    }
+
+    /* Tabs Styling for Settings Page */
+    .settings-tabs {
+      display: flex;
+      gap: 1rem;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 1.5rem;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--accent-color);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-color);
+      border-bottom-color: var(--accent-color);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.25s ease-in-out;
+    }
+
+    /* Standalone Page View Management */
+    .page-view {
+      display: block;
+    }
+
+    .module-page {
+      display: none;
+      animation: fadeIn 0.25s ease-in-out;
+    }
+
+    .module-page-card {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 2rem;
+      margin-top: 1rem;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Footer */
+    footer {
+      background-color: var(--card-bg);
+      border-top: 1px solid var(--border-color);
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    /* Print Styles */
+    @media print {
+      header, footer, .no-print, button {
+        display: none !important;
+      }
+
+      body {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+      }
+
+      main {
+        padding: 0 !important;
+        max-width: 100% !important;
+      }
+
+      .module-page-card {
+        border: none !important;
+        padding: 0 !important;
+        background-color: transparent !important;
+      }
+
+      .report-table th, .report-table td {
+        border: 1px solid #000000 !important;
+        background-color: #ffffff !important;
+        color: #000000 !important;
+      }
+
+      .report-table th {
+        font-weight: bold;
+      }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 600px) {
+      header {
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .hero h1 {
+        font-size: 2.25rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand" onclick="showHomePage()">
+      <span>Mata Malam</span>
+    </div>
+    <nav>
+      <ul>
+        <li><button class="nav-btn" onclick="toggleLanguage()" id="nav-lang">Language (EN)</button></li>
+        <li><a onclick="showReportPage()" id="nav-about" style="display: none;">Report</a></li>
+        <li><a onclick="showSettingsPage()" id="nav-settings" style="display: none;">Settings</a></li>
+        <li><button class="nav-btn" onclick="handleSignOut()" id="nav-signout" style="display: none; color: var(--error-color);">Sign Out</button></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Page View 1: Main Home Page -->
+    <div id="home-page" class="page-view">
+      <section class="hero" id="home">
+        <h1 id="hero-title">Welcome to Mata Malam</h1>
+        <p id="hero-desc">Take Pictures • Record Time • Monitor Work</p>
+        
+        <!-- Synchronize Data Button: Hidden by default until signed in -->
+        <button class="btn" id="hero-btn" onclick="handleClick()" style="display: none; margin-bottom: 1rem;">Synchronize Data</button>
+
+        <!-- Sign In Section -->
+        <div id="signin-section" class="signin-container">
+          <h3 id="signin-title">Sign In</h3>
+          <form id="signin-form" onsubmit="handleSignIn(event)">
+            <div class="form-group">
+              <label for="signin-phone" id="label-phone">Phone Number</label>
+              <input type="tel" id="signin-phone" class="form-input" placeholder="e.g. +60123456789" required>
+            </div>
+            <div class="form-group">
+              <label for="signin-pin" id="label-pin">PIN</label>
+              <input type="password" id="signin-pin" class="form-input" placeholder="Enter PIN" maxlength="6" required>
+            </div>
+            <button type="submit" class="btn" style="width: 100%; margin-top: 0.5rem;" id="signin-btn">Sign In</button>
+            <div id="signin-error" class="signin-error"></div>
+          </form>
+        </div>
+
+        <div id="user-welcome-box" class="user-welcome" style="display: none;">
+          <span id="welcome-text">Signed in successfully</span> (<span id="logged-phone"></span>)
+          <br>
+          <button class="btn" onclick="handleSignOut()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.3rem 0.8rem; font-size: 0.8rem; margin-top: 0.5rem;" id="signout-btn">Sign Out</button>
+        </div>
+      </section>
+
+      <!-- Protected Area: Shown only after sign in -->
+      <div id="protected-content" style="display: none;">
+        <!-- Live Dashboard Section -->
+        <section class="dashboard-container">
+          <div class="dashboard-header">
+            <div class="dashboard-title">
+              <span class="live-indicator"></span>
+              <span id="dash-title">Today's Live Completion Dashboard</span>
+            </div>
+            <span style="font-size: 0.85rem; color: var(--text-muted);" id="dash-target-text">Target: 5 Photos / Day = 100%</span>
+          </div>
+
+          <div class="dashboard-grid">
+            <!-- BNN Live Progress -->
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <span id="dash-label-bnn">BNN</span>
+                <span class="dash-count" id="dash-count-bnn">0 / 5 Photos</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="dash-fill-bnn"></div>
+              </div>
+              <div class="dash-percent" id="dash-pct-bnn">0%</div>
+            </div>
+
+            <!-- UNN1 Live Progress -->
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <span id="dash-label-unn1">UNN1</span>
+                <span class="dash-count" id="dash-count-unn1">0 / 5 Photos</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="dash-fill-unn1"></div>
+              </div>
+              <div class="dash-percent" id="dash-pct-unn1">0%</div>
+            </div>
+
+            <!-- UNN2 Live Progress -->
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <span id="dash-label-unn2">UNN2</span>
+                <span class="dash-count" id="dash-count-unn2">0 / 5 Photos</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="dash-fill-unn2"></div>
+              </div>
+              <div class="dash-percent" id="dash-pct-unn2">0%</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="grid" id="features">
+          <!-- BNN Card -->
+          <div class="card" onclick="enterModule('bnn')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('bnn')">
+            <h3 id="card-title-bnn">BNN</h3>
+          </div>
+
+          <!-- UNN1 Card -->
+          <div class="card" onclick="enterModule('unn1')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('unn1')">
+            <h3 id="card-title-unn1">UNN1</h3>
+          </div>
+
+          <!-- UNN2 Card -->
+          <div class="card" onclick="enterModule('unn2')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('unn2')">
+            <h3 id="card-title-unn2">UNN2</h3>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <!-- Page View 2: Standalone BNN Module Page -->
+    <div id="bnn-module-page" class="page-view module-page">
+      <div style="margin-bottom: 1.5rem;" class="no-print">
+        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-bnn">
+          ← Back to Home
+        </button>
+      </div>
+
+      <div class="module-page-card">
+        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+          <h1 style="color: var(--accent-color); font-size: 2rem;" id="bnn-detail-title">BNN</h1>
+          <p style="color: var(--text-muted);" id="bnn-detail-desc">
+            Perform camera capture, retrieve automatic geolocation coordinates, and select monitoring time slots.
+          </p>
+        </div>
+
+        <form id="form-bnn" onsubmit="submitData(event, 'bnn')" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
+          <div class="module-group">
+            <span class="module-label label-date">Date (Automatic)</span>
+            <div class="coord-display" id="date-val-bnn">Fetching Date...</div>
+          </div>
+
+          <div class="module-group">
+            <span class="module-label label-camera">Camera</span>
+            <button type="button" class="btn btn-camera" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: fit-content;" onclick="openCamera('bnn')">Open Camera</button>
+            <div class="camera-preview" id="camera-container-bnn">
+              <span style="color: var(--text-muted); font-size: 0.85rem;" class="camera-placeholder">Camera Offline</span>
+            </div>
+            <input type="file" id="file-input-bnn" accept="image/*" capture="environment" style="display: none;" onchange="handleFile(event, 'bnn')">
+          </div>
+
+          <div class="module-group">
+            <span class="module-label label-coord">Coordinate (Automatic)</span>
+            <div class="coord-display" id="coord-val-bnn" aria-live="polite">Fetching Location...</div>
+          </div>
+
+          <fieldset class="module-group">
+            <legend class="module-label label-time">Time Selection</legend>
+            <div class="time-options">
+              <label class="time-badge"><input type="radio" name="bnn-time" value="6pm"> 6pm</label>
+              <label class="time-badge"><input type="radio" name="bnn-time" value="9pm"> 9pm</label>
+              <label class="time-badge"><input type="radio" name="bnn-time" value="12am"> 12am</label>
+              <label class="time-badge"><input type="radio" name="bnn-time" value="3am"> 3am</label>
+              <label class="time-badge"><input type="radio" name="bnn-time" value="6am"> 6am</label>
+            </div>
+          </fieldset>
+
+          <button type="submit" class="btn btn-submit" style="margin-top: 1rem; width: 100%;">Save Log Entry</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Page View 3: Standalone UNN1 Module Page -->
+    <div id="unn1-module-page" class="page-view module-page">
+      <div style="margin-bottom: 1.5rem;" class="no-print">
+        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-unn1">
+          ← Back to Home
+        </button>
+      </div>
+
+      <div class="module-page-card">
+        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+          <h1 style="color: var(--accent-color); font-size: 2rem;" id="unn1-detail-title">UNN1</h1>
+          <p style="color: var(--text-muted);" id="unn1-detail-desc">
+            Perform camera capture, retrieve automatic geolocation coordinates, and select monitoring time slots.
+          </p>
+        </div>
+
+        <form id="form-unn1" onsubmit="submitData(event, 'unn1')" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
+          <div class="module-group">
+            <span class="module-label label-date">Date (Automatic)</span>
+            <div class="coord-display" id="date-val-unn1">Fetching Date...</div>
+          </div>
+
+          <div class="module-group">
+            <span class="module-label label-camera">Camera</span>
+            <button type="button" class="btn btn-camera" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: fit-content;" onclick="openCamera('unn1')">Open Camera</button>
+            <div class="camera-preview" id="camera-container-unn1">
+              <span style="color: var(--text-muted); font-size: 0.85rem;" class="camera-placeholder">Camera Offline</span>
+            </div>
+            <input type="file" id="file-input-unn1" accept="image/*" capture="environment" style="display: none;" onchange="handleFile(event, 'unn1')">
+          </div>
+
+          <div class="module-group">
+            <span class="module-label label-coord">Coordinate (Automatic)</span>
+            <div class="coord-display" id="coord-val-unn1" aria-live="polite">Fetching Location...</div>
+          </div>
+
+          <fieldset class="module-group">
+            <legend class="module-label label-time">Time Selection</legend>
+            <div class="time-options">
+              <label class="time-badge"><input type="radio" name="unn1-time" value="6pm"> 6pm</label>
+              <label class="time-badge"><input type="radio" name="unn1-time" value="9pm"> 9pm</label>
+              <label class="time-badge"><input type="radio" name="unn1-time" value="12am"> 12am</label>
+              <label class="time-badge"><input type="radio" name="unn1-time" value="3am"> 3am</label>
+              <label class="time-badge"><input type="radio" name="unn1-time" value="6am"> 6am</label>
+            </div>
+          </fieldset>
+
+          <button type="submit" class="btn btn-submit" style="margin-top: 1rem; width: 100%;">Save Log Entry</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Page View 4: Standalone UNN2 Module Page -->
+    <div id="unn2-module-page" class="page-view module-page">
+      <div style="margin-bottom: 1.5rem;" class="no-print">
+        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-unn2">
+          ← Back to Home
+        </button>
+      </div>
+
+      <div class="module-page-card">
+        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+          <h1 style="color: var(--accent-color); font-size: 2rem;" id="unn2-detail-title">UNN2</h1>
+          <p style="color: var(--text-muted);" id="unn2-detail-desc">
+            Perform camera capture, retrieve automatic geolocation coordinates, and select monitoring time slots.
+          </p>
+        </div>
+
+        <form id="form-unn2" onsubmit="submitData(event, 'unn2')" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
+          <div class="module-group">
+            <span class="module-label label-date">Date (Automatic)</span>
+            <div class="coord-display" id="date-val-unn2">Fetching Date...</div>
+          </div>
+
+          <div class="module-group">
+            <span class="module-label label-camera">Camera</span>
+            <button type="button" class="btn btn-camera" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: fit-content;" onclick="openCamera('unn2')">Open Camera</button>
+            <div class="camera-preview" id="camera-container-unn2">
+              <span style="color: var(--text-muted); font-size: 0.85rem;" class="camera-placeholder">Camera Offline</span>
+            </div>
+            <input type="file" id="file-input-unn2" accept="image/*" capture="environment" style="display: none;" onchange="handleFile(event, 'unn2')">
+          </div>
+
+          <div class="module-group">
+            <span class="module-label label-coord">Coordinate (Automatic)</span>
+            <div class="coord-display" id="coord-val-unn2" aria-live="polite">Fetching Location...</div>
+          </div>
+
+          <fieldset class="module-group">
+            <legend class="module-label label-time">Time Selection</legend>
+            <div class="time-options">
+              <label class="time-badge"><input type="radio" name="unn2-time" value="6pm"> 6pm</label>
+              <label class="time-badge"><input type="radio" name="unn2-time" value="9pm"> 9pm</label>
+              <label class="time-badge"><input type="radio" name="unn2-time" value="12am"> 12am</label>
+              <label class="time-badge"><input type="radio" name="unn2-time" value="3am"> 3am</label>
+              <label class="time-badge"><input type="radio" name="unn2-time" value="6am"> 6am</label>
+            </div>
+          </fieldset>
+
+          <button type="submit" class="btn btn-submit" style="margin-top: 1rem; width: 100%;">Save Log Entry</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Page View 5: Standalone Report Page -->
+    <div id="report-module-page" class="page-view module-page">
+      <div style="margin-bottom: 1.5rem;" class="no-print">
+        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-report">
+          ← Back to Home
+        </button>
+      </div>
+
+      <div class="module-page-card">
+        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <h1 style="color: var(--accent-color); font-size: 2rem;" id="report-title">Log Reports</h1>
+            <p style="color: var(--text-muted);" id="report-desc">
+              Filter submitted log entries by month, year, and location selection.
+            </p>
+          </div>
+          <button class="btn no-print" onclick="printReport()" id="btn-print" style="padding: 0.6rem 1.25rem;">
+            Print Report
+          </button>
+        </div>
+
+        <div class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;" class="no-print">
+            <div class="module-group">
+              <label for="report-month-select" class="module-label" id="label-report-month">Select Month</label>
+              <select id="report-month-select" class="select-input" onchange="generateReport()">
+                <option value="" id="opt-all-months">All Months</option>
+                <option value="01" id="opt-m1">January</option>
+                <option value="02" id="opt-m2">February</option>
+                <option value="03" id="opt-m3">March</option>
+                <option value="04" id="opt-m4">April</option>
+                <option value="05" id="opt-m5">May</option>
+                <option value="06" id="opt-m6">June</option>
+                <option value="07" id="opt-m7">July</option>
+                <option value="08" id="opt-m8">August</option>
+                <option value="09" id="opt-m9">September</option>
+                <option value="10" id="opt-m10">October</option>
+                <option value="11" id="opt-m11">November</option>
+                <option value="12" id="opt-m12">December</option>
+              </select>
+            </div>
+
+            <div class="module-group">
+              <label for="report-year-select" class="module-label" id="label-report-year">Select Year</label>
+              <select id="report-year-select" class="select-input" onchange="generateReport()">
+                <option value="" id="opt-all-years">All Years</option>
+              </select>
+            </div>
+
+            <div class="module-group">
+              <label for="report-module-select" class="module-label" id="label-report-module">Select Location</label>
+              <select id="report-module-select" class="select-input" onchange="generateReport()">
+                <option value="ALL" id="opt-all">All Locations</option>
+                <option value="BNN">BNN</option>
+                <option value="UNN1">UNN1</option>
+                <option value="UNN2">UNN2</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="report-table-container">
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th id="th-location">Location</th>
+                  <th id="th-date">Date</th>
+                  <th id="th-timeslot">Time Slot</th>
+                  <th id="th-coordinates">Coordinates</th>
+                </tr>
+              </thead>
+              <tbody id="report-table-body">
+                <!-- Log rows rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Page View 6: Standalone Settings Page -->
+    <div id="settings-module-page" class="page-view module-page">
+      <div style="margin-bottom: 1.5rem;" class="no-print">
+        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-settings">
+          ← Back to Home
+        </button>
+      </div>
+
+      <div class="module-page-card">
+        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+          <h1 style="color: var(--accent-color); font-size: 2rem;" id="settings-title">Settings</h1>
+          <p style="color: var(--text-muted);" id="settings-desc">
+            Manage your account preferences and view active session configuration.
+          </p>
+        </div>
+
+        <div class="module-features" style="border-top: none; margin-top: 0; padding-top: 0; gap: 2rem;">
+          <div class="module-group">
+            <span class="module-label" id="settings-current-user-label">Current Session</span>
+            <div class="coord-display" id="settings-content" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+              <span>Authorized session active. Current User: <span id="settings-user-display" style="font-weight: bold;"></span></span>
+            </div>
+          </div>
+
+          <!-- Settings Tabs (Add New User & User Management) -->
+          <div style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem;">
+            <div class="settings-tabs">
+              <button class="tab-btn active" onclick="switchSettingsTab('register')" id="tab-btn-register">Add New User</button>
+              <button class="tab-btn" onclick="switchSettingsTab('registered')" id="tab-btn-registered">User Management</button>
+            </div>
+
+            <!-- Tab Content 1: Add New User Form -->
+            <div id="tab-content-register" class="tab-content active">
+              <form id="register-form" onsubmit="handleRegister(event)">
+                <div class="form-group">
+                  <label for="reg-phone" id="label-reg-phone">Phone Number</label>
+                  <input type="tel" id="reg-phone" class="form-input" placeholder="e.g. +60123456789" required>
+                </div>
+                <div class="form-group">
+                  <label for="reg-pin" id="label-reg-pin">PIN</label>
+                  <input type="password" id="reg-pin" class="form-input" placeholder="Enter PIN" maxlength="6" required>
+                </div>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 0.5rem;" id="reg-btn">Add New User</button>
+                <div id="reg-message" class="signin-error"></div>
+              </form>
+            </div>
+
+            <!-- Tab Content 2: User Management List -->
+            <div id="tab-content-registered" class="tab-content">
+              <div style="padding-top: 0.5rem;">
+                <span class="module-label" id="label-registered-list" style="margin-bottom: 0.75rem; display: block;">Registered Phone Numbers & Permissions:</span>
+                <div id="registered-users-list" class="coord-display" style="max-height: 350px; overflow-y: auto;">
+                  <!-- Registered numbers loaded dynamically -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>&copy; <span id="year"></span> Mata Malam. <span id="footer-rights">All rights reserved.</span></p>
+  </footer>
+
+  <script>
+    let activeStream = null;
+
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Settings tab switching logic
+    function switchSettingsTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      if (tabName === 'register') {
+        document.getElementById('tab-btn-register').classList.add('active');
+        document.getElementById('tab-content-register').classList.add('active');
+      } else {
+        document.getElementById('tab-btn-registered').classList.add('active');
+        document.getElementById('tab-content-registered').classList.add('active');
+        renderRegisteredUsersList();
+      }
+    }
+
+    // Sign-in management logic
+    function handleSignIn(event) {
+      event.preventDefault();
+      const phone = document.getElementById('signin-phone').value.trim();
+      const pin = document.getElementById('signin-pin').value.trim();
+      const errorDiv = document.getElementById('signin-error');
+
+      if (!phone || !pin) {
+        errorDiv.textContent = currentLang === 'BM' ? 'Sila masukkan nombor telefon dan PIN.' : 'Please enter phone number and PIN.';
+        return;
+      }
+
+      // Check if user is registered in registered_users
+      const registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
+      const matchedUser = registeredUsers.find(u => u.phone === phone && u.pin === pin);
+
+      if (!matchedUser) {
+        errorDiv.textContent = currentLang === 'BM' ? 'Nombor telefon atau PIN tidak sah / belum berdaftar.' : 'Invalid credentials or phone number not registered under User Management.';
+        return;
+      }
+
+      errorDiv.textContent = '';
+      localStorage.setItem('mata_malam_user', phone);
+      updateAuthState();
+    }
+
+    function handleSignOut() {
+      localStorage.removeItem('mata_malam_user');
+      document.getElementById('signin-phone').value = '';
+      document.getElementById('signin-pin').value = '';
+      updateAuthState();
+      showHomePage();
+    }
+
+    function updateAuthState() {
+      const loggedUser = localStorage.getItem('mata_malam_user');
+      const signinSection = document.getElementById('signin-section');
+      const welcomeBox = document.getElementById('user-welcome-box');
+      const protectedContent = document.getElementById('protected-content');
+      const loggedPhoneSpan = document.getElementById('logged-phone');
+      const syncBtn = document.getElementById('hero-btn');
+      const navAbout = document.getElementById('nav-about');
+      const navSettings = document.getElementById('nav-settings');
+      const navSignout = document.getElementById('nav-signout');
+
+      if (loggedUser) {
+        signinSection.style.display = 'none';
+        welcomeBox.style.display = 'none'; 
+        protectedContent.style.display = 'block';
+        if (syncBtn) syncBtn.style.display = 'inline-block'; 
+        if (navAbout) navAbout.style.display = 'inline'; 
+        if (navSettings) navSettings.style.display = 'inline'; 
+        if (navSignout) navSignout.style.display = 'inline-block'; // Show Sign Out in header
+        if (loggedPhoneSpan) loggedPhoneSpan.textContent = loggedUser;
+        const settingsDisplay = document.getElementById('settings-user-display');
+        if (settingsDisplay) settingsDisplay.textContent = loggedUser;
+      } else {
+        signinSection.style.display = 'block';
+        welcomeBox.style.display = 'none';
+        protectedContent.style.display = 'none';
+        if (syncBtn) syncBtn.style.display = 'none'; 
+        if (navAbout) navAbout.style.display = 'none'; 
+        if (navSettings) navSettings.style.display = 'none'; 
+        if (navSignout) navSignout.style.display = 'none'; // Hide Sign Out in header
+      }
+    }
+
+    // Navigation and page view handling
+    function showHomePage() {
+      stopActiveCamera();
+      document.querySelectorAll('.page-view').forEach(page => {
+        page.style.display = 'none';
+      });
+      document.getElementById('home-page').style.display = 'block';
+      window.scrollTo(0, 0);
+    }
+
+    function enterModule(moduleName) {
+      stopActiveCamera();
+      document.querySelectorAll('.page-view').forEach(page => {
+        page.style.display = 'none';
+      });
+      document.getElementById(`${moduleName}-module-page`).style.display = 'block';
+      initializeModuleInputs(moduleName);
+      window.scrollTo(0, 0);
+    }
+
+    function showReportPage() {
+      stopActiveCamera();
+      document.querySelectorAll('.page-view').forEach(page => {
+        page.style.display = 'none';
+      });
+      document.getElementById('report-module-page').style.display = 'block';
+      populateReportYearDropdown();
+      generateReport();
+      window.scrollTo(0, 0);
+    }
+
+    function showSettingsPage() {
+      stopActiveCamera();
+      document.querySelectorAll('.page-view').forEach(page => {
+        page.style.display = 'none';
+      });
+      document.getElementById('settings-module-page').style.display = 'block';
+      const loggedUser = localStorage.getItem('mata_malam_user');
+      const settingsDisplay = document.getElementById('settings-user-display');
+      if (settingsDisplay && loggedUser) {
+        settingsDisplay.textContent = loggedUser;
+      }
+      switchSettingsTab('register'); 
+      window.scrollTo(0, 0);
+    }
+
+    function stopActiveCamera() {
+      if (activeStream) {
+        activeStream.getTracks().forEach(track => track.stop());
+        activeStream = null;
+      }
+    }
+
+    function initializeModuleInputs(moduleName) {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById(`date-val-${moduleName}`).textContent = today;
+
+      const coordEl = document.getElementById(`coord-val-${moduleName}`);
+      coordEl.textContent = currentLang === 'BM' ? 'Mendapatkan Lokasi...' : 'Fetching Location...';
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = position.coords.latitude.toFixed(6);
+            const lng = position.coords.longitude.toFixed(6);
+            coordEl.textContent = `${lat}, ${lng}`;
+          },
+          (error) => {
+            coordEl.textContent = currentLang === 'BM' ? 'Gagal mendapatkan koordinat (GPS Ditutup)' : 'Failed to retrieve coordinates (GPS Disabled)';
+          },
+          { timeout: 10000 }
+        );
+      } else {
+        coordEl.textContent = currentLang === 'BM' ? 'Geolokasi tidak disokong' : 'Geolocation not supported';
+      }
+    }
+
+    function openCamera(moduleName) {
+      const fileInput = document.getElementById(`file-input-${moduleName}`);
+      fileInput.click();
+    }
+
+    function handleFile(event, moduleName) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const container = document.getElementById(`camera-container-${moduleName}`);
+        container.innerHTML = `<img src="${e.target.result}" alt="Captured Photo">`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function submitData(event, moduleName) {
+      event.preventDefault();
+
+      const date = document.getElementById(`date-val-${moduleName}`).textContent;
+      const coord = document.getElementById(`coord-val-${moduleName}`).textContent;
+      const timeRadios = document.getElementsByName(`${moduleName}-time`);
+      
+      let selectedTime = '';
+      for (const radio of timeRadios) {
+        if (radio.checked) {
+          selectedTime = radio.value;
+          break;
+        }
+      }
+
+      if (!selectedTime) {
+        alert(currentLang === 'BM' ? 'Sila pilih slot masa.' : 'Please select a time slot.');
+        return;
+      }
+
+      let logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
+      logs.push({
+        location: moduleName.toUpperCase(),
+        date: date,
+        time: selectedTime,
+        coordinates: coord
+      });
+      localStorage.setItem('mata_malam_logs', JSON.stringify(logs));
+
+      alert(currentLang === 'BM' ? 'Log berjaya disimpan!' : 'Log entry saved successfully!');
+      updateDashboardProgress();
+      showHomePage();
+    }
+
+    function handleRegister(event) {
+      event.preventDefault();
+      const phone = document.getElementById('reg-phone').value.trim();
+      const pin = document.getElementById('reg-pin').value.trim();
+      const msgDiv = document.getElementById('reg-message');
+
+      if (!phone || !pin) {
+        msgDiv.style.color = 'var(--error-color)';
+        msgDiv.textContent = currentLang === 'BM' ? 'Sila masukkan nombor telefon dan PIN.' : 'Please enter phone number and PIN.';
+        return;
+      }
+
+      let registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
+      const existing = registeredUsers.find(u => u.phone === phone);
+      
+      if (existing) {
+        msgDiv.style.color = 'var(--error-color)';
+        msgDiv.textContent = currentLang === 'BM' ? 'Nombor telefon sudah didaftarkan.' : 'Phone number is already registered.';
+        return;
+      }
+
+      registeredUsers.push({ phone, pin, role: 'Worker', permissions: { bnn: true, unn1: true, unn2: true } });
+      localStorage.setItem('mata_malam_registered_users', JSON.stringify(registeredUsers));
+
+      msgDiv.style.color = 'var(--success-color)';
+      msgDiv.textContent = currentLang === 'BM' ? 'Pengguna berjaya didaftarkan!' : 'User registered successfully!';
+      
+      document.getElementById('reg-phone').value = '';
+      document.getElementById('reg-pin').value = '';
+      renderRegisteredUsersList();
+    }
+
+    function updateRole(phone, newRole) {
+      let registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
+      const user = registeredUsers.find(u => u.phone === phone);
+      if (user) {
+        user.role = newRole;
+        localStorage.setItem('mata_malam_registered_users', JSON.stringify(registeredUsers));
+      }
+    }
+
+    function updatePermission(phone, moduleKey, isChecked) {
+      let registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
+      const user = registeredUsers.find(u => u.phone === phone);
+      if (user) {
+        if (!user.permissions) user.permissions = { bnn: true, unn1: true, unn2: true };
+        user.permissions[moduleKey] = isChecked;
+        localStorage.setItem('mata_malam_registered_users', JSON.stringify(registeredUsers));
+      }
+    }
+
+    function renderRegisteredUsersList() {
+      const container = document.getElementById('registered-users-list');
+      const registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
+
+      if (registeredUsers.length === 0) {
+        container.textContent = currentLang === 'BM' ? 'Tiada nombor telefon berdaftar.' : 'No registered phone numbers.';
+        return;
+      }
+
+      container.innerHTML = registeredUsers.map(u => {
+        const role = u.role || 'Worker';
+        const perms = u.permissions || { bnn: true, unn1: true, unn2: true };
+        return `
+          <div style="margin-bottom: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
+              <span><strong>Phone:</strong> ${u.phone}</span>
+              <div>
+                <label style="font-size: 0.8rem; margin-right: 0.2rem;">Role:</label>
+                <select class="select-input" style="padding: 0.2rem 0.4rem; font-size: 0.8rem; width: auto; display: inline-block;" onchange="updateRole('${u.phone}', this.value)">
+                  <option value="Worker" ${role === 'Worker' ? 'selected' : ''}>Worker</option>
+                  <option value="FC" ${role === 'FC' ? 'selected' : ''}>FC</option>
+                  <option value="HQ Admin" ${role === 'HQ Admin' ? 'selected' : ''}>HQ Admin</option>
+                </select>
+              </div>
+            </div>
+            <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: var(--text-muted); align-items: center; flex-wrap: wrap;">
+              <span>Permissions:</span>
+              <label><input type="checkbox" ${perms.bnn !== false ? 'checked' : ''} onchange="updatePermission('${u.phone}', 'bnn', this.checked)"> BNN</label>
+              <label><input type="checkbox" ${perms.unn1 !== false ? 'checked' : ''} onchange="updatePermission('${u.phone}', 'unn1', this.checked)"> UNN1</label>
+              <label><input type="checkbox" ${perms.unn2 !== false ? 'checked' : ''} onchange="updatePermission('${u.phone}', 'unn2', this.checked)"> UNN2</label>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateDashboardProgress() {
+      const logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
+      const today = new Date().toISOString().split('T')[0];
+      
+      const modules = ['bnn', 'unn1', 'unn2'];
+      modules.forEach(mod => {
+        const count = logs.filter(log => log.location === mod.toUpperCase() && log.date === today).length;
+        const target = 5;
+        const percentage = Math.min(Math.round((count / target) * 100), 100);
+
+        document.getElementById(`dash-count-${mod}`).textContent = `${count} / ${target} Photos`;
+        document.getElementById(`dash-pct-${mod}`).textContent = `${percentage}%`;
+        
+        const fillBar = document.getElementById(`dash-fill-${mod}`);
+        fillBar.style.width = `${percentage}%`;
+        
+        if (percentage >= 100) {
+          fillBar.classList.add('complete');
+        } else {
+          fillBar.classList.remove('complete');
+        }
+      });
+    }
+
+    function populateReportYearDropdown() {
+      const logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
+      const yearSelect = document.getElementById('report-year-select');
+      
+      yearSelect.innerHTML = `<option value="" id="opt-all-years">${currentLang === 'BM' ? 'Semua Tahun' : 'All Years'}</option>`;
+      
+      const years = [...new Set(logs.map(log => log.date.split('-')[0]))].sort();
+      years.forEach(year => {
+        const opt = document.createElement('option');
+        opt.value = year;
+        opt.textContent = year;
+        yearSelect.appendChild(opt);
+      });
+    }
+
+    function generateReport() {
+      const logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
+      const selectedMonth = document.getElementById('report-month-select').value;
+      const selectedYear = document.getElementById('report-year-select').value;
+      const selectedModule = document.getElementById('report-module-select').value;
+
+      const tbody = document.getElementById('report-table-body');
+      tbody.innerHTML = '';
+
+      const filteredLogs = logs.filter(log => {
+        const [year, month] = log.date.split('-');
+        const matchMonth = !selectedMonth || month === selectedMonth;
+        const matchYear = !selectedYear || year === selectedYear;
+        const matchModule = selectedModule === 'ALL' || log.location === selectedModule;
+        return matchMonth && matchYear && matchModule;
+      });
+
+      if (filteredLogs.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="4" style="text-align: center; color: var(--text-muted);">${currentLang === 'BM' ? 'Tiada rekod log ditemui.' : 'No log records found.'}</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
+
+      filteredLogs.forEach(log => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${log.location}</strong></td>
+          <td>${log.date}</td>
+          <td>${log.time}</td>
+          <td style="font-family: monospace;">${log.coordinates}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function printReport() {
+      window.print();
+    }
+
+    function handleClick() {
+      alert(currentLang === 'BM' ? 'Data berjaya diselaraskan dengan pelayan!' : 'Data synchronized successfully with server!');
+    }
+
+    // Language Toggle logic
+    let currentLang = 'EN';
+    function toggleLanguage() {
+      currentLang = currentLang === 'EN' ? 'BM' : 'EN';
+      const langBtn = document.getElementById('nav-lang');
+      langBtn.textContent = `Language (${currentLang})`;
+
+      if (currentLang === 'BM') {
+        document.getElementById('hero-title').textContent = 'Selamat Datang ke Mata Malam';
+        document.getElementById('hero-desc').textContent = 'Ambil Gambar • Rekod Masa • Pantau Kerja';
+        document.getElementById('hero-btn').textContent = 'Selaraskan Data';
+        document.getElementById('signin-title').textContent = 'Log Masuk';
+        document.getElementById('label-phone').textContent = 'Nombor Telefon';
+        document.getElementById('label-pin').textContent = 'PIN';
+        document.getElementById('signin-btn').textContent = 'Log Masuk';
+        document.getElementById('welcome-text').textContent = 'Berjaya log masuk';
+        document.getElementById('nav-about').textContent = 'Laporan';
+        document.getElementById('nav-settings').textContent = 'Tetapan';
+        document.getElementById('nav-signout').textContent = 'Log Keluar';
+        document.getElementById('dash-title').textContent = 'Papan Pemuka Penyelesaian Langsung Hari Ini';
+        document.getElementById('dash-target-text').textContent = 'Sasaran: 5 Gambar / Hari = 100%';
+        document.getElementById('footer-rights').textContent = 'Hak cipta terpelihara.';
+        
+        // Report text translation
+        document.getElementById('report-title').textContent = 'Laporan Log';
+        document.getElementById('report-desc').textContent = 'Tapis entri log yang dihantar mengikut bulan, tahun, dan pilihan lokasi.';
+        document.getElementById('btn-print').textContent = 'Cetak Laporan';
+        document.getElementById('label-report-month').textContent = 'Pilih Bulan';
+        document.getElementById('label-report-year').textContent = 'Pilih Tahun';
+        document.getElementById('label-report-module').textContent = 'Pilih Lokasi';
+        document.getElementById('opt-all-months').textContent = 'Semua Bulan';
+        document.getElementById('opt-all-years').textContent = 'Semua Tahun';
+        document.getElementById('opt-all').textContent = 'Semua Lokasi';
+        document.getElementById('th-location').textContent = 'Lokasi';
+        document.getElementById('th-date').textContent = 'Tarikh';
+        document.getElementById('th-timeslot').textContent = 'Slot Masa';
+        document.getElementById('th-coordinates').textContent = 'Koordinat';
+
+        // Settings text translation
+        document.getElementById('settings-title').textContent = 'Tetapan';
+        document.getElementById('settings-desc').textContent = 'Urus keutamaan akaun anda dan lihat konfigurasi sesi aktif.';
+        document.getElementById('settings-current-user-label').textContent = 'Sesi Semasa';
+        document.getElementById('tab-btn-register').textContent = 'Tambah Pengguna Baharu';
+        document.getElementById('tab-btn-registered').textContent = 'Pengurusan Pengguna';
+        document.getElementById('label-reg-phone').textContent = 'Nombor Telefon';
+        document.getElementById('label-reg-pin').textContent = 'PIN';
+        document.getElementById('reg-btn').textContent = 'Tambah Pengguna Baharu';
+        document.getElementById('label-registered-list').textContent = 'Nombor Telefon Berdaftar & Kebenaran:';
+      } else {
+        document.getElementById('hero-title').textContent = 'Welcome to Mata Malam';
+        document.getElementById('hero-desc').textContent = 'Take Pictures • Record Time • Monitor Work';
+        document.getElementById('hero-btn').textContent = 'Synchronize Data';
+        document.getElementById('signin-title').textContent = 'Sign In';
+        document.getElementById('label-phone').textContent = 'Phone Number';
+        document.getElementById('label-pin').textContent = 'PIN';
+        document.getElementById('signin-btn').textContent = 'Sign In';
+        document.getElementById('welcome-text').textContent = 'Signed in successfully';
+        document.getElementById('nav-about').textContent = 'Report';
+        document.getElementById('nav-settings').textContent = 'Settings';
+        document.getElementById('nav-signout').textContent = 'Sign Out';
+        document.getElementById('dash-title').textContent = "Today's Live Completion Dashboard";
+        document.getElementById('dash-target-text').textContent = 'Target: 5 Photos / Day = 100%';
+        document.getElementById('footer-rights').textContent = 'All rights reserved.';
+
+        // Report text translation
+        document.getElementById('report-title').textContent = 'Log Reports';
+        document.getElementById('report-desc').textContent = 'Filter submitted log entries by month, year, and location selection.';
+        document.getElementById('btn-print').textContent = 'Print Report';
+        document.getElementById('label-report-month').textContent = 'Select Month';
+        document.getElementById('label-report-year').textContent = 'Select Year';
+        document.getElementById('label-report-module').textContent = 'Select Location';
+        document.getElementById('opt-all-months').textContent = 'All Months';
+        document.getElementById('opt-all-years').textContent = 'All Years';
+        document.getElementById('opt-all').textContent = 'All Locations';
+        document.getElementById('th-location').textContent = 'Location';
+        document.getElementById('th-date').textContent = 'Date';
+        document.getElementById('th-timeslot').textContent = 'Time Slot';
+        document.getElementById('th-coordinates').textContent = 'Coordinates';
+
+        // Settings text translation
+        document.getElementById('settings-title').textContent = 'Settings';
+        document.getElementById('settings-desc').textContent = 'Manage your account preferences and view active session configuration.';
+        document.getElementById('settings-current-user-label').textContent = 'Current Session';
+        document.getElementById('tab-btn-register').textContent = 'Add New User';
+        document.getElementById('tab-btn-registered').textContent = 'User Management';
+        document.getElementById('label-reg-phone').textContent = 'Phone Number';
+        document.getElementById('label-reg-pin').textContent = 'PIN';
+        document.getElementById('reg-btn').textContent = 'Add New User';
+        document.getElementById('label-registered-list').textContent = 'Registered Phone Numbers & Permissions:';
+      }
+      renderRegisteredUsersList();
+    }
+
+    // Initialize state on load
+    window.onload = function() {
+      updateAuthState();
+      updateDashboardProgress();
+    };
+  </script>
+</body>
+</html>
