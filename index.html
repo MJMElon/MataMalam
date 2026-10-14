@@ -180,7 +180,10 @@
               <label for="setting-opens-before" id="label-opens-before">Appears early</label>
               <span class="slider-value" id="value-opens-before"></span>
             </div>
-            <input type="range" id="setting-opens-before" class="slider" min="0" max="120" step="5" oninput="onTaskSettingsInput('opens')">
+            <div class="slider-wrap">
+              <output class="slider-bubble" id="bubble-opens-before" for="setting-opens-before"></output>
+              <input type="range" id="setting-opens-before" class="slider" min="0" max="120" step="5" oninput="onTaskSettingsInput('opens')">
+            </div>
           </div>
 
           <div class="slider-group">
@@ -188,7 +191,10 @@
               <label for="setting-window" id="label-window">Time limit</label>
               <span class="slider-value" id="value-window"></span>
             </div>
-            <input type="range" id="setting-window" class="slider" min="5" max="240" step="5" oninput="onTaskSettingsInput('window')">
+            <div class="slider-wrap">
+              <output class="slider-bubble" id="bubble-window" for="setting-window"></output>
+              <input type="range" id="setting-window" class="slider" min="5" max="240" step="5" oninput="onTaskSettingsInput('window')">
+            </div>
           </div>
 
           <!-- Example 6pm task window -->

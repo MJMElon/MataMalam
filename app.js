@@ -134,13 +134,32 @@ function onTaskSettingsInput(changed) {
   updateSettingsPreview();
 }
 
+function formatDuration(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const h = currentLang === 'BM' ? 'j' : 'h';
+  if (hours === 0) return `${mins} min`;
+  return mins === 0 ? `${hours}${h}` : `${hours}${h} ${mins}m`;
+}
+
+// Positions the bubble over the slider thumb (thumb is 24px wide, see .slider in styles.css)
+function setSliderBubble(inputId, bubbleId, text) {
+  const input = document.getElementById(inputId);
+  const bubble = document.getElementById(bubbleId);
+  const pct = (Number(input.value) - Number(input.min)) / (Number(input.max) - Number(input.min));
+  bubble.textContent = text;
+  bubble.style.left = `calc(${pct * 100}% + ${12 - pct * 24}px)`;
+}
+
 function updateSettingsPreview() {
   const settings = readTaskSettingsForm();
-  const unit = currentLang === 'BM' ? 'minit' : 'min';
-  document.getElementById('value-opens-before').textContent = `${settings.opensBeforeMinutes} ${unit}`;
-  document.getElementById('value-window').textContent = `${settings.windowMinutes} ${unit}`;
-
   const { opensAt, closesAt } = getTaskWindow(getShiftDate(), '6pm', settings);
+  // Bubble above each slider thumb shows the duration; the header shows the resulting time for a 6pm task
+  setSliderBubble('setting-opens-before', 'bubble-opens-before', formatDuration(settings.opensBeforeMinutes));
+  setSliderBubble('setting-window', 'bubble-window', formatDuration(settings.windowMinutes));
+  document.getElementById('value-opens-before').textContent = `6pm → ${formatClock(opensAt)}`;
+  document.getElementById('value-window').textContent = `${currentLang === 'BM' ? 'Tamat' : 'Ends'} ${formatClock(closesAt)}`;
+
   document.getElementById('preview-opens').textContent = formatClock(opensAt);
   document.getElementById('preview-closes').textContent = formatClock(closesAt);
   const markerPct = Math.min(100, (settings.opensBeforeMinutes / settings.windowMinutes) * 100);
