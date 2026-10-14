@@ -216,8 +216,8 @@ function showBootstrapNotice(state) {
 
   notice.style.display = 'block';
   notice.innerHTML = currentLang === 'BM'
-    ? `Tiada pengguna berdaftar, jadi akaun HQ Admin permulaan telah dibuat &mdash; Telefon: <strong>${STARTER_ADMIN.phone}</strong>, PIN: <strong>${STARTER_ADMIN.pin}</strong>. Log masuk, tambah pengguna sebenar, kemudian tukar peranan akaun ini.`
-    : `No users were registered, so a starter HQ Admin account was created &mdash; Phone: <strong>${STARTER_ADMIN.phone}</strong>, PIN: <strong>${STARTER_ADMIN.pin}</strong>. Sign in, add your real users, then change this account's role.`;
+    ? `Tiada pengguna berdaftar, jadi akaun HQ Admin permulaan telah dibuat &mdash; PIN: <strong>${STARTER_ADMIN.pin}</strong>. Log masuk, tambah pengguna sebenar, kemudian tukar peranan akaun ini.`
+    : `No users were registered, so a starter HQ Admin account was created &mdash; PIN: <strong>${STARTER_ADMIN.pin}</strong>. Sign in, add your real users, then change this account's role.`;
 }
 
 function permissionDeniedMessage() {
@@ -682,34 +682,35 @@ function switchSettingsTab(tabName) {
 
 // ------------------------------------------------------------ sign in / out ----
 
+// The PIN is both the credential and the thing that identifies the account,
+// which is why registerable PINs have to be unique.
 function handleSignIn(event) {
   event.preventDefault();
-  const phone = document.getElementById('signin-phone').value.trim();
   const pin = document.getElementById('signin-pin').value.trim();
   const errorDiv = document.getElementById('signin-error');
 
-  if (!phone || !pin) {
-    errorDiv.textContent = currentLang === 'BM' ? 'Sila masukkan nombor telefon dan PIN.' : 'Please enter phone number and PIN.';
+  if (!pin) {
+    errorDiv.textContent = currentLang === 'BM' ? 'Sila masukkan PIN anda.' : 'Please enter your PIN.';
     return;
   }
 
-  const matchedUser = getRegisteredUsers().find(u => u.phone === phone && u.pin === pin);
+  const matchedUser = getRegisteredUsers().find(u => u.pin === pin);
 
   if (!matchedUser) {
     errorDiv.textContent = currentLang === 'BM'
-      ? 'Nombor telefon atau PIN tidak sah / belum berdaftar.'
-      : 'Invalid credentials or phone number not registered under User Management.';
+      ? 'PIN tidak sah atau belum berdaftar.'
+      : 'That PIN is not recognised.';
+    document.getElementById('signin-pin').value = '';
     return;
   }
 
   errorDiv.textContent = '';
-  localStorage.setItem('mata_malam_user', phone);
+  localStorage.setItem('mata_malam_user', matchedUser.phone);
   updateAuthState();
 }
 
 function handleSignOut() {
   localStorage.removeItem('mata_malam_user');
-  document.getElementById('signin-phone').value = '';
   document.getElementById('signin-pin').value = '';
   updateAuthState();
   showHomePage();
@@ -799,6 +800,15 @@ function handleRegister(event) {
     return;
   }
 
+  // Sign-in is by PIN alone, so a shared PIN would be ambiguous.
+  if (registeredUsers.find(u => u.pin === pin)) {
+    msgDiv.style.color = 'var(--error-color)';
+    msgDiv.textContent = currentLang === 'BM'
+      ? 'PIN itu sudah digunakan. Sila pilih PIN yang lain.'
+      : 'That PIN is already in use. Please choose a different one.';
+    return;
+  }
+
   // Access is opt-in: an admin grants locations under User Management.
   registeredUsers.push({ phone, pin, role: 'Worker', permissions: { bnn: false, unn1: false, unn2: false } });
   saveRegisteredUsers(registeredUsers);
@@ -862,10 +872,22 @@ function renderRegisteredUsersList() {
     return;
   }
 
+  // Data saved before PIN-only sign-in may contain duplicates, which would
+  // make a PIN ambiguous. Flag them so an admin can correct them.
+  const pinCounts = registeredUsers.reduce((counts, u) => {
+    counts[u.pin] = (counts[u.pin] || 0) + 1;
+    return counts;
+  }, {});
+
   container.innerHTML = registeredUsers.map(u => {
     const role = u.role || 'Worker';
     const perms = u.permissions || { bnn: true, unn1: true, unn2: true };
-    return `
+    const duplicatePin = pinCounts[u.pin] > 1
+      ? `<div style="color: var(--error-color); font-size: 0.8rem; margin-bottom: 0.4rem;">${currentLang === 'BM'
+          ? 'PIN ini dikongsi dengan akaun lain. Sign-in akan memilih akaun pertama &mdash; sila tukar salah satu PIN.'
+          : 'This PIN is shared with another account. Sign-in will pick the first one &mdash; change one of them.'}</div>`
+      : '';
+    return `${duplicatePin}
       <div style="margin-bottom: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
           <span><strong>Phone:</strong> ${u.phone}</span>
@@ -1018,7 +1040,6 @@ function toggleLanguage() {
   setTextIfPresent('hero-desc', bm ? 'Ambil Gambar • Rekod Masa • Pantau Kerja' : 'Take Pictures • Record Time • Monitor Work');
   setTextIfPresent('hero-btn', bm ? 'Selaraskan Data' : 'Synchronize Data');
   setTextIfPresent('signin-title', bm ? 'Log Masuk' : 'Sign In');
-  setTextIfPresent('label-phone', bm ? 'Nombor Telefon' : 'Phone Number');
   setTextIfPresent('label-pin', 'PIN');
   setTextIfPresent('signin-btn', bm ? 'Log Masuk' : 'Sign In');
   setTextIfPresent('welcome-text', bm ? 'Berjaya log masuk' : 'Signed in successfully');

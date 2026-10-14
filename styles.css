@@ -187,6 +187,23 @@ main {
   border-color: var(--accent-color);
 }
 
+/* PIN is the only sign-in field, so give it room to read as one */
+.pin-input {
+  text-align: center;
+  font-size: 1.5rem;
+  letter-spacing: 0.5em;
+  text-indent: 0.5em;
+  padding: 0.75rem;
+  font-family: monospace;
+}
+
+.pin-input::placeholder {
+  font-size: 0.95rem;
+  letter-spacing: normal;
+  text-indent: 0;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
 .signin-error {
   color: var(--error-color);
   font-size: 0.85rem;
