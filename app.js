@@ -397,8 +397,8 @@ function toggleLanguage() {
   if (currentLang === 'BM') {
     document.getElementById('hero-btn').textContent = 'Selaraskan Data';
     document.getElementById('todo-title').textContent = 'Senarai Tugasan';
-    document.getElementById('done-title').textContent = 'Sejarah / Selesai';
-    document.getElementById('nav-done').textContent = 'Selesai';
+    document.getElementById('done-title').textContent = 'Sejarah';
+    document.getElementById('nav-done').textContent = 'Sejarah';
     document.getElementById('back-home-done').textContent = '← Kembali ke Senarai Tugasan';
     document.getElementById('sheet-cancel').textContent = 'Batal';
     document.getElementById('sheet-retake').textContent = 'Ambil Semula';
@@ -424,8 +424,8 @@ function toggleLanguage() {
   } else {
     document.getElementById('hero-btn').textContent = 'Synchronize Data';
     document.getElementById('todo-title').textContent = 'To-Do List';
-    document.getElementById('done-title').textContent = 'History / Done';
-    document.getElementById('nav-done').textContent = 'Done';
+    document.getElementById('done-title').textContent = 'History';
+    document.getElementById('nav-done').textContent = 'History';
     document.getElementById('back-home-done').textContent = '← Back to To-Do List';
     document.getElementById('sheet-cancel').textContent = 'Cancel';
     document.getElementById('sheet-retake').textContent = 'Retake';
