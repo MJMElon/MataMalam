@@ -17,7 +17,6 @@
         <li><button class="nav-btn" onclick="toggleLanguage()" id="nav-lang">Language (EN)</button></li>
         <li><a onclick="showDonePage()" id="nav-done">Done</a></li>
         <li><a onclick="showReportPage()" id="nav-about">Report</a></li>
-        <li><a onclick="showSettingsPage()" id="nav-settings">Settings</a></li>
       </ul>
     </nav>
   </header>
@@ -152,60 +151,6 @@
                 <!-- Log rows rendered dynamically -->
               </tbody>
             </table>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Page View 4: Standalone Settings Page -->
-    <div id="settings-module-page" class="page-view module-page">
-      <div style="margin-bottom: 1.5rem;" class="no-print">
-        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-settings">
-          ← Back to Home
-        </button>
-      </div>
-
-      <div class="module-page-card">
-        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
-          <h1 style="color: var(--accent-color); font-size: 2rem;" id="settings-title">Settings</h1>
-          <p style="color: var(--text-muted);" id="settings-desc">
-            Manage your account preferences and view active session configuration.
-          </p>
-        </div>
-
-        <div class="module-features" style="border-top: none; margin-top: 0; padding-top: 0; gap: 2rem;">
-          <!-- Settings Tabs (Add New User & User Management) -->
-          <div style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem;">
-            <div class="settings-tabs">
-              <button class="tab-btn active" onclick="switchSettingsTab('register')" id="tab-btn-register">Add New User</button>
-              <button class="tab-btn" onclick="switchSettingsTab('registered')" id="tab-btn-registered">User Management</button>
-            </div>
-
-            <!-- Tab Content 1: Add New User Form -->
-            <div id="tab-content-register" class="tab-content active">
-              <form id="register-form" onsubmit="handleRegister(event)">
-                <div class="form-group">
-                  <label for="reg-phone" id="label-reg-phone">Phone Number</label>
-                  <input type="tel" id="reg-phone" class="form-input" placeholder="e.g. +60123456789" required>
-                </div>
-                <div class="form-group">
-                  <label for="reg-pin" id="label-reg-pin">PIN</label>
-                  <input type="password" id="reg-pin" class="form-input" placeholder="Enter PIN" maxlength="6" required>
-                </div>
-                <button type="submit" class="btn" style="width: 100%; margin-top: 0.5rem;" id="reg-btn">Add New User</button>
-                <div id="reg-message" class="signin-error"></div>
-              </form>
-            </div>
-
-            <!-- Tab Content 2: User Management List -->
-            <div id="tab-content-registered" class="tab-content">
-              <div style="padding-top: 0.5rem;">
-                <span class="module-label" id="label-registered-list" style="margin-bottom: 0.75rem; display: block;">Registered Phone Numbers & Permissions:</span>
-                <div id="registered-users-list" class="coord-display" style="max-height: 350px; overflow-y: auto;">
-                  <!-- Registered numbers loaded dynamically -->
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

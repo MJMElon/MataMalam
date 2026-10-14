@@ -2,21 +2,6 @@ let activeStream = null;
 
 document.getElementById('year').textContent = new Date().getFullYear();
 
-// Settings tab switching logic
-function switchSettingsTab(tabName) {
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-  if (tabName === 'register') {
-    document.getElementById('tab-btn-register').classList.add('active');
-    document.getElementById('tab-content-register').classList.add('active');
-  } else {
-    document.getElementById('tab-btn-registered').classList.add('active');
-    document.getElementById('tab-content-registered').classList.add('active');
-    renderRegisteredUsersList();
-  }
-}
-
 // Navigation and page view handling
 function showHomePage() {
   stopActiveCamera();
@@ -46,16 +31,6 @@ function showReportPage() {
   document.getElementById('report-module-page').style.display = 'block';
   populateReportYearDropdown();
   generateReport();
-  window.scrollTo(0, 0);
-}
-
-function showSettingsPage() {
-  stopActiveCamera();
-  document.querySelectorAll('.page-view').forEach(page => {
-    page.style.display = 'none';
-  });
-  document.getElementById('settings-module-page').style.display = 'block';
-  switchSettingsTab('register'); 
   window.scrollTo(0, 0);
 }
 
@@ -353,100 +328,6 @@ async function loadPhoto(id) {
   });
 }
 
-function handleRegister(event) {
-  event.preventDefault();
-  const phone = document.getElementById('reg-phone').value.trim();
-  const pin = document.getElementById('reg-pin').value.trim();
-  const msgDiv = document.getElementById('reg-message');
-
-  if (!phone || !pin) {
-    msgDiv.style.color = 'var(--error-color)';
-    msgDiv.textContent = currentLang === 'BM' ? 'Sila masukkan nombor telefon dan PIN.' : 'Please enter phone number and PIN.';
-    return;
-  }
-
-  let registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
-  const existing = registeredUsers.find(u => u.phone === phone);
-  
-  if (existing) {
-    msgDiv.style.color = 'var(--error-color)';
-    msgDiv.textContent = currentLang === 'BM' ? 'Nombor telefon sudah didaftarkan.' : 'Phone number is already registered.';
-    return;
-  }
-
-  // PIN is the only sign-in credential, so it must be unique per user
-  if (registeredUsers.some(u => u.pin === pin)) {
-    msgDiv.style.color = 'var(--error-color)';
-    msgDiv.textContent = currentLang === 'BM' ? 'PIN sudah digunakan. Sila pilih PIN lain.' : 'PIN is already in use. Please choose a different PIN.';
-    return;
-  }
-
-  registeredUsers.push({ phone, pin, role: 'Worker', permissions: { bnn: true, unn1: true, unn2: true } });
-  localStorage.setItem('mata_malam_registered_users', JSON.stringify(registeredUsers));
-
-  msgDiv.style.color = 'var(--success-color)';
-  msgDiv.textContent = currentLang === 'BM' ? 'Pengguna berjaya didaftarkan!' : 'User registered successfully!';
-  
-  document.getElementById('reg-phone').value = '';
-  document.getElementById('reg-pin').value = '';
-  renderRegisteredUsersList();
-}
-
-function updateRole(phone, newRole) {
-  let registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
-  const user = registeredUsers.find(u => u.phone === phone);
-  if (user) {
-    user.role = newRole;
-    localStorage.setItem('mata_malam_registered_users', JSON.stringify(registeredUsers));
-  }
-}
-
-function updatePermission(phone, moduleKey, isChecked) {
-  let registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
-  const user = registeredUsers.find(u => u.phone === phone);
-  if (user) {
-    if (!user.permissions) user.permissions = { bnn: true, unn1: true, unn2: true };
-    user.permissions[moduleKey] = isChecked;
-    localStorage.setItem('mata_malam_registered_users', JSON.stringify(registeredUsers));
-  }
-}
-
-function renderRegisteredUsersList() {
-  const container = document.getElementById('registered-users-list');
-  const registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
-
-  if (registeredUsers.length === 0) {
-    container.textContent = currentLang === 'BM' ? 'Tiada nombor telefon berdaftar.' : 'No registered phone numbers.';
-    return;
-  }
-
-  container.innerHTML = registeredUsers.map(u => {
-    const role = u.role || 'Worker';
-    const perms = u.permissions || { bnn: true, unn1: true, unn2: true };
-    return `
-      <div style="margin-bottom: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
-          <span><strong>Phone:</strong> ${u.phone}</span>
-          <div>
-            <label style="font-size: 0.8rem; margin-right: 0.2rem;">Role:</label>
-            <select class="select-input" style="padding: 0.2rem 0.4rem; font-size: 0.8rem; width: auto; display: inline-block;" onchange="updateRole('${u.phone}', this.value)">
-              <option value="Worker" ${role === 'Worker' ? 'selected' : ''}>Worker</option>
-              <option value="FC" ${role === 'FC' ? 'selected' : ''}>FC</option>
-              <option value="HQ Admin" ${role === 'HQ Admin' ? 'selected' : ''}>HQ Admin</option>
-            </select>
-          </div>
-        </div>
-        <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: var(--text-muted); align-items: center; flex-wrap: wrap;">
-          <span>Permissions:</span>
-          <label><input type="checkbox" ${perms.bnn !== false ? 'checked' : ''} onchange="updatePermission('${u.phone}', 'bnn', this.checked)"> BNN</label>
-          <label><input type="checkbox" ${perms.unn1 !== false ? 'checked' : ''} onchange="updatePermission('${u.phone}', 'unn1', this.checked)"> UNN1</label>
-          <label><input type="checkbox" ${perms.unn2 !== false ? 'checked' : ''} onchange="updatePermission('${u.phone}', 'unn2', this.checked)"> UNN2</label>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
 function populateReportYearDropdown() {
   const logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
   const yearSelect = document.getElementById('report-year-select');
@@ -524,7 +405,6 @@ function toggleLanguage() {
     document.getElementById('sheet-capture').textContent = 'Ambil Gambar';
     document.getElementById('sheet-submit').textContent = 'Hantar';
     document.getElementById('nav-about').textContent = 'Laporan';
-    document.getElementById('nav-settings').textContent = 'Tetapan';
     document.getElementById('footer-rights').textContent = 'Hak cipta terpelihara.';
     
     // Report text translation
@@ -541,16 +421,6 @@ function toggleLanguage() {
     document.getElementById('th-date').textContent = 'Tarikh';
     document.getElementById('th-timeslot').textContent = 'Slot Masa';
     document.getElementById('th-coordinates').textContent = 'Koordinat';
-
-    // Settings text translation
-    document.getElementById('settings-title').textContent = 'Tetapan';
-    document.getElementById('settings-desc').textContent = 'Urus keutamaan akaun anda dan lihat konfigurasi sesi aktif.';
-    document.getElementById('tab-btn-register').textContent = 'Tambah Pengguna Baharu';
-    document.getElementById('tab-btn-registered').textContent = 'Pengurusan Pengguna';
-    document.getElementById('label-reg-phone').textContent = 'Nombor Telefon';
-    document.getElementById('label-reg-pin').textContent = 'PIN';
-    document.getElementById('reg-btn').textContent = 'Tambah Pengguna Baharu';
-    document.getElementById('label-registered-list').textContent = 'Nombor Telefon Berdaftar & Kebenaran:';
   } else {
     document.getElementById('hero-btn').textContent = 'Synchronize Data';
     document.getElementById('todo-title').textContent = 'To-Do List';
@@ -562,7 +432,6 @@ function toggleLanguage() {
     document.getElementById('sheet-capture').textContent = 'Capture';
     document.getElementById('sheet-submit').textContent = 'Submit';
     document.getElementById('nav-about').textContent = 'Report';
-    document.getElementById('nav-settings').textContent = 'Settings';
     document.getElementById('footer-rights').textContent = 'All rights reserved.';
 
     // Report text translation
@@ -579,18 +448,7 @@ function toggleLanguage() {
     document.getElementById('th-date').textContent = 'Date';
     document.getElementById('th-timeslot').textContent = 'Time Slot';
     document.getElementById('th-coordinates').textContent = 'Coordinates';
-
-    // Settings text translation
-    document.getElementById('settings-title').textContent = 'Settings';
-    document.getElementById('settings-desc').textContent = 'Manage your account preferences and view active session configuration.';
-    document.getElementById('tab-btn-register').textContent = 'Add New User';
-    document.getElementById('tab-btn-registered').textContent = 'User Management';
-    document.getElementById('label-reg-phone').textContent = 'Phone Number';
-    document.getElementById('label-reg-pin').textContent = 'PIN';
-    document.getElementById('reg-btn').textContent = 'Add New User';
-    document.getElementById('label-registered-list').textContent = 'Registered Phone Numbers & Permissions:';
   }
-  renderRegisteredUsersList();
   renderTasks();
 }
 
