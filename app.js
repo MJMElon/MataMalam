@@ -44,6 +44,13 @@ function stopActiveCamera() {
 // To-Do task flow: one task per location per time slot for the current night shift
 const TASK_LOCATIONS = ['BNN', 'UNN1', 'UNN2'];
 const TASK_TIME_SLOTS = ['6pm', '9pm', '12am', '3am', '6am'];
+// Hours after midnight at the start of the shift date; Date rolls 24+ over into the next day
+const TASK_SLOT_HOURS = { '6pm': 18, '9pm': 21, '12am': 24, '3am': 27, '6am': 30 };
+// A task appears 15 minutes before its scheduled time and must be submitted within one hour
+const TASK_OPENS_BEFORE_MS = 15 * 60 * 1000;
+const TASK_WINDOW_MS = 60 * 60 * 1000;
+const HISTORY_SHIFTS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 let pendingTask = null;
 let pendingPhoto = null;
@@ -56,93 +63,209 @@ function getShiftDate(now = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function getShiftTasks() {
-  const date = getShiftDate();
-  const logs = (JSON.parse(localStorage.getItem('mata_malam_logs')) || []).filter(log => log.date === date);
+function getTaskWindow(date, time) {
+  const [year, month, day] = date.split('-').map(Number);
+  const scheduledAt = new Date(year, month - 1, day, TASK_SLOT_HOURS[time]).getTime();
+  const opensAt = scheduledAt - TASK_OPENS_BEFORE_MS;
+  return { scheduledAt, opensAt, closesAt: opensAt + TASK_WINDOW_MS };
+}
+
+function getLogs() {
+  return JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
+}
+
+function formatClock(time) {
+  return new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// Missed tasks are only counted from the first time the app was used on this device
+function getTrackingStart() {
+  let start = Number(localStorage.getItem('mata_malam_tracking_start'));
+  if (!start) {
+    start = Date.now();
+    localStorage.setItem('mata_malam_tracking_start', String(start));
+  }
+  return start;
+}
+
+// Records "Work Not Completed" for every task whose window closed without a submission
+function recordMissedTasks(now = Date.now()) {
+  const trackingStart = getTrackingStart();
+  const logs = getLogs();
+  let changed = false;
+
+  for (let i = 31; i >= 0; i--) {
+    const date = getShiftDate(new Date(now - i * DAY_MS));
+    TASK_TIME_SLOTS.forEach(time => {
+      const { closesAt } = getTaskWindow(date, time);
+      if (closesAt > now || closesAt <= trackingStart) return;
+      TASK_LOCATIONS.forEach(location => {
+        if (logs.some(l => l.date === date && l.time === time && l.location === location)) return;
+        logs.push({ location, date, time, coordinates: '-', status: 'missed', recordedAt: new Date(closesAt).toISOString() });
+        changed = true;
+      });
+    });
+  }
+
+  if (changed) localStorage.setItem('mata_malam_logs', JSON.stringify(logs));
+  return changed;
+}
+
+function getShiftTasks(date) {
+  const logs = getLogs().filter(log => log.date === date);
   const tasks = [];
   TASK_TIME_SLOTS.forEach(time => {
     TASK_LOCATIONS.forEach(location => {
       const log = logs.find(l => l.location === location && l.time === time);
-      tasks.push({ location, time, log });
+      tasks.push({ location, time, date, log, ...getTaskWindow(date, time) });
     });
   });
   return tasks;
 }
 
 function renderTasks() {
-  const tasks = getShiftTasks();
-  const pending = tasks.filter(task => !task.log);
-  const done = tasks.filter(task => task.log)
-    .sort((a, b) => (b.log.submittedAt || '').localeCompare(a.log.submittedAt || ''));
+  recordMissedTasks();
+  renderTodo();
+  renderHistory();
+}
 
-  photoUrls.forEach(url => URL.revokeObjectURL(url));
-  photoUrls = [];
+function renderTodo(now = Date.now()) {
+  const date = getShiftDate(new Date(now));
+  const tasks = getShiftTasks(date);
+  const due = tasks.filter(task => !task.log && task.opensAt <= now && now < task.closesAt);
+  const next = tasks.find(task => !task.log && now < task.opensAt);
+  const completed = tasks.filter(task => task.log && task.log.status !== 'missed').length;
 
-  document.getElementById('todo-meta').textContent = `${getShiftDate()} • ${done.length} / ${tasks.length} ${currentLang === 'BM' ? 'selesai' : 'done'}`;
-  document.getElementById('done-meta').textContent = `${done.length} ${currentLang === 'BM' ? 'tugasan' : done.length === 1 ? 'task' : 'tasks'}`;
+  document.getElementById('todo-meta').textContent = `${date} • ${completed} / ${tasks.length} ${currentLang === 'BM' ? 'selesai' : 'done'}`;
 
   const todoList = document.getElementById('todo-list');
   todoList.innerHTML = '';
-  if (pending.length === 0) {
-    todoList.innerHTML = `<li class="task-empty">${currentLang === 'BM' ? 'Semua tugasan syif ini telah selesai.' : 'All tasks for this shift are done.'}</li>`;
+  if (due.length === 0) {
+    let message;
+    if (next) {
+      message = currentLang === 'BM'
+        ? `Tiada tugasan buat masa ini. Tugasan seterusnya (${next.time}) akan dipaparkan pada ${formatClock(next.opensAt)}.`
+        : `No tasks due right now. The next task (${next.time}) appears at ${formatClock(next.opensAt)}.`;
+    } else {
+      message = currentLang === 'BM' ? 'Tiada lagi tugasan untuk syif ini.' : 'No more tasks for this shift.';
+    }
+    todoList.innerHTML = `<li class="task-empty">${message}</li>`;
   }
-  pending.forEach((task, index) => {
+
+  due.forEach((task, index) => {
+    const minutesLeft = Math.max(1, Math.ceil((task.closesAt - now) / 60000));
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = index === 0 ? 'task-item task-next' : 'task-item';
-    btn.onclick = () => startTask(task.location, task.time);
+    btn.onclick = () => startTask(task);
     btn.innerHTML = `
       <span class="task-time">${task.time}</span>
-      <span class="task-location">${task.location}</span>
+      <span class="task-location">${task.location}
+        <span class="task-deadline">${currentLang === 'BM' ? `Hantar sebelum ${formatClock(task.closesAt)} • ${minutesLeft} min lagi` : `Submit by ${formatClock(task.closesAt)} • ${minutesLeft} min left`}</span>
+      </span>
       <span class="task-action">${index === 0 ? (currentLang === 'BM' ? 'Ambil Gambar' : 'Take Photo') : '📷'}</span>
     `;
     li.appendChild(btn);
     todoList.appendChild(li);
   });
+}
+
+function renderHistory(now = Date.now()) {
+  const dates = [];
+  for (let i = 0; i < HISTORY_SHIFTS; i++) dates.push(getShiftDate(new Date(now - i * DAY_MS)));
+  const entries = getLogs()
+    .filter(log => dates.includes(log.date) && TASK_SLOT_HOURS[log.time] !== undefined)
+    .map(log => ({ log, ...getTaskWindow(log.date, log.time) }))
+    .sort((a, b) => b.scheduledAt - a.scheduledAt || TASK_LOCATIONS.indexOf(a.log.location) - TASK_LOCATIONS.indexOf(b.log.location));
+
+  photoUrls.forEach(url => URL.revokeObjectURL(url));
+  photoUrls = [];
+
+  const missedCount = entries.filter(e => e.log.status === 'missed').length;
+  const completedCount = entries.length - missedCount;
+  document.getElementById('done-meta').textContent = currentLang === 'BM'
+    ? `${completedCount} selesai • ${missedCount} tidak selesai`
+    : `${completedCount} completed • ${missedCount} not completed`;
 
   const doneList = document.getElementById('done-list');
   doneList.innerHTML = '';
-  if (done.length === 0) {
-    doneList.innerHTML = `<li class="task-empty">${currentLang === 'BM' ? 'Belum ada tugasan yang dihantar.' : 'No tasks submitted yet.'}</li>`;
+  if (entries.length === 0) {
+    doneList.innerHTML = `<li class="task-empty">${currentLang === 'BM' ? 'Tiada sejarah tugasan lagi.' : 'No task history yet.'}</li>`;
+    return;
   }
-  done.forEach(task => {
+
+  let currentDate = null;
+  entries.forEach(({ log }) => {
+    if (log.date !== currentDate) {
+      currentDate = log.date;
+      const heading = document.createElement('li');
+      heading.className = 'task-date-heading';
+      heading.textContent = log.date;
+      doneList.appendChild(heading);
+    }
+
     const li = document.createElement('li');
-    li.className = 'task-item task-done';
-    const submitted = task.log.submittedAt
-      ? new Date(task.log.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      : '';
+    const missed = log.status === 'missed';
+    li.className = missed ? 'task-item task-done task-missed' : 'task-item task-done';
+    const remark = missed
+      ? `<span class="task-remark-missed">${currentLang === 'BM' ? 'Kerja Tidak Disiapkan' : 'Work Not Completed'}</span>`
+      : `<span class="task-submitted"><span class="task-check">✓</span> ${log.submittedAt ? formatClock(log.submittedAt) : ''}</span>`;
     li.innerHTML = `
-      <img class="task-thumb" alt="">
-      <span class="task-time">${task.time}</span>
-      <span class="task-location">${task.location}</span>
-      <span class="task-action"><span class="task-check">✓</span> ${submitted}</span>
+      ${missed ? '<span class="task-thumb task-thumb-missed" aria-hidden="true">✕</span>' : '<img class="task-thumb" alt="">'}
+      <span class="task-time">${log.time}</span>
+      <span class="task-location">${log.location}</span>
+      <span class="task-action">${remark}</span>
     `;
     const img = li.querySelector('img');
-    if (task.log.id) {
-      loadPhoto(task.log.id).then(blob => {
+    if (img && log.id) {
+      loadPhoto(log.id).then(blob => {
         if (!blob) return;
         const url = URL.createObjectURL(blob);
         photoUrls.push(url);
         img.src = url;
-        img.alt = `${task.location} ${task.time}`;
+        img.alt = `${log.location} ${log.time}`;
       }).catch(() => {});
     }
     doneList.appendChild(li);
   });
 }
 
-function startTask(location, time) {
-  pendingTask = { location, time, date: getShiftDate() };
+// Keeps the To-Do List in step with the clock: shows tasks as they open and expires them at the deadline
+function refreshTaskSchedule() {
+  const now = Date.now();
+  if (pendingTask && now >= pendingTask.closesAt) {
+    closeSubmitSheet();
+    alert(currentLang === 'BM'
+      ? 'Masa telah tamat. Tugasan ini tidak boleh dihantar lagi.'
+      : 'Time is up. This task can no longer be submitted.');
+  }
+  const changed = recordMissedTasks(now);
+  renderTodo(now);
+  if (changed) renderHistory(now);
+}
+
+setInterval(refreshTaskSchedule, 15000);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) refreshTaskSchedule();
+});
+
+function startTask(task) {
+  if (Date.now() >= task.closesAt) {
+    refreshTaskSchedule();
+    return;
+  }
+  const { location, time, date, closesAt } = task;
+  pendingTask = { location, time, date, closesAt };
   pendingPhoto = null;
   pendingCoordinates = fetchCoordinates();
 
   document.getElementById('sheet-task-label').textContent = `${time} • ${location}`;
   const coordEl = document.getElementById('sheet-coord');
   coordEl.textContent = currentLang === 'BM' ? 'Mengesan Lokasi...' : 'Detecting Location...';
-  const task = pendingTask;
+  const current = pendingTask;
   pendingCoordinates.then(coord => {
-    if (pendingTask === task) coordEl.textContent = coord;
+    if (pendingTask === current) coordEl.textContent = coord;
   });
 
   document.getElementById('submit-sheet').hidden = false;
@@ -246,6 +369,10 @@ function capturePhoto(maxSize = 1280, quality = 0.7) {
 
 async function submitTask() {
   if (!pendingTask || !pendingPhoto) return;
+  if (Date.now() >= pendingTask.closesAt) {
+    refreshTaskSchedule();
+    return;
+  }
   const submitBtn = document.getElementById('sheet-submit');
   submitBtn.disabled = true;
   submitBtn.textContent = currentLang === 'BM' ? 'Menghantar...' : 'Submitting...';
@@ -262,13 +389,14 @@ async function submitTask() {
     return;
   }
 
-  let logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
+  let logs = getLogs();
   logs.push({
     id,
     location: pendingTask.location,
     date: pendingTask.date,
     time: pendingTask.time,
     coordinates,
+    status: 'completed',
     submittedAt: new Date().toISOString()
   });
   localStorage.setItem('mata_malam_logs', JSON.stringify(logs));
@@ -362,7 +490,7 @@ function generateReport() {
 
   if (filteredLogs.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td colspan="4" style="text-align: center; color: var(--text-muted);">${currentLang === 'BM' ? 'Tiada rekod log ditemui.' : 'No log records found.'}</td>`;
+    tr.innerHTML = `<td colspan="5" style="text-align: center; color: var(--text-muted);">${currentLang === 'BM' ? 'Tiada rekod log ditemui.' : 'No log records found.'}</td>`;
     tbody.appendChild(tr);
     return;
   }
@@ -374,6 +502,9 @@ function generateReport() {
       <td>${log.date}</td>
       <td>${log.time}</td>
       <td style="font-family: monospace;">${log.coordinates}</td>
+      <td>${log.status === 'missed'
+        ? `<span class="task-remark-missed">${currentLang === 'BM' ? 'Kerja Tidak Disiapkan' : 'Work Not Completed'}</span>`
+        : (currentLang === 'BM' ? 'Selesai' : 'Completed')}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -421,6 +552,7 @@ function toggleLanguage() {
     document.getElementById('th-date').textContent = 'Tarikh';
     document.getElementById('th-timeslot').textContent = 'Slot Masa';
     document.getElementById('th-coordinates').textContent = 'Koordinat';
+    document.getElementById('th-status').textContent = 'Status';
   } else {
     document.getElementById('hero-btn').textContent = 'Synchronize Data';
     document.getElementById('todo-title').textContent = 'To-Do List';
@@ -448,6 +580,7 @@ function toggleLanguage() {
     document.getElementById('th-date').textContent = 'Date';
     document.getElementById('th-timeslot').textContent = 'Time Slot';
     document.getElementById('th-coordinates').textContent = 'Coordinates';
+    document.getElementById('th-status').textContent = 'Status';
   }
   renderTasks();
 }
