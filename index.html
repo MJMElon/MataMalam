@@ -59,19 +59,21 @@
       </section>
     </div>
 
-    <!-- Camera input used by To-Do tasks -->
-    <input type="file" id="task-photo-input" accept="image/*" capture="environment" style="display: none;" onchange="handleTaskPhoto(event)">
-
-    <!-- Photo Submit Sheet: shown after a task photo is taken -->
+    <!-- Camera & Submit Sheet: live camera capture for a task, then review and submit -->
     <div id="submit-sheet" class="sheet-backdrop" hidden>
       <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-task-label">
         <h3 id="sheet-task-label"></h3>
-        <div class="camera-preview" id="sheet-photo"></div>
+        <div class="camera-preview" id="sheet-photo">
+          <video id="camera-video" autoplay playsinline muted></video>
+          <img id="sheet-photo-img" alt="Captured Photo" hidden>
+          <span id="camera-status" class="camera-status" aria-live="polite"></span>
+        </div>
         <div class="coord-display" id="sheet-coord" aria-live="polite"></div>
         <div class="sheet-actions">
           <button type="button" class="btn btn-secondary" onclick="closeSubmitSheet()" id="sheet-cancel">Cancel</button>
-          <button type="button" class="btn btn-secondary" onclick="openTaskCamera()" id="sheet-retake">Retake</button>
-          <button type="button" class="btn" onclick="submitTask()" id="sheet-submit">Submit</button>
+          <button type="button" class="btn btn-secondary" onclick="openTaskCamera()" id="sheet-retake" hidden>Retake</button>
+          <button type="button" class="btn" onclick="capturePhoto()" id="sheet-capture">Capture</button>
+          <button type="button" class="btn" onclick="submitTask()" id="sheet-submit" hidden>Submit</button>
         </div>
       </div>
     </div>

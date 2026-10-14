@@ -161,13 +161,66 @@ function startTask(location, time) {
   pendingTask = { location, time, date: getShiftDate() };
   pendingPhoto = null;
   pendingCoordinates = fetchCoordinates();
+
+  document.getElementById('sheet-task-label').textContent = `${time} • ${location}`;
+  const coordEl = document.getElementById('sheet-coord');
+  coordEl.textContent = currentLang === 'BM' ? 'Mengesan Lokasi...' : 'Detecting Location...';
+  const task = pendingTask;
+  pendingCoordinates.then(coord => {
+    if (pendingTask === task) coordEl.textContent = coord;
+  });
+
+  document.getElementById('submit-sheet').hidden = false;
   openTaskCamera();
 }
 
-function openTaskCamera() {
-  const input = document.getElementById('task-photo-input');
-  input.value = '';
-  input.click();
+// Photos come only from the live camera stream, so gallery images cannot be submitted
+async function openTaskCamera() {
+  const task = pendingTask;
+  const video = document.getElementById('camera-video');
+  const status = document.getElementById('camera-status');
+  const captureBtn = document.getElementById('sheet-capture');
+
+  pendingPhoto = null;
+  stopActiveCamera();
+  document.getElementById('sheet-photo-img').hidden = true;
+  video.hidden = false;
+  setSheetMode('capture');
+  captureBtn.disabled = true;
+  status.hidden = false;
+  status.textContent = currentLang === 'BM' ? 'Membuka kamera...' : 'Opening camera...';
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    status.textContent = currentLang === 'BM' ? 'Kamera tidak disokong pada pelayar ini.' : 'Camera is not supported on this browser.';
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    if (pendingTask !== task) {
+      stream.getTracks().forEach(track => track.stop());
+      return;
+    }
+    activeStream = stream;
+    video.srcObject = stream;
+    await video.play();
+    status.hidden = true;
+    captureBtn.disabled = false;
+  } catch (err) {
+    status.textContent = currentLang === 'BM'
+      ? 'Kamera tidak dapat dibuka. Sila benarkan akses kamera dan cuba lagi.'
+      : 'Could not open the camera. Please allow camera access and try again.';
+  }
+}
+
+function setSheetMode(mode) {
+  const capturing = mode === 'capture';
+  document.getElementById('sheet-capture').hidden = !capturing;
+  document.getElementById('sheet-retake').hidden = capturing;
+  document.getElementById('sheet-submit').hidden = capturing;
 }
 
 function fetchCoordinates() {
@@ -179,66 +232,41 @@ function fetchCoordinates() {
     navigator.geolocation.getCurrentPosition(
       (position) => resolve(`${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`),
       () => resolve(currentLang === 'BM' ? 'Gagal mendapatkan koordinat (GPS Ditutup)' : 'Failed to retrieve coordinates (GPS Disabled)'),
-      { timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   });
 }
 
-async function handleTaskPhoto(event) {
-  const file = event.target.files[0];
-  if (!file || !pendingTask) return;
+// Grab the current camera frame, resized to keep stored photos small enough for on-device storage
+function capturePhoto(maxSize = 1280, quality = 0.7) {
+  const video = document.getElementById('camera-video');
+  if (!activeStream || !video.videoWidth) return;
 
-  try {
-    pendingPhoto = await compressPhoto(file);
-  } catch (err) {
-    alert(currentLang === 'BM' ? 'Gambar tidak dapat dibaca. Sila cuba lagi.' : 'Could not read the photo. Please try again.');
-    return;
-  }
+  const scale = Math.min(1, maxSize / Math.max(video.videoWidth, video.videoHeight));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(video.videoWidth * scale);
+  canvas.height = Math.round(video.videoHeight * scale);
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
 
-  const preview = document.getElementById('sheet-photo');
-  const previewUrl = URL.createObjectURL(pendingPhoto);
-  preview.innerHTML = '';
-  const img = document.createElement('img');
-  img.alt = currentLang === 'BM' ? 'Gambar yang diambil' : 'Captured Photo';
-  img.onload = () => URL.revokeObjectURL(previewUrl);
-  img.src = previewUrl;
-  preview.appendChild(img);
+  canvas.toBlob(blob => {
+    if (!blob) return;
+    pendingPhoto = blob;
+    stopActiveCamera();
+    video.srcObject = null;
+    video.hidden = true;
 
-  document.getElementById('sheet-task-label').textContent = `${pendingTask.time} • ${pendingTask.location}`;
-  const coordEl = document.getElementById('sheet-coord');
-  coordEl.textContent = currentLang === 'BM' ? 'Mendapatkan Lokasi...' : 'Fetching Location...';
-  const task = pendingTask;
-  pendingCoordinates.then(coord => {
-    if (pendingTask === task) coordEl.textContent = coord;
-  });
+    const img = document.getElementById('sheet-photo-img');
+    const previewUrl = URL.createObjectURL(blob);
+    img.onload = () => URL.revokeObjectURL(previewUrl);
+    img.src = previewUrl;
+    img.hidden = false;
 
-  const submitBtn = document.getElementById('sheet-submit');
-  submitBtn.disabled = false;
-  submitBtn.textContent = currentLang === 'BM' ? 'Hantar' : 'Submit';
-  document.getElementById('submit-sheet').hidden = false;
-  submitBtn.focus();
-}
-
-// Resize to keep stored photos small enough for on-device storage
-function compressPhoto(file, maxSize = 1280, quality = 0.7) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * scale);
-      canvas.height = Math.round(img.height * scale);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Compression failed')), 'image/jpeg', quality);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Invalid image'));
-    };
-    img.src = url;
-  });
+    const submitBtn = document.getElementById('sheet-submit');
+    submitBtn.disabled = false;
+    submitBtn.textContent = currentLang === 'BM' ? 'Hantar' : 'Submit';
+    setSheetMode('review');
+    submitBtn.focus();
+  }, 'image/jpeg', quality);
 }
 
 async function submitTask() {
@@ -275,8 +303,10 @@ async function submitTask() {
 }
 
 function closeSubmitSheet() {
+  stopActiveCamera();
   document.getElementById('submit-sheet').hidden = true;
-  document.getElementById('sheet-photo').innerHTML = '';
+  document.getElementById('camera-video').srcObject = null;
+  document.getElementById('sheet-photo-img').removeAttribute('src');
   pendingTask = null;
   pendingPhoto = null;
   pendingCoordinates = null;
@@ -491,6 +521,7 @@ function toggleLanguage() {
     document.getElementById('back-home-done').textContent = '← Kembali ke Senarai Tugasan';
     document.getElementById('sheet-cancel').textContent = 'Batal';
     document.getElementById('sheet-retake').textContent = 'Ambil Semula';
+    document.getElementById('sheet-capture').textContent = 'Ambil Gambar';
     document.getElementById('sheet-submit').textContent = 'Hantar';
     document.getElementById('nav-about').textContent = 'Laporan';
     document.getElementById('nav-settings').textContent = 'Tetapan';
@@ -528,6 +559,7 @@ function toggleLanguage() {
     document.getElementById('back-home-done').textContent = '← Back to To-Do List';
     document.getElementById('sheet-cancel').textContent = 'Cancel';
     document.getElementById('sheet-retake').textContent = 'Retake';
+    document.getElementById('sheet-capture').textContent = 'Capture';
     document.getElementById('sheet-submit').textContent = 'Submit';
     document.getElementById('nav-about').textContent = 'Report';
     document.getElementById('nav-settings').textContent = 'Settings';

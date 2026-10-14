@@ -282,13 +282,35 @@ button.task-item:hover {
 }
 
 .sheet .camera-preview {
-  height: 320px;
-  max-height: 50vh;
+  position: relative;
+  height: 420px;
+  max-height: 60vh;
   margin-top: 0;
+  background-color: #000000;
 }
 
+.sheet .camera-preview video,
 .sheet .camera-preview img {
   object-fit: contain;
+}
+
+.sheet .camera-preview video[hidden],
+.sheet .camera-preview img[hidden],
+.sheet-actions .btn[hidden],
+.camera-status[hidden] {
+  display: none;
+}
+
+.camera-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-muted);
 }
 
 .sheet-actions {
