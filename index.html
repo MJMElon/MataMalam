@@ -18,7 +18,6 @@
         <li><a onclick="showDonePage()" id="nav-done" style="display: none;">Done</a></li>
         <li><a onclick="showReportPage()" id="nav-about" style="display: none;">Report</a></li>
         <li><a onclick="showSettingsPage()" id="nav-settings" style="display: none;">Settings</a></li>
-        <li><button class="nav-btn" onclick="handleSignOut()" id="nav-signout" style="display: none; color: var(--error-color);">Sign Out</button></li>
       </ul>
     </nav>
   </header>
@@ -26,39 +25,19 @@
   <main>
     <!-- Page View 1: Main Home Page -->
     <div id="home-page" class="page-view">
-      <section class="hero" id="hero-section">
-        <div id="hero-text">
-          <h1 id="hero-title">Welcome to Mata Malam</h1>
-          <p id="hero-desc">Take Pictures • Record Time • Monitor Work</p>
-        </div>
-        
-        <!-- Sign In Section -->
-        <div id="signin-section" class="signin-container">
-          <h3 id="signin-title">Sign In</h3>
-          <div id="bootstrap-notice" style="display: none; background-color: var(--bg-color); border: 1px solid var(--accent-color); border-radius: 4px; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-muted);"></div>
-          <form id="signin-form" onsubmit="handleSignIn(event)">
-            <div class="form-group">
-              <label for="signin-phone" id="label-phone">Phone Number</label>
-              <input type="tel" id="signin-phone" class="form-input" placeholder="e.g. +60123456789" required>
-            </div>
-            <div class="form-group">
-              <label for="signin-pin" id="label-pin">PIN</label>
-              <input type="password" id="signin-pin" class="form-input" placeholder="Enter PIN" maxlength="6" required>
-            </div>
-            <button type="submit" class="btn" style="width: 100%; margin-top: 0.5rem;" id="signin-btn">Sign In</button>
-            <div id="signin-error" class="signin-error"></div>
-          </form>
-        </div>
-
-        <div id="user-welcome-box" class="user-welcome" style="display: none;">
-          <span id="welcome-text">Signed in successfully</span> (<span id="logged-phone"></span>)
-          <br>
-          <button class="btn" onclick="handleSignOut()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.3rem 0.8rem; font-size: 0.8rem; margin-top: 0.5rem;" id="signout-btn">Sign Out</button>
-        </div>
+      <!-- Shown when the app is opened without FC Portal context -->
+      <section class="hero" id="no-context-section" style="display: none;">
+        <h1 id="no-context-title">Open from the FC Portal</h1>
+        <p id="no-context-desc">
+          Mata Malam is part of the MJM A1 system. Open it from the FC Portal so it knows who you are and which locations you cover.
+        </p>
+        <p class="no-context-hint" id="no-context-hint">
+          This link is missing its portal details.
+        </p>
       </section>
 
-      <!-- Protected Area: Shown only after sign in -->
-      <div id="protected-content" style="display: none;">
+      <!-- App content: shown when the FC Portal supplied a user -->
+      <div id="app-content" style="display: none;">
         <!-- Flash message shown after a task is submitted -->
         <div id="flash" role="status" style="display: none;"></div>
 
@@ -67,7 +46,7 @@
           <p style="color: var(--text-muted);" id="no-access-desc">Your account has no locations assigned yet. Please contact your administrator.</p>
         </div>
 
-        <!-- To-Do List: the landing view for a signed-in user -->
+        <!-- To-Do List: the landing view -->
         <section class="list-section" id="todo-section">
           <div class="list-header">
             <div class="list-title">
@@ -241,7 +220,7 @@
         <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
           <h1 style="color: var(--accent-color); font-size: 2rem;" id="settings-title">Settings</h1>
           <p style="color: var(--text-muted);" id="settings-desc">
-            Manage your account preferences and view active session configuration.
+            Session details supplied by the FC Portal, and storage used by photos on this device.
           </p>
         </div>
 
@@ -249,7 +228,7 @@
           <div class="module-group">
             <span class="module-label" id="settings-current-user-label">Current Session</span>
             <div class="coord-display" id="settings-content" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-              <span>Authorized session active. Current User: <span id="settings-user-display" style="font-weight: bold;"></span></span>
+              <span id="settings-session-line">Opened from the FC Portal as <span id="settings-user-display" style="font-weight: bold;"></span></span>
             </div>
           </div>
 
@@ -261,39 +240,6 @@
             </div>
           </div>
 
-          <!-- Settings Tabs (Add New User & User Management) - HQ Admin only -->
-          <div id="settings-admin-section" style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem;">
-            <div class="settings-tabs">
-              <button class="tab-btn active" onclick="switchSettingsTab('register')" id="tab-btn-register">Add New User</button>
-              <button class="tab-btn" onclick="switchSettingsTab('registered')" id="tab-btn-registered">User Management</button>
-            </div>
-
-            <!-- Tab Content 1: Add New User Form -->
-            <div id="tab-content-register" class="tab-content active">
-              <form id="register-form" onsubmit="handleRegister(event)">
-                <div class="form-group">
-                  <label for="reg-phone" id="label-reg-phone">Phone Number</label>
-                  <input type="tel" id="reg-phone" class="form-input" placeholder="e.g. +60123456789" required>
-                </div>
-                <div class="form-group">
-                  <label for="reg-pin" id="label-reg-pin">PIN</label>
-                  <input type="password" id="reg-pin" class="form-input" placeholder="Enter PIN" maxlength="6" required>
-                </div>
-                <button type="submit" class="btn" style="width: 100%; margin-top: 0.5rem;" id="reg-btn">Add New User</button>
-                <div id="reg-message" class="signin-error"></div>
-              </form>
-            </div>
-
-            <!-- Tab Content 2: User Management List -->
-            <div id="tab-content-registered" class="tab-content">
-              <div style="padding-top: 0.5rem;">
-                <span class="module-label" id="label-registered-list" style="margin-bottom: 0.75rem; display: block;">Registered Phone Numbers & Permissions:</span>
-                <div id="registered-users-list" class="coord-display" style="max-height: 350px; overflow-y: auto;">
-                  <!-- Registered numbers loaded dynamically -->
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

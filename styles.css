@@ -138,72 +138,18 @@ main {
   transition: background-color 0.2s ease;
 }
 
+.no-context-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
 .btn:hover {
   background-color: var(--accent-hover);
-}
-
-/* Sign In Section Styling */
-.signin-container {
-  background-color: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1.75rem;
-  max-width: 420px;
-  margin: 1.5rem auto 0 auto;
-  text-align: left;
-}
-
-.signin-container h3 {
-  font-size: 1.2rem;
-  margin-bottom: 1rem;
-  color: var(--accent-color);
-  text-align: center;
-}
-
-.form-group {
-  margin-bottom: 1rem;
-}
-
-.form-group label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-bottom: 0.4rem;
-}
-
-.form-input {
-  width: 100%;
-  background-color: var(--bg-color);
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
-  padding: 0.65rem 0.75rem;
-  border-radius: 4px;
-  font-size: 0.95rem;
-  outline: none;
-}
-
-.form-input:focus {
-  border-color: var(--accent-color);
-}
-
-.signin-error {
-  color: var(--error-color);
-  font-size: 0.85rem;
-  margin-top: 0.5rem;
-  text-align: center;
-  min-height: 1.2rem;
-}
-
-.user-welcome {
-  background-color: var(--card-bg);
-  border: 1px solid var(--success-color);
-  border-radius: 8px;
-  padding: 1rem;
-  max-width: 420px;
-  margin: 1.5rem auto 0 auto;
-  text-align: center;
-  font-size: 0.95rem;
 }
 
 .live-indicator {
@@ -311,44 +257,6 @@ main {
 .report-table td {
   background-color: var(--card-bg);
   font-size: 0.9rem;
-}
-
-/* Tabs Styling for Settings Page */
-.settings-tabs {
-  display: flex;
-  gap: 1rem;
-  border-bottom: 1px solid var(--border-color);
-  margin-bottom: 1.5rem;
-}
-
-.tab-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 1rem;
-  font-weight: 600;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.2s ease;
-}
-
-.tab-btn:hover {
-  color: var(--accent-color);
-}
-
-.tab-btn.active {
-  color: var(--accent-color);
-  border-bottom-color: var(--accent-color);
-}
-
-.tab-content {
-  display: none;
-}
-
-.tab-content.active {
-  display: block;
-  animation: fadeIn 0.25s ease-in-out;
 }
 
 /* Standalone Page View Management */

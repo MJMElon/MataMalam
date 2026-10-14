@@ -14,8 +14,8 @@ const SLOTS = [
   { key: '6am',  hour: 6,  dayOffset: 1 }
 ];
 
-// Account used to bootstrap the very first install, when no users exist yet.
-const STARTER_ADMIN = { phone: '0000', pin: '0000' };
+// Query-string keys the FC Portal uses to hand over the current user.
+const PORTAL_PARAMS = { user: 'user', name: 'name', locations: 'locations', role: 'role' };
 
 // Longest edge and JPEG quality for stored photos. Browser storage is only a
 // few megabytes, so the original camera file is never kept.
@@ -87,7 +87,6 @@ const STRINGS = {
 
 let currentLang = 'EN';
 let activeStream = null;
-let bootstrapState = 'ok';
 
 // The task being captured: { location, slot, shiftDate }.
 let currentTask = null;
@@ -142,82 +141,51 @@ function formatTimeOfDay(iso) {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-// ------------------------------------------------------------ user accounts ----
+// --------------------------------------------------------- portal context ----
 
-function getRegisteredUsers() {
-  return JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
-}
+// Who is using the app, as told to us by the FC Portal. Null means the app was
+// opened without portal context and nothing should be shown.
+//
+// The portal links to the app like:
+//   index.html?user=0123456789&name=Ali&locations=unn1,unn2
+//   index.html?user=0123456789&locations=bnn,unn1,unn2&role=admin
+//
+// `locations` is a comma-separated subset of MODULES and decides what the user
+// sees. `role=admin` additionally reveals the Settings screen. Unknown location
+// names are ignored.
+let portal = null;
 
-function saveRegisteredUsers(users) {
-  localStorage.setItem('mata_malam_registered_users', JSON.stringify(users));
-}
+function readPortalContext(search = window.location.search) {
+  const params = new URLSearchParams(search);
+  const user = (params.get(PORTAL_PARAMS.user) || '').trim();
+  if (!user) return null;
 
-function getCurrentUser() {
-  const phone = localStorage.getItem('mata_malam_user');
-  if (!phone) return null;
-  return getRegisteredUsers().find(u => u.phone === phone) || null;
+  const locations = (params.get(PORTAL_PARAMS.locations) || '')
+    .split(',')
+    .map(value => value.trim().toLowerCase())
+    .filter(value => MODULES.includes(value));
+
+  const role = (params.get(PORTAL_PARAMS.role) || '').trim().toLowerCase();
+
+  return {
+    user,
+    name: (params.get(PORTAL_PARAMS.name) || '').trim() || user,
+    locations: MODULES.filter(mod => locations.includes(mod)),
+    isAdmin: role === 'admin' || role === 'hq admin'
+  };
 }
 
 function isAdmin() {
-  const user = getCurrentUser();
-  return !!user && user.role === 'HQ Admin';
+  return !!portal && portal.isAdmin;
 }
 
-// Locations the signed-in user may see. HQ Admin sees everything; for everyone
-// else a location counts as allowed unless its permission is explicitly false,
-// so accounts created before permissions were enforced keep working until an
-// admin unticks them.
+// Locations the current user may see, in display order.
 function getAllowedModules() {
-  const user = getCurrentUser();
-  if (!user) return [];
-  if (user.role === 'HQ Admin') return MODULES.slice();
-  const perms = user.permissions || {};
-  return MODULES.filter(mod => perms[mod] !== false);
+  return portal ? portal.locations.slice() : [];
 }
 
 function canAccessModule(moduleName) {
   return getAllowedModules().includes(String(moduleName).toLowerCase());
-}
-
-// An HQ Admin must always exist, otherwise nobody can reach the admin-only
-// User Management screen. Returns 'seeded' when a starter admin had to be
-// created, so the caller can surface its credentials.
-function ensureAdminExists() {
-  const users = getRegisteredUsers();
-
-  if (users.length === 0) {
-    users.push({
-      phone: STARTER_ADMIN.phone,
-      pin: STARTER_ADMIN.pin,
-      role: 'HQ Admin',
-      permissions: { bnn: true, unn1: true, unn2: true }
-    });
-    saveRegisteredUsers(users);
-    return 'seeded';
-  }
-
-  if (!users.some(u => u.role === 'HQ Admin')) {
-    users[0].role = 'HQ Admin';
-    saveRegisteredUsers(users);
-    return 'promoted';
-  }
-
-  return 'ok';
-}
-
-function showBootstrapNotice(state) {
-  const notice = document.getElementById('bootstrap-notice');
-  if (!notice) return;
-
-  if (state !== 'seeded') {
-    notice.style.display = 'none';
-    return;
-  }
-
-  notice.style.display = 'block';
-  notice.innerHTML = currentLang === 'BM'
-    ? `Tiada pengguna berdaftar, jadi akaun HQ Admin permulaan telah dibuat &mdash; Telefon: <strong>${STARTER_ADMIN.phone}</strong>, PIN: <strong>${STARTER_ADMIN.pin}</strong>. Log masuk, tambah pengguna sebenar, kemudian tukar peranan akaun ini.`
-    : `No users were registered, so a starter HQ Admin account was created &mdash; Phone: <strong>${STARTER_ADMIN.phone}</strong>, PIN: <strong>${STARTER_ADMIN.pin}</strong>. Sign in, add your real users, then change this account's role.`;
 }
 
 function permissionDeniedMessage() {
@@ -568,6 +536,7 @@ function submitCapture(event) {
   const now = new Date();
   const entry = {
     location,
+    user: portal ? portal.user : '',
     date: localDateString(now),
     time: slot,
     coordinates: currentCoords || '',
@@ -614,7 +583,7 @@ function showHomePage() {
   currentPhoto = null;
   currentCoords = null;
   showPage('home-page');
-  if (localStorage.getItem('mata_malam_user')) renderTaskScreens();
+  if (portal) renderTaskScreens();
 }
 
 function showDonePage() {
@@ -627,6 +596,10 @@ function showDonePage() {
 }
 
 function showReportPage() {
+  if (!portal) {
+    showHomePage();
+    return;
+  }
   showPage('report-module-page');
   populateReportLocationDropdown();
   populateReportYearDropdown();
@@ -644,12 +617,10 @@ function showSettingsPage() {
 
   showPage('settings-module-page');
 
-  const loggedUser = localStorage.getItem('mata_malam_user');
   const settingsDisplay = document.getElementById('settings-user-display');
-  if (settingsDisplay && loggedUser) settingsDisplay.textContent = loggedUser;
+  if (settingsDisplay) settingsDisplay.textContent = portal.name;
 
   updateStorageUsage();
-  switchSettingsTab('register');
 }
 
 function stopActiveCamera() {
@@ -665,99 +636,38 @@ function handleClick() {
     : 'Data synchronized successfully with server!');
 }
 
-// Settings tab switching logic
-function switchSettingsTab(tabName) {
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+// --------------------------------------------------- portal handover / UI ----
 
-  if (tabName === 'register') {
-    document.getElementById('tab-btn-register').classList.add('active');
-    document.getElementById('tab-content-register').classList.add('active');
-  } else {
-    document.getElementById('tab-btn-registered').classList.add('active');
-    document.getElementById('tab-content-registered').classList.add('active');
-    renderRegisteredUsersList();
-  }
-}
-
-// ------------------------------------------------------------ sign in / out ----
-
-function handleSignIn(event) {
-  event.preventDefault();
-  const phone = document.getElementById('signin-phone').value.trim();
-  const pin = document.getElementById('signin-pin').value.trim();
-  const errorDiv = document.getElementById('signin-error');
-
-  if (!phone || !pin) {
-    errorDiv.textContent = currentLang === 'BM' ? 'Sila masukkan nombor telefon dan PIN.' : 'Please enter phone number and PIN.';
-    return;
-  }
-
-  const matchedUser = getRegisteredUsers().find(u => u.phone === phone && u.pin === pin);
-
-  if (!matchedUser) {
-    errorDiv.textContent = currentLang === 'BM'
-      ? 'Nombor telefon atau PIN tidak sah / belum berdaftar.'
-      : 'Invalid credentials or phone number not registered under User Management.';
-    return;
-  }
-
-  errorDiv.textContent = '';
-  localStorage.setItem('mata_malam_user', phone);
-  updateAuthState();
-}
-
-function handleSignOut() {
-  localStorage.removeItem('mata_malam_user');
-  document.getElementById('signin-phone').value = '';
-  document.getElementById('signin-pin').value = '';
-  updateAuthState();
-  showHomePage();
-}
-
-function updateAuthState() {
-  const loggedUser = localStorage.getItem('mata_malam_user');
-  const signinSection = document.getElementById('signin-section');
-  const heroSection = document.getElementById('hero-section');
-  const welcomeBox = document.getElementById('user-welcome-box');
-  const protectedContent = document.getElementById('protected-content');
-  const loggedPhoneSpan = document.getElementById('logged-phone');
-  const syncBtn = document.getElementById('hero-btn');
+// Decide what the app shows for the user the portal handed over. Without
+// context nothing but the "open from the FC Portal" notice is rendered.
+function applyPortalContext() {
+  const noContext = document.getElementById('no-context-section');
+  const appContent = document.getElementById('app-content');
   const navDone = document.getElementById('nav-done');
-  const navAbout = document.getElementById('nav-about');
+  const navReport = document.getElementById('nav-about');
   const navSettings = document.getElementById('nav-settings');
-  const navSignout = document.getElementById('nav-signout');
 
-  if (loggedUser) {
-    // The To-Do List is the landing view, so the whole hero steps aside.
-    signinSection.style.display = 'none';
-    if (heroSection) heroSection.style.display = 'none';
-    welcomeBox.style.display = 'none';
-    protectedContent.style.display = 'block';
-    if (syncBtn) syncBtn.style.display = 'inline-block';
-    if (navDone) navDone.style.display = 'inline';
-    if (navAbout) navAbout.style.display = 'inline';
-    if (navSettings) navSettings.style.display = isAdmin() ? 'inline' : 'none'; // Settings is HQ Admin only
-    if (navSignout) navSignout.style.display = 'inline-block';
-    if (loggedPhoneSpan) loggedPhoneSpan.textContent = loggedUser;
-    const settingsDisplay = document.getElementById('settings-user-display');
-    if (settingsDisplay) settingsDisplay.textContent = loggedUser;
-    applyAccessControl();
-    renderTaskScreens();
-  } else {
-    signinSection.style.display = 'block';
-    if (heroSection) heroSection.style.display = 'block';
-    welcomeBox.style.display = 'none';
-    protectedContent.style.display = 'none';
-    if (syncBtn) syncBtn.style.display = 'none';
+  if (!portal) {
+    if (noContext) noContext.style.display = 'block';
+    if (appContent) appContent.style.display = 'none';
     if (navDone) navDone.style.display = 'none';
-    if (navAbout) navAbout.style.display = 'none';
+    if (navReport) navReport.style.display = 'none';
     if (navSettings) navSettings.style.display = 'none';
-    if (navSignout) navSignout.style.display = 'none';
+    return;
   }
+
+  if (noContext) noContext.style.display = 'none';
+  if (appContent) appContent.style.display = 'block';
+  if (navReport) navReport.style.display = 'inline';
+  if (navSettings) navSettings.style.display = isAdmin() ? 'inline' : 'none';
+
+  const settingsDisplay = document.getElementById('settings-user-display');
+  if (settingsDisplay) settingsDisplay.textContent = portal.name;
+
+  applyAccessControl();
+  renderTaskScreens();
 }
 
-// Show the task lists only when the user actually has locations assigned.
 function applyAccessControl() {
   const hasAccess = getAllowedModules().length > 0;
 
@@ -772,121 +682,6 @@ function applyAccessControl() {
 
   const adminSection = document.getElementById('settings-admin-section');
   if (adminSection) adminSection.style.display = isAdmin() ? 'block' : 'none';
-}
-
-// -------------------------------------------------------- user management ----
-
-function handleRegister(event) {
-  event.preventDefault();
-
-  if (!isAdmin()) return;
-
-  const phone = document.getElementById('reg-phone').value.trim();
-  const pin = document.getElementById('reg-pin').value.trim();
-  const msgDiv = document.getElementById('reg-message');
-
-  if (!phone || !pin) {
-    msgDiv.style.color = 'var(--error-color)';
-    msgDiv.textContent = currentLang === 'BM' ? 'Sila masukkan nombor telefon dan PIN.' : 'Please enter phone number and PIN.';
-    return;
-  }
-
-  let registeredUsers = getRegisteredUsers();
-
-  if (registeredUsers.find(u => u.phone === phone)) {
-    msgDiv.style.color = 'var(--error-color)';
-    msgDiv.textContent = currentLang === 'BM' ? 'Nombor telefon sudah didaftarkan.' : 'Phone number is already registered.';
-    return;
-  }
-
-  // Access is opt-in: an admin grants locations under User Management.
-  registeredUsers.push({ phone, pin, role: 'Worker', permissions: { bnn: false, unn1: false, unn2: false } });
-  saveRegisteredUsers(registeredUsers);
-
-  msgDiv.style.color = 'var(--success-color)';
-  msgDiv.textContent = currentLang === 'BM' ? 'Pengguna berjaya didaftarkan!' : 'User registered successfully!';
-
-  document.getElementById('reg-phone').value = '';
-  document.getElementById('reg-pin').value = '';
-  renderRegisteredUsersList();
-}
-
-function updateRole(phone, newRole) {
-  if (!isAdmin()) return;
-
-  const registeredUsers = getRegisteredUsers();
-  const user = registeredUsers.find(u => u.phone === phone);
-  if (user) {
-    user.role = newRole;
-    saveRegisteredUsers(registeredUsers);
-    reflectUserChange(phone);
-  }
-}
-
-function updatePermission(phone, moduleKey, isChecked) {
-  if (!isAdmin()) return;
-
-  const registeredUsers = getRegisteredUsers();
-  const user = registeredUsers.find(u => u.phone === phone);
-  if (user) {
-    if (!user.permissions) user.permissions = { bnn: true, unn1: true, unn2: true };
-    user.permissions[moduleKey] = isChecked;
-    saveRegisteredUsers(registeredUsers);
-    reflectUserChange(phone);
-  }
-}
-
-// When an admin edits their own account, re-apply the UI immediately, and leave
-// the admin screen if they just dropped their own HQ Admin role.
-function reflectUserChange(phone) {
-  if (phone !== localStorage.getItem('mata_malam_user')) return;
-  const stillAdmin = isAdmin();
-  updateAuthState();
-  if (!stillAdmin) showHomePage();
-}
-
-function renderRegisteredUsersList() {
-  const container = document.getElementById('registered-users-list');
-  if (!container) return;
-
-  // Never render the user list for a non-admin, even into hidden markup.
-  if (!isAdmin()) {
-    container.innerHTML = '';
-    return;
-  }
-
-  const registeredUsers = getRegisteredUsers();
-
-  if (registeredUsers.length === 0) {
-    container.textContent = currentLang === 'BM' ? 'Tiada nombor telefon berdaftar.' : 'No registered phone numbers.';
-    return;
-  }
-
-  container.innerHTML = registeredUsers.map(u => {
-    const role = u.role || 'Worker';
-    const perms = u.permissions || { bnn: true, unn1: true, unn2: true };
-    return `
-      <div style="margin-bottom: 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border-color);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.5rem;">
-          <span><strong>Phone:</strong> ${u.phone}</span>
-          <div>
-            <label style="font-size: 0.8rem; margin-right: 0.2rem;">Role:</label>
-            <select class="select-input" style="padding: 0.2rem 0.4rem; font-size: 0.8rem; width: auto; display: inline-block;" onchange="updateRole('${u.phone}', this.value)">
-              <option value="Worker" ${role === 'Worker' ? 'selected' : ''}>Worker</option>
-              <option value="FC" ${role === 'FC' ? 'selected' : ''}>FC</option>
-              <option value="HQ Admin" ${role === 'HQ Admin' ? 'selected' : ''}>HQ Admin</option>
-            </select>
-          </div>
-        </div>
-        <div style="display: flex; gap: 1rem; font-size: 0.85rem; color: var(--text-muted); align-items: center; flex-wrap: wrap;">
-          <span>Permissions:</span>
-          <label><input type="checkbox" ${perms.bnn !== false ? 'checked' : ''} onchange="updatePermission('${u.phone}', 'bnn', this.checked)"> BNN</label>
-          <label><input type="checkbox" ${perms.unn1 !== false ? 'checked' : ''} onchange="updatePermission('${u.phone}', 'unn1', this.checked)"> UNN1</label>
-          <label><input type="checkbox" ${perms.unn2 !== false ? 'checked' : ''} onchange="updatePermission('${u.phone}', 'unn2', this.checked)"> UNN2</label>
-        </div>
-      </div>
-    `;
-  }).join('');
 }
 
 // ------------------------------------------------------------ photo storage ----
@@ -1013,19 +808,18 @@ function toggleLanguage() {
 
   const bm = currentLang === 'BM';
 
-  // Home / sign-in
-  setTextIfPresent('hero-title', bm ? 'Selamat Datang ke Mata Malam' : 'Welcome to Mata Malam');
-  setTextIfPresent('hero-desc', bm ? 'Ambil Gambar • Rekod Masa • Pantau Kerja' : 'Take Pictures • Record Time • Monitor Work');
+  // Portal handover screen
+  setTextIfPresent('no-context-title', bm ? 'Buka dari FC Portal' : 'Open from the FC Portal');
+  setTextIfPresent('no-context-desc', bm
+    ? 'Mata Malam adalah sebahagian daripada sistem MJM A1. Sila buka melalui FC Portal supaya aplikasi tahu siapa anda dan lokasi yang anda liputi.'
+    : 'Mata Malam is part of the MJM A1 system. Open it from the FC Portal so it knows who you are and which locations you cover.');
+  setTextIfPresent('no-context-hint', bm
+    ? 'Pautan ini tidak mengandungi maklumat portal.'
+    : 'This link is missing its portal details.');
   setTextIfPresent('hero-btn', bm ? 'Selaraskan Data' : 'Synchronize Data');
-  setTextIfPresent('signin-title', bm ? 'Log Masuk' : 'Sign In');
-  setTextIfPresent('label-phone', bm ? 'Nombor Telefon' : 'Phone Number');
-  setTextIfPresent('label-pin', 'PIN');
-  setTextIfPresent('signin-btn', bm ? 'Log Masuk' : 'Sign In');
-  setTextIfPresent('welcome-text', bm ? 'Berjaya log masuk' : 'Signed in successfully');
   setTextIfPresent('nav-done', bm ? 'Selesai' : 'Done');
   setTextIfPresent('nav-about', bm ? 'Laporan' : 'Report');
   setTextIfPresent('nav-settings', bm ? 'Tetapan' : 'Settings');
-  setTextIfPresent('nav-signout', bm ? 'Log Keluar' : 'Sign Out');
   setTextIfPresent('footer-rights', bm ? 'Hak cipta terpelihara.' : 'All rights reserved.');
 
   // Task lists
@@ -1034,8 +828,8 @@ function toggleLanguage() {
   setTextIfPresent('done-history-link', t('historyLink'));
   setTextIfPresent('no-access-title', bm ? 'Tiada Lokasi Diberikan' : 'No Locations Assigned');
   setTextIfPresent('no-access-desc', bm
-    ? 'Akaun anda belum diberikan sebarang lokasi. Sila hubungi pentadbir anda.'
-    : 'Your account has no locations assigned yet. Please contact your administrator.');
+    ? 'Pautan FC Portal anda tidak memberikan sebarang lokasi. Sila hubungi pentadbir MJM A1 anda.'
+    : 'Your FC Portal link did not grant any locations. Please contact your MJM A1 administrator.');
 
   // Capture screen
   setTextIfPresent('back-home-capture', bm ? '← Kembali ke Senarai Tugasan' : '← Back to To-Do List');
@@ -1070,33 +864,22 @@ function toggleLanguage() {
   // Settings
   setTextIfPresent('settings-title', bm ? 'Tetapan' : 'Settings');
   setTextIfPresent('settings-desc', bm
-    ? 'Urus keutamaan akaun anda dan lihat konfigurasi sesi aktif.'
-    : 'Manage your account preferences and view active session configuration.');
+    ? 'Butiran sesi daripada FC Portal, dan storan yang digunakan oleh gambar pada peranti ini.'
+    : 'Session details supplied by the FC Portal, and storage used by photos on this device.');
   setTextIfPresent('settings-current-user-label', bm ? 'Sesi Semasa' : 'Current Session');
   setTextIfPresent('settings-storage-label', bm ? 'Storan Gambar' : 'Photo Storage');
   setTextIfPresent('btn-clear-photos', bm ? 'Hapus Gambar Tersimpan' : 'Delete Stored Photos');
-  setTextIfPresent('tab-btn-register', bm ? 'Tambah Pengguna Baharu' : 'Add New User');
-  setTextIfPresent('tab-btn-registered', bm ? 'Pengurusan Pengguna' : 'User Management');
-  setTextIfPresent('label-reg-phone', bm ? 'Nombor Telefon' : 'Phone Number');
-  setTextIfPresent('label-reg-pin', 'PIN');
-  setTextIfPresent('reg-btn', bm ? 'Tambah Pengguna Baharu' : 'Add New User');
-  setTextIfPresent('label-registered-list', bm
-    ? 'Nombor Telefon Berdaftar & Kebenaran:'
-    : 'Registered Phone Numbers & Permissions:');
   setTextIfPresent('back-home-settings', bm ? '← Kembali ke Utama' : '← Back to Home');
 
-  renderRegisteredUsersList();
   populateReportLocationDropdown();
   updateStorageUsage();
-  showBootstrapNotice(bootstrapState);
-  if (localStorage.getItem('mata_malam_user')) renderTaskScreens();
+  if (portal) renderTaskScreens();
 }
 
 // --------------------------------------------------------------------- init ----
 
 window.onload = function() {
   document.getElementById('year').textContent = new Date().getFullYear();
-  bootstrapState = ensureAdminExists();
-  showBootstrapNotice(bootstrapState);
-  updateAuthState();
+  portal = readPortalContext();
+  applyPortalContext();
 };
