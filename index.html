@@ -15,6 +15,7 @@
     <nav>
       <ul>
         <li><button class="nav-btn" onclick="toggleLanguage()" id="nav-lang">Language (EN)</button></li>
+        <li><a onclick="showDonePage()" id="nav-done" style="display: none;">Done</a></li>
         <li><a onclick="showReportPage()" id="nav-about" style="display: none;">Report</a></li>
         <li><a onclick="showSettingsPage()" id="nav-settings" style="display: none;">Settings</a></li>
         <li><button class="nav-btn" onclick="handleSignOut()" id="nav-signout" style="display: none; color: var(--error-color);">Sign Out</button></li>
@@ -73,7 +74,7 @@
               <span class="live-indicator"></span>
               <span id="todo-title">To-Do List</span>
             </div>
-            <span class="list-meta" id="todo-progress"></span>
+            <a class="list-meta list-link" onclick="showDonePage()" id="todo-progress"></a>
           </div>
           <p class="list-subtitle" id="todo-shift-label"></p>
           <div id="todo-list"></div>
@@ -83,17 +84,6 @@
         <div class="sync-row no-print">
           <button class="btn" id="hero-btn" onclick="handleClick()">Synchronize Data</button>
         </div>
-
-        <!-- Done: tasks completed in the current shift -->
-        <section class="list-section" id="done-section">
-          <div class="list-header">
-            <div class="list-title">
-              <span id="done-title">Done This Shift</span>
-            </div>
-            <a class="list-link no-print" onclick="showReportPage()" id="done-history-link">View Full History</a>
-          </div>
-          <div id="done-list"></div>
-        </section>
 
       </div>
     </div>
@@ -140,6 +130,26 @@
           <button type="submit" class="btn" id="capture-submit" style="margin-top: 1rem; width: 100%;" disabled>Submit Task</button>
         </form>
       </div>
+    </div>
+
+    <!-- Page View 3: Done - tasks completed in the current shift -->
+    <div id="done-page" class="page-view module-page">
+      <div style="margin-bottom: 1.5rem;" class="no-print">
+        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-done">
+          &larr; Back to To-Do List
+        </button>
+      </div>
+
+      <section class="list-section">
+        <div class="list-header">
+          <div class="list-title">
+            <span id="done-title">Done This Shift</span>
+          </div>
+          <a class="list-link no-print" onclick="showReportPage()" id="done-history-link">View Full History</a>
+        </div>
+        <p class="list-subtitle" id="done-shift-label"></p>
+        <div id="done-list"></div>
+      </section>
     </div>
 
     <!-- Page View 5: Standalone Report Page -->

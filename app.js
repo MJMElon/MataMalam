@@ -300,11 +300,14 @@ function renderTaskScreens() {
 
   const progress = document.getElementById('todo-progress');
   if (progress) {
-    progress.textContent = tasks.length ? t('progress')(done.length, tasks.length) : '';
+    progress.textContent = tasks.length ? t('progress')(done.length, tasks.length) + ' →' : '';
   }
 
+  const shiftText = tasks.length ? t('shiftLabel')(shiftDate) : '';
   const shiftLabel = document.getElementById('todo-shift-label');
-  if (shiftLabel) shiftLabel.textContent = tasks.length ? t('shiftLabel')(shiftDate) : '';
+  if (shiftLabel) shiftLabel.textContent = shiftText;
+  const doneShiftLabel = document.getElementById('done-shift-label');
+  if (doneShiftLabel) doneShiftLabel.textContent = shiftText;
 
   renderTodoList(pending, tasks.length);
   renderDoneList(done);
@@ -614,6 +617,15 @@ function showHomePage() {
   if (localStorage.getItem('mata_malam_user')) renderTaskScreens();
 }
 
+function showDonePage() {
+  if (!getAllowedModules().length) {
+    showHomePage();
+    return;
+  }
+  renderTaskScreens();
+  showPage('done-page');
+}
+
 function showReportPage() {
   showPage('report-module-page');
   populateReportLocationDropdown();
@@ -711,6 +723,7 @@ function updateAuthState() {
   const protectedContent = document.getElementById('protected-content');
   const loggedPhoneSpan = document.getElementById('logged-phone');
   const syncBtn = document.getElementById('hero-btn');
+  const navDone = document.getElementById('nav-done');
   const navAbout = document.getElementById('nav-about');
   const navSettings = document.getElementById('nav-settings');
   const navSignout = document.getElementById('nav-signout');
@@ -722,6 +735,7 @@ function updateAuthState() {
     welcomeBox.style.display = 'none';
     protectedContent.style.display = 'block';
     if (syncBtn) syncBtn.style.display = 'inline-block';
+    if (navDone) navDone.style.display = 'inline';
     if (navAbout) navAbout.style.display = 'inline';
     if (navSettings) navSettings.style.display = isAdmin() ? 'inline' : 'none'; // Settings is HQ Admin only
     if (navSignout) navSignout.style.display = 'inline-block';
@@ -736,6 +750,7 @@ function updateAuthState() {
     welcomeBox.style.display = 'none';
     protectedContent.style.display = 'none';
     if (syncBtn) syncBtn.style.display = 'none';
+    if (navDone) navDone.style.display = 'none';
     if (navAbout) navAbout.style.display = 'none';
     if (navSettings) navSettings.style.display = 'none';
     if (navSignout) navSignout.style.display = 'none';
@@ -747,11 +762,13 @@ function applyAccessControl() {
   const hasAccess = getAllowedModules().length > 0;
 
   const todo = document.getElementById('todo-section');
-  const done = document.getElementById('done-section');
+  const syncRow = document.querySelector('.sync-row');
   const notice = document.getElementById('no-access-notice');
+  const navDone = document.getElementById('nav-done');
   if (todo) todo.style.display = hasAccess ? 'block' : 'none';
-  if (done) done.style.display = hasAccess ? 'block' : 'none';
+  if (syncRow) syncRow.style.display = hasAccess ? 'block' : 'none';
   if (notice) notice.style.display = hasAccess ? 'none' : 'block';
+  if (navDone) navDone.style.display = hasAccess ? 'inline' : 'none';
 
   const adminSection = document.getElementById('settings-admin-section');
   if (adminSection) adminSection.style.display = isAdmin() ? 'block' : 'none';
@@ -1005,6 +1022,7 @@ function toggleLanguage() {
   setTextIfPresent('label-pin', 'PIN');
   setTextIfPresent('signin-btn', bm ? 'Log Masuk' : 'Sign In');
   setTextIfPresent('welcome-text', bm ? 'Berjaya log masuk' : 'Signed in successfully');
+  setTextIfPresent('nav-done', bm ? 'Selesai' : 'Done');
   setTextIfPresent('nav-about', bm ? 'Laporan' : 'Report');
   setTextIfPresent('nav-settings', bm ? 'Tetapan' : 'Settings');
   setTextIfPresent('nav-signout', bm ? 'Log Keluar' : 'Sign Out');
@@ -1021,6 +1039,7 @@ function toggleLanguage() {
 
   // Capture screen
   setTextIfPresent('back-home-capture', bm ? '← Kembali ke Senarai Tugasan' : '← Back to To-Do List');
+  setTextIfPresent('back-home-done', bm ? '← Kembali ke Senarai Tugasan' : '← Back to To-Do List');
   setTextIfPresent('capture-desc', t('captureDesc'));
   setTextIfPresent('capture-label-shift', bm ? 'Tarikh Syif (Automatik)' : 'Shift Date (Automatic)');
   setTextIfPresent('capture-label-photo', bm ? 'Gambar (Wajib)' : 'Photo (Required)');
