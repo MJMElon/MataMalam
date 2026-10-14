@@ -15,6 +15,7 @@
     <nav>
       <ul>
         <li><button class="nav-btn" onclick="toggleLanguage()" id="nav-lang">Language (EN)</button></li>
+        <li><a onclick="showDonePage()" id="nav-done">Done</a></li>
         <li><a onclick="showReportPage()" id="nav-about">Report</a></li>
         <li><a onclick="showSettingsPage()" id="nav-settings">Settings</a></li>
       </ul>
@@ -31,16 +32,6 @@
         </div>
         <ul class="task-list" id="todo-list">
           <!-- Pending tasks rendered dynamically -->
-        </ul>
-      </section>
-
-      <section class="task-section">
-        <div class="task-section-header">
-          <h2 id="done-title">History / Done</h2>
-          <span class="task-meta" id="done-meta"></span>
-        </div>
-        <ul class="task-list" id="done-list">
-          <!-- Submitted tasks rendered dynamically -->
         </ul>
       </section>
 
@@ -98,6 +89,25 @@
       </div>
     </div>
 
+    <!-- Page View 2: Standalone History / Done Page -->
+    <div id="done-module-page" class="page-view module-page">
+      <div style="margin-bottom: 1.5rem;" class="no-print">
+        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-done">
+          ← Back to To-Do List
+        </button>
+      </div>
+
+      <section class="task-section">
+        <div class="task-section-header">
+          <h2 id="done-title">History / Done</h2>
+          <span class="task-meta" id="done-meta"></span>
+        </div>
+        <ul class="task-list" id="done-list">
+          <!-- Submitted tasks rendered dynamically -->
+        </ul>
+      </section>
+    </div>
+
     <!-- Camera input used by To-Do tasks -->
     <input type="file" id="task-photo-input" accept="image/*" capture="environment" style="display: none;" onchange="handleTaskPhoto(event)">
 
@@ -115,7 +125,7 @@
       </div>
     </div>
 
-    <!-- Page View 2: Standalone Report Page -->
+    <!-- Page View 3: Standalone Report Page -->
     <div id="report-module-page" class="page-view module-page">
       <div style="margin-bottom: 1.5rem;" class="no-print">
         <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-report">
@@ -194,7 +204,7 @@
       </div>
     </div>
 
-    <!-- Page View 3: Standalone Settings Page -->
+    <!-- Page View 4: Standalone Settings Page -->
     <div id="settings-module-page" class="page-view module-page">
       <div style="margin-bottom: 1.5rem;" class="no-print">
         <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-settings">
