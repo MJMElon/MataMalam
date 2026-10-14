@@ -17,71 +17,6 @@ function switchSettingsTab(tabName) {
   }
 }
 
-// Sign-in management logic
-function handleSignIn(event) {
-  event.preventDefault();
-  const pin = document.getElementById('signin-pin').value.trim();
-  const errorDiv = document.getElementById('signin-error');
-
-  if (!pin) {
-    errorDiv.textContent = currentLang === 'BM' ? 'Sila masukkan PIN.' : 'Please enter your PIN.';
-    return;
-  }
-
-  // Check if user is registered in registered_users
-  const registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
-  const matchedUser = registeredUsers.find(u => u.pin === pin);
-
-  if (!matchedUser) {
-    errorDiv.textContent = currentLang === 'BM' ? 'PIN tidak sah / belum berdaftar.' : 'Invalid PIN or PIN not registered under User Management.';
-    return;
-  }
-
-  errorDiv.textContent = '';
-  localStorage.setItem('mata_malam_user', matchedUser.phone);
-  updateAuthState();
-}
-
-function handleSignOut() {
-  localStorage.removeItem('mata_malam_user');
-  document.getElementById('signin-pin').value = '';
-  updateAuthState();
-  showHomePage();
-}
-
-function updateAuthState() {
-  const loggedUser = localStorage.getItem('mata_malam_user');
-  const signinSection = document.getElementById('signin-section');
-  const welcomeBox = document.getElementById('user-welcome-box');
-  const protectedContent = document.getElementById('protected-content');
-  const loggedPhoneSpan = document.getElementById('logged-phone');
-  const syncBtn = document.getElementById('hero-btn');
-  const navAbout = document.getElementById('nav-about');
-  const navSettings = document.getElementById('nav-settings');
-  const navSignout = document.getElementById('nav-signout');
-
-  if (loggedUser) {
-    signinSection.style.display = 'none';
-    welcomeBox.style.display = 'none'; 
-    protectedContent.style.display = 'block';
-    if (syncBtn) syncBtn.style.display = 'inline-block'; 
-    if (navAbout) navAbout.style.display = 'inline'; 
-    if (navSettings) navSettings.style.display = 'inline'; 
-    if (navSignout) navSignout.style.display = 'inline-block'; // Show Sign Out in header
-    if (loggedPhoneSpan) loggedPhoneSpan.textContent = loggedUser;
-    const settingsDisplay = document.getElementById('settings-user-display');
-    if (settingsDisplay) settingsDisplay.textContent = loggedUser;
-  } else {
-    signinSection.style.display = 'block';
-    welcomeBox.style.display = 'none';
-    protectedContent.style.display = 'none';
-    if (syncBtn) syncBtn.style.display = 'none'; 
-    if (navAbout) navAbout.style.display = 'none'; 
-    if (navSettings) navSettings.style.display = 'none'; 
-    if (navSignout) navSignout.style.display = 'none'; // Hide Sign Out in header
-  }
-}
-
 // Navigation and page view handling
 function showHomePage() {
   stopActiveCamera();
@@ -119,11 +54,6 @@ function showSettingsPage() {
     page.style.display = 'none';
   });
   document.getElementById('settings-module-page').style.display = 'block';
-  const loggedUser = localStorage.getItem('mata_malam_user');
-  const settingsDisplay = document.getElementById('settings-user-display');
-  if (settingsDisplay && loggedUser) {
-    settingsDisplay.textContent = loggedUser;
-  }
   switchSettingsTab('register'); 
   window.scrollTo(0, 0);
 }
@@ -398,13 +328,8 @@ function toggleLanguage() {
     document.getElementById('hero-title').textContent = 'Selamat Datang ke Mata Malam';
     document.getElementById('hero-desc').textContent = 'Ambil Gambar • Rekod Masa • Pantau Kerja';
     document.getElementById('hero-btn').textContent = 'Selaraskan Data';
-    document.getElementById('signin-title').textContent = 'Log Masuk';
-    document.getElementById('label-pin').textContent = 'PIN';
-    document.getElementById('signin-btn').textContent = 'Log Masuk';
-    document.getElementById('welcome-text').textContent = 'Berjaya log masuk';
     document.getElementById('nav-about').textContent = 'Laporan';
     document.getElementById('nav-settings').textContent = 'Tetapan';
-    document.getElementById('nav-signout').textContent = 'Log Keluar';
     document.getElementById('dash-title').textContent = 'Papan Pemuka Penyelesaian Langsung Hari Ini';
     document.getElementById('dash-target-text').textContent = 'Sasaran: 5 Gambar / Hari = 100%';
     document.getElementById('footer-rights').textContent = 'Hak cipta terpelihara.';
@@ -427,7 +352,6 @@ function toggleLanguage() {
     // Settings text translation
     document.getElementById('settings-title').textContent = 'Tetapan';
     document.getElementById('settings-desc').textContent = 'Urus keutamaan akaun anda dan lihat konfigurasi sesi aktif.';
-    document.getElementById('settings-current-user-label').textContent = 'Sesi Semasa';
     document.getElementById('tab-btn-register').textContent = 'Tambah Pengguna Baharu';
     document.getElementById('tab-btn-registered').textContent = 'Pengurusan Pengguna';
     document.getElementById('label-reg-phone').textContent = 'Nombor Telefon';
@@ -438,13 +362,8 @@ function toggleLanguage() {
     document.getElementById('hero-title').textContent = 'Welcome to Mata Malam';
     document.getElementById('hero-desc').textContent = 'Take Pictures • Record Time • Monitor Work';
     document.getElementById('hero-btn').textContent = 'Synchronize Data';
-    document.getElementById('signin-title').textContent = 'Sign In';
-    document.getElementById('label-pin').textContent = 'PIN';
-    document.getElementById('signin-btn').textContent = 'Sign In';
-    document.getElementById('welcome-text').textContent = 'Signed in successfully';
     document.getElementById('nav-about').textContent = 'Report';
     document.getElementById('nav-settings').textContent = 'Settings';
-    document.getElementById('nav-signout').textContent = 'Sign Out';
     document.getElementById('dash-title').textContent = "Today's Live Completion Dashboard";
     document.getElementById('dash-target-text').textContent = 'Target: 5 Photos / Day = 100%';
     document.getElementById('footer-rights').textContent = 'All rights reserved.';
@@ -467,7 +386,6 @@ function toggleLanguage() {
     // Settings text translation
     document.getElementById('settings-title').textContent = 'Settings';
     document.getElementById('settings-desc').textContent = 'Manage your account preferences and view active session configuration.';
-    document.getElementById('settings-current-user-label').textContent = 'Current Session';
     document.getElementById('tab-btn-register').textContent = 'Add New User';
     document.getElementById('tab-btn-registered').textContent = 'User Management';
     document.getElementById('label-reg-phone').textContent = 'Phone Number';
@@ -480,6 +398,5 @@ function toggleLanguage() {
 
 // Initialize state on load
 window.onload = function() {
-  updateAuthState();
   updateDashboardProgress();
 };

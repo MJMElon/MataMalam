@@ -15,9 +15,8 @@
     <nav>
       <ul>
         <li><button class="nav-btn" onclick="toggleLanguage()" id="nav-lang">Language (EN)</button></li>
-        <li><a onclick="showReportPage()" id="nav-about" style="display: none;">Report</a></li>
-        <li><a onclick="showSettingsPage()" id="nav-settings" style="display: none;">Settings</a></li>
-        <li><button class="nav-btn" onclick="handleSignOut()" id="nav-signout" style="display: none; color: var(--error-color);">Sign Out</button></li>
+        <li><a onclick="showReportPage()" id="nav-about">Report</a></li>
+        <li><a onclick="showSettingsPage()" id="nav-settings">Settings</a></li>
       </ul>
     </nav>
   </header>
@@ -29,31 +28,10 @@
         <h1 id="hero-title">Welcome to Mata Malam</h1>
         <p id="hero-desc">Take Pictures • Record Time • Monitor Work</p>
         
-        <!-- Synchronize Data Button: Hidden by default until signed in -->
-        <button class="btn" id="hero-btn" onclick="handleClick()" style="display: none; margin-bottom: 1rem;">Synchronize Data</button>
-
-        <!-- Sign In Section -->
-        <div id="signin-section" class="signin-container">
-          <h3 id="signin-title">Sign In</h3>
-          <form id="signin-form" onsubmit="handleSignIn(event)">
-            <div class="form-group">
-              <label for="signin-pin" id="label-pin">PIN</label>
-              <input type="password" id="signin-pin" class="form-input" placeholder="Enter PIN" maxlength="6" required>
-            </div>
-            <button type="submit" class="btn" style="width: 100%; margin-top: 0.5rem;" id="signin-btn">Sign In</button>
-            <div id="signin-error" class="signin-error"></div>
-          </form>
-        </div>
-
-        <div id="user-welcome-box" class="user-welcome" style="display: none;">
-          <span id="welcome-text">Signed in successfully</span> (<span id="logged-phone"></span>)
-          <br>
-          <button class="btn" onclick="handleSignOut()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.3rem 0.8rem; font-size: 0.8rem; margin-top: 0.5rem;" id="signout-btn">Sign Out</button>
-        </div>
+        <button class="btn" id="hero-btn" onclick="handleClick()" style="margin-bottom: 1rem;">Synchronize Data</button>
       </section>
 
-      <!-- Protected Area: Shown only after sign in -->
-      <div id="protected-content" style="display: none;">
+      <div id="protected-content">
         <!-- Live Dashboard Section -->
         <section class="dashboard-container">
           <div class="dashboard-header">
@@ -374,13 +352,6 @@
         </div>
 
         <div class="module-features" style="border-top: none; margin-top: 0; padding-top: 0; gap: 2rem;">
-          <div class="module-group">
-            <span class="module-label" id="settings-current-user-label">Current Session</span>
-            <div class="coord-display" id="settings-content" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-              <span>Authorized session active. Current User: <span id="settings-user-display" style="font-weight: bold;"></span></span>
-            </div>
-          </div>
-
           <!-- Settings Tabs (Add New User & User Management) -->
           <div style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem;">
             <div class="settings-tabs">

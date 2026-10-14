@@ -140,24 +140,6 @@ main {
   background-color: var(--accent-hover);
 }
 
-/* Sign In Section Styling */
-.signin-container {
-  background-color: var(--card-bg);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 1.75rem;
-  max-width: 420px;
-  margin: 1.5rem auto 0 auto;
-  text-align: left;
-}
-
-.signin-container h3 {
-  font-size: 1.2rem;
-  margin-bottom: 1rem;
-  color: var(--accent-color);
-  text-align: center;
-}
-
 .form-group {
   margin-bottom: 1rem;
 }
@@ -191,17 +173,6 @@ main {
   margin-top: 0.5rem;
   text-align: center;
   min-height: 1.2rem;
-}
-
-.user-welcome {
-  background-color: var(--card-bg);
-  border: 1px solid var(--success-color);
-  border-radius: 8px;
-  padding: 1rem;
-  max-width: 420px;
-  margin: 1.5rem auto 0 auto;
-  text-align: center;
-  font-size: 0.95rem;
 }
 
 /* Live Dashboard Styling */
