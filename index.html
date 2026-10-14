@@ -22,241 +22,100 @@
   </header>
 
   <main>
-    <!-- Page View 1: Main Home Page -->
+    <!-- Page View 1: Main Home Page (To-Do List) -->
     <div id="home-page" class="page-view">
-      <section class="hero" id="home">
-        <h1 id="hero-title">Welcome to Mata Malam</h1>
-        <p id="hero-desc">Take Pictures • Record Time • Monitor Work</p>
-        
-        <button class="btn" id="hero-btn" onclick="handleClick()" style="margin-bottom: 1rem;">Synchronize Data</button>
+      <section class="task-section">
+        <div class="task-section-header">
+          <h2 id="todo-title">To-Do List</h2>
+          <span class="task-meta" id="todo-meta"></span>
+        </div>
+        <ul class="task-list" id="todo-list">
+          <!-- Pending tasks rendered dynamically -->
+        </ul>
       </section>
 
-      <div id="protected-content">
-        <!-- Live Dashboard Section -->
-        <section class="dashboard-container">
-          <div class="dashboard-header">
-            <div class="dashboard-title">
-              <span class="live-indicator"></span>
-              <span id="dash-title">Today's Live Completion Dashboard</span>
-            </div>
-            <span style="font-size: 0.85rem; color: var(--text-muted);" id="dash-target-text">Target: 5 Photos / Day = 100%</span>
+      <section class="task-section">
+        <div class="task-section-header">
+          <h2 id="done-title">History / Done</h2>
+          <span class="task-meta" id="done-meta"></span>
+        </div>
+        <ul class="task-list" id="done-list">
+          <!-- Submitted tasks rendered dynamically -->
+        </ul>
+      </section>
+
+      <!-- Live Dashboard Section -->
+      <section class="dashboard-container">
+        <div class="dashboard-header">
+          <div class="dashboard-title">
+            <span class="live-indicator"></span>
+            <span id="dash-title">Today's Live Completion Dashboard</span>
           </div>
-
-          <div class="dashboard-grid">
-            <!-- BNN Live Progress -->
-            <div class="dash-card">
-              <div class="dash-card-header">
-                <span id="dash-label-bnn">BNN</span>
-                <span class="dash-count" id="dash-count-bnn">0 / 5 Photos</span>
-              </div>
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="dash-fill-bnn"></div>
-              </div>
-              <div class="dash-percent" id="dash-pct-bnn">0%</div>
-            </div>
-
-            <!-- UNN1 Live Progress -->
-            <div class="dash-card">
-              <div class="dash-card-header">
-                <span id="dash-label-unn1">UNN1</span>
-                <span class="dash-count" id="dash-count-unn1">0 / 5 Photos</span>
-              </div>
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="dash-fill-unn1"></div>
-              </div>
-              <div class="dash-percent" id="dash-pct-unn1">0%</div>
-            </div>
-
-            <!-- UNN2 Live Progress -->
-            <div class="dash-card">
-              <div class="dash-card-header">
-                <span id="dash-label-unn2">UNN2</span>
-                <span class="dash-count" id="dash-count-unn2">0 / 5 Photos</span>
-              </div>
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="dash-fill-unn2"></div>
-              </div>
-              <div class="dash-percent" id="dash-pct-unn2">0%</div>
-            </div>
-          </div>
-        </section>
-
-        <section class="grid" id="features">
-          <!-- BNN Card -->
-          <div class="card" onclick="enterModule('bnn')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('bnn')">
-            <h3 id="card-title-bnn">BNN</h3>
-          </div>
-
-          <!-- UNN1 Card -->
-          <div class="card" onclick="enterModule('unn1')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('unn1')">
-            <h3 id="card-title-unn1">UNN1</h3>
-          </div>
-
-          <!-- UNN2 Card -->
-          <div class="card" onclick="enterModule('unn2')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('unn2')">
-            <h3 id="card-title-unn2">UNN2</h3>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <!-- Page View 2: Standalone BNN Module Page -->
-    <div id="bnn-module-page" class="page-view module-page">
-      <div style="margin-bottom: 1.5rem;" class="no-print">
-        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-bnn">
-          ← Back to Home
-        </button>
-      </div>
-
-      <div class="module-page-card">
-        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
-          <h1 style="color: var(--accent-color); font-size: 2rem;" id="bnn-detail-title">BNN</h1>
-          <p style="color: var(--text-muted);" id="bnn-detail-desc">
-            Perform camera capture, retrieve automatic geolocation coordinates, and select monitoring time slots.
-          </p>
+          <span style="font-size: 0.85rem; color: var(--text-muted);" id="dash-target-text">Target: 5 Photos / Day = 100%</span>
         </div>
 
-        <form id="form-bnn" onsubmit="submitData(event, 'bnn')" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
-          <div class="module-group">
-            <span class="module-label label-date">Date (Automatic)</span>
-            <div class="coord-display" id="date-val-bnn">Fetching Date...</div>
-          </div>
-
-          <div class="module-group">
-            <span class="module-label label-camera">Camera</span>
-            <button type="button" class="btn btn-camera" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: fit-content;" onclick="openCamera('bnn')">Open Camera</button>
-            <div class="camera-preview" id="camera-container-bnn">
-              <span style="color: var(--text-muted); font-size: 0.85rem;" class="camera-placeholder">Camera Offline</span>
+        <div class="dashboard-grid">
+          <!-- BNN Live Progress -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <span id="dash-label-bnn">BNN</span>
+              <span class="dash-count" id="dash-count-bnn">0 / 5 Photos</span>
             </div>
-            <input type="file" id="file-input-bnn" accept="image/*" capture="environment" style="display: none;" onchange="handleFile(event, 'bnn')">
-          </div>
-
-          <div class="module-group">
-            <span class="module-label label-coord">Coordinate (Automatic)</span>
-            <div class="coord-display" id="coord-val-bnn" aria-live="polite">Fetching Location...</div>
-          </div>
-
-          <fieldset class="module-group">
-            <legend class="module-label label-time">Time Selection</legend>
-            <div class="time-options">
-              <label class="time-badge"><input type="radio" name="bnn-time" value="6pm"> 6pm</label>
-              <label class="time-badge"><input type="radio" name="bnn-time" value="9pm"> 9pm</label>
-              <label class="time-badge"><input type="radio" name="bnn-time" value="12am"> 12am</label>
-              <label class="time-badge"><input type="radio" name="bnn-time" value="3am"> 3am</label>
-              <label class="time-badge"><input type="radio" name="bnn-time" value="6am"> 6am</label>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="dash-fill-bnn"></div>
             </div>
-          </fieldset>
+            <div class="dash-percent" id="dash-pct-bnn">0%</div>
+          </div>
 
-          <button type="submit" class="btn btn-submit" style="margin-top: 1rem; width: 100%;">Save Log Entry</button>
-        </form>
-      </div>
-    </div>
+          <!-- UNN1 Live Progress -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <span id="dash-label-unn1">UNN1</span>
+              <span class="dash-count" id="dash-count-unn1">0 / 5 Photos</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="dash-fill-unn1"></div>
+            </div>
+            <div class="dash-percent" id="dash-pct-unn1">0%</div>
+          </div>
 
-    <!-- Page View 3: Standalone UNN1 Module Page -->
-    <div id="unn1-module-page" class="page-view module-page">
-      <div style="margin-bottom: 1.5rem;" class="no-print">
-        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-unn1">
-          ← Back to Home
-        </button>
-      </div>
-
-      <div class="module-page-card">
-        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
-          <h1 style="color: var(--accent-color); font-size: 2rem;" id="unn1-detail-title">UNN1</h1>
-          <p style="color: var(--text-muted);" id="unn1-detail-desc">
-            Perform camera capture, retrieve automatic geolocation coordinates, and select monitoring time slots.
-          </p>
+          <!-- UNN2 Live Progress -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <span id="dash-label-unn2">UNN2</span>
+              <span class="dash-count" id="dash-count-unn2">0 / 5 Photos</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="dash-fill-unn2"></div>
+            </div>
+            <div class="dash-percent" id="dash-pct-unn2">0%</div>
+          </div>
         </div>
+      </section>
 
-        <form id="form-unn1" onsubmit="submitData(event, 'unn1')" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
-          <div class="module-group">
-            <span class="module-label label-date">Date (Automatic)</span>
-            <div class="coord-display" id="date-val-unn1">Fetching Date...</div>
-          </div>
-
-          <div class="module-group">
-            <span class="module-label label-camera">Camera</span>
-            <button type="button" class="btn btn-camera" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: fit-content;" onclick="openCamera('unn1')">Open Camera</button>
-            <div class="camera-preview" id="camera-container-unn1">
-              <span style="color: var(--text-muted); font-size: 0.85rem;" class="camera-placeholder">Camera Offline</span>
-            </div>
-            <input type="file" id="file-input-unn1" accept="image/*" capture="environment" style="display: none;" onchange="handleFile(event, 'unn1')">
-          </div>
-
-          <div class="module-group">
-            <span class="module-label label-coord">Coordinate (Automatic)</span>
-            <div class="coord-display" id="coord-val-unn1" aria-live="polite">Fetching Location...</div>
-          </div>
-
-          <fieldset class="module-group">
-            <legend class="module-label label-time">Time Selection</legend>
-            <div class="time-options">
-              <label class="time-badge"><input type="radio" name="unn1-time" value="6pm"> 6pm</label>
-              <label class="time-badge"><input type="radio" name="unn1-time" value="9pm"> 9pm</label>
-              <label class="time-badge"><input type="radio" name="unn1-time" value="12am"> 12am</label>
-              <label class="time-badge"><input type="radio" name="unn1-time" value="3am"> 3am</label>
-              <label class="time-badge"><input type="radio" name="unn1-time" value="6am"> 6am</label>
-            </div>
-          </fieldset>
-
-          <button type="submit" class="btn btn-submit" style="margin-top: 1rem; width: 100%;">Save Log Entry</button>
-        </form>
+      <div style="text-align: center;">
+        <button class="btn" id="hero-btn" onclick="handleClick()">Synchronize Data</button>
       </div>
     </div>
 
-    <!-- Page View 4: Standalone UNN2 Module Page -->
-    <div id="unn2-module-page" class="page-view module-page">
-      <div style="margin-bottom: 1.5rem;" class="no-print">
-        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-unn2">
-          ← Back to Home
-        </button>
-      </div>
+    <!-- Camera input used by To-Do tasks -->
+    <input type="file" id="task-photo-input" accept="image/*" capture="environment" style="display: none;" onchange="handleTaskPhoto(event)">
 
-      <div class="module-page-card">
-        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
-          <h1 style="color: var(--accent-color); font-size: 2rem;" id="unn2-detail-title">UNN2</h1>
-          <p style="color: var(--text-muted);" id="unn2-detail-desc">
-            Perform camera capture, retrieve automatic geolocation coordinates, and select monitoring time slots.
-          </p>
+    <!-- Photo Submit Sheet: shown after a task photo is taken -->
+    <div id="submit-sheet" class="sheet-backdrop" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-task-label">
+        <h3 id="sheet-task-label"></h3>
+        <div class="camera-preview" id="sheet-photo"></div>
+        <div class="coord-display" id="sheet-coord" aria-live="polite"></div>
+        <div class="sheet-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeSubmitSheet()" id="sheet-cancel">Cancel</button>
+          <button type="button" class="btn btn-secondary" onclick="openTaskCamera()" id="sheet-retake">Retake</button>
+          <button type="button" class="btn" onclick="submitTask()" id="sheet-submit">Submit</button>
         </div>
-
-        <form id="form-unn2" onsubmit="submitData(event, 'unn2')" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
-          <div class="module-group">
-            <span class="module-label label-date">Date (Automatic)</span>
-            <div class="coord-display" id="date-val-unn2">Fetching Date...</div>
-          </div>
-
-          <div class="module-group">
-            <span class="module-label label-camera">Camera</span>
-            <button type="button" class="btn btn-camera" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: fit-content;" onclick="openCamera('unn2')">Open Camera</button>
-            <div class="camera-preview" id="camera-container-unn2">
-              <span style="color: var(--text-muted); font-size: 0.85rem;" class="camera-placeholder">Camera Offline</span>
-            </div>
-            <input type="file" id="file-input-unn2" accept="image/*" capture="environment" style="display: none;" onchange="handleFile(event, 'unn2')">
-          </div>
-
-          <div class="module-group">
-            <span class="module-label label-coord">Coordinate (Automatic)</span>
-            <div class="coord-display" id="coord-val-unn2" aria-live="polite">Fetching Location...</div>
-          </div>
-
-          <fieldset class="module-group">
-            <legend class="module-label label-time">Time Selection</legend>
-            <div class="time-options">
-              <label class="time-badge"><input type="radio" name="unn2-time" value="6pm"> 6pm</label>
-              <label class="time-badge"><input type="radio" name="unn2-time" value="9pm"> 9pm</label>
-              <label class="time-badge"><input type="radio" name="unn2-time" value="12am"> 12am</label>
-              <label class="time-badge"><input type="radio" name="unn2-time" value="3am"> 3am</label>
-              <label class="time-badge"><input type="radio" name="unn2-time" value="6am"> 6am</label>
-            </div>
-          </fieldset>
-
-          <button type="submit" class="btn btn-submit" style="margin-top: 1rem; width: 100%;">Save Log Entry</button>
-        </form>
       </div>
     </div>
 
-    <!-- Page View 5: Standalone Report Page -->
+    <!-- Page View 2: Standalone Report Page -->
     <div id="report-module-page" class="page-view module-page">
       <div style="margin-bottom: 1.5rem;" class="no-print">
         <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-report">
@@ -335,7 +194,7 @@
       </div>
     </div>
 
-    <!-- Page View 6: Standalone Settings Page -->
+    <!-- Page View 3: Standalone Settings Page -->
     <div id="settings-module-page" class="page-view module-page">
       <div style="margin-bottom: 1.5rem;" class="no-print">
         <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-settings">
