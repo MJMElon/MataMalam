@@ -461,15 +461,116 @@ button.task-item:hover {
 }
 
 /* Settings Page */
+.settings-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1.5rem;
+  overflow-x: auto;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.6rem 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab-btn:hover {
+  color: var(--accent-color);
+}
+
+.tab-btn.active {
+  color: var(--accent-color);
+  border-bottom-color: var(--accent-color);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+.slider-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.slider-value {
+  color: var(--accent-color);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.slider {
+  width: 100%;
+  height: 2rem;
+  accent-color: var(--accent-color);
+  cursor: pointer;
+}
+
+.timing-preview {
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.timing-bar {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background-color: var(--accent-color);
+  margin: 0.5rem 0 0.75rem 0;
+}
+
+.timing-marker {
+  position: absolute;
+  top: -5px;
+  width: 4px;
+  height: 20px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background-color: var(--text-main);
+}
+
+.timing-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.timing-scheduled-row {
+  position: relative;
+  height: 1.3rem;
+}
+
+.timing-scheduled {
+  position: absolute;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 .settings-message {
   font-size: 0.9rem;
   font-weight: 600;
   min-height: 1.2rem;
   text-align: center;
-}
-
-.coord-display.settings-invalid {
-  color: var(--error-color);
 }
 
 /* Standalone Page View Management */

@@ -120,20 +120,34 @@ function loadTaskSettingsForm(settings = getTaskSettings()) {
   updateSettingsPreview();
 }
 
+// Keeps the deadline after the scheduled time by nudging the other slider when they cross
+function onTaskSettingsInput(changed) {
+  const opensInput = document.getElementById('setting-opens-before');
+  const windowInput = document.getElementById('setting-window');
+  const opens = Number(opensInput.value);
+  const windowMinutes = Number(windowInput.value);
+  if (windowMinutes <= opens) {
+    if (changed === 'opens') windowInput.value = opens + 5;
+    else opensInput.value = windowMinutes - 5;
+  }
+  document.getElementById('settings-message').textContent = '';
+  updateSettingsPreview();
+}
+
 function updateSettingsPreview() {
   const settings = readTaskSettingsForm();
-  const preview = document.getElementById('settings-preview');
-  const error = validateTaskSettings(settings);
-  if (error) {
-    preview.textContent = error;
-    preview.classList.add('settings-invalid');
-    return;
-  }
-  preview.classList.remove('settings-invalid');
+  const unit = currentLang === 'BM' ? 'minit' : 'min';
+  document.getElementById('value-opens-before').textContent = `${settings.opensBeforeMinutes} ${unit}`;
+  document.getElementById('value-window').textContent = `${settings.windowMinutes} ${unit}`;
+
   const { opensAt, closesAt } = getTaskWindow(getShiftDate(), '6pm', settings);
-  preview.textContent = currentLang === 'BM'
-    ? `Contoh tugasan 6pm: dipaparkan pada ${formatClock(opensAt)}, mesti dihantar sebelum ${formatClock(closesAt)}.`
-    : `Example 6pm task: appears at ${formatClock(opensAt)}, must be submitted by ${formatClock(closesAt)}.`;
+  document.getElementById('preview-opens').textContent = formatClock(opensAt);
+  document.getElementById('preview-closes').textContent = formatClock(closesAt);
+  const markerPct = Math.min(100, (settings.opensBeforeMinutes / settings.windowMinutes) * 100);
+  document.getElementById('timing-marker').style.left = `${markerPct}%`;
+  const scheduledLabel = document.getElementById('preview-scheduled');
+  scheduledLabel.style.left = `${markerPct}%`;
+  scheduledLabel.style.transform = markerPct < 10 ? 'none' : markerPct > 90 ? 'translateX(-100%)' : 'translateX(-50%)';
 }
 
 function saveTaskSettings(event) {
@@ -626,11 +640,11 @@ function toggleLanguage() {
     document.getElementById('nav-settings').textContent = 'Tetapan';
     document.getElementById('back-home-settings').textContent = '← Kembali ke Senarai Tugasan';
     document.getElementById('settings-title').textContent = 'Tetapan';
-    document.getElementById('settings-desc').textContent = 'Tetapkan bila tugasan dipaparkan dalam Senarai Tugasan dan berapa lama pekerja boleh menghantarnya.';
-    document.getElementById('label-opens-before').textContent = 'Tugasan dipaparkan (minit sebelum waktu dijadualkan)';
-    document.getElementById('label-window').textContent = 'Had masa penghantaran (minit dari tugasan dipaparkan)';
-    document.getElementById('settings-reset').textContent = 'Set Semula ke Asal';
-    document.getElementById('settings-save').textContent = 'Simpan Tetapan';
+    document.getElementById('tab-btn-task-timing').textContent = 'Masa Tugasan';
+    document.getElementById('label-opens-before').textContent = 'Dipaparkan awal';
+    document.getElementById('label-window').textContent = 'Had masa';
+    document.getElementById('settings-reset').textContent = 'Set Semula';
+    document.getElementById('settings-save').textContent = 'Simpan';
     document.getElementById('footer-rights').textContent = 'Hak cipta terpelihara.';
     
     // Report text translation
@@ -662,11 +676,11 @@ function toggleLanguage() {
     document.getElementById('nav-settings').textContent = 'Settings';
     document.getElementById('back-home-settings').textContent = '← Back to To-Do List';
     document.getElementById('settings-title').textContent = 'Settings';
-    document.getElementById('settings-desc').textContent = 'Control when tasks appear in the To-Do List and how long workers have to submit them.';
-    document.getElementById('label-opens-before').textContent = 'Task appears (minutes before scheduled time)';
-    document.getElementById('label-window').textContent = 'Submission time limit (minutes from when the task appears)';
-    document.getElementById('settings-reset').textContent = 'Reset to Default';
-    document.getElementById('settings-save').textContent = 'Save Settings';
+    document.getElementById('tab-btn-task-timing').textContent = 'Task Timing';
+    document.getElementById('label-opens-before').textContent = 'Appears early';
+    document.getElementById('label-window').textContent = 'Time limit';
+    document.getElementById('settings-reset').textContent = 'Reset';
+    document.getElementById('settings-save').textContent = 'Save';
     document.getElementById('footer-rights').textContent = 'All rights reserved.';
 
     // Report text translation

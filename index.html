@@ -167,29 +167,47 @@
       </div>
 
       <div class="module-page-card">
-        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
-          <h1 style="color: var(--accent-color); font-size: 2rem;" id="settings-title">Settings</h1>
-          <p style="color: var(--text-muted);" id="settings-desc">
-            Control when tasks appear in the To-Do List and how long workers have to submit them.
-          </p>
+        <h1 style="color: var(--accent-color); font-size: 2rem; margin-bottom: 1rem;" id="settings-title">Settings</h1>
+
+        <div class="settings-tabs" role="tablist">
+          <button type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-task-timing" id="tab-btn-task-timing">Task Timing</button>
         </div>
 
-        <form id="settings-form" onsubmit="saveTaskSettings(event)" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
-          <div class="module-group">
-            <label for="setting-opens-before" class="module-label" id="label-opens-before">Task appears (minutes before scheduled time)</label>
-            <input type="number" id="setting-opens-before" class="select-input" min="0" max="120" step="1" required oninput="updateSettingsPreview()">
+        <!-- Tab: Task Timing -->
+        <form id="tab-task-timing" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-task-timing" onsubmit="saveTaskSettings(event)">
+          <div class="slider-group">
+            <div class="slider-header">
+              <label for="setting-opens-before" id="label-opens-before">Appears early</label>
+              <span class="slider-value" id="value-opens-before"></span>
+            </div>
+            <input type="range" id="setting-opens-before" class="slider" min="0" max="120" step="5" oninput="onTaskSettingsInput('opens')">
           </div>
 
-          <div class="module-group">
-            <label for="setting-window" class="module-label" id="label-window">Submission time limit (minutes from when the task appears)</label>
-            <input type="number" id="setting-window" class="select-input" min="5" max="240" step="1" required oninput="updateSettingsPreview()">
+          <div class="slider-group">
+            <div class="slider-header">
+              <label for="setting-window" id="label-window">Time limit</label>
+              <span class="slider-value" id="value-window"></span>
+            </div>
+            <input type="range" id="setting-window" class="slider" min="5" max="240" step="5" oninput="onTaskSettingsInput('window')">
           </div>
 
-          <div class="coord-display" id="settings-preview" aria-live="polite"></div>
+          <!-- Example 6pm task window -->
+          <div class="timing-preview" aria-live="polite">
+            <div class="timing-scheduled-row">
+              <span class="timing-scheduled" id="preview-scheduled">6pm</span>
+            </div>
+            <div class="timing-bar">
+              <div class="timing-marker" id="timing-marker"></div>
+            </div>
+            <div class="timing-labels">
+              <span id="preview-opens"></span>
+              <span id="preview-closes"></span>
+            </div>
+          </div>
 
           <div class="sheet-actions">
-            <button type="button" class="btn btn-secondary" onclick="resetTaskSettings()" id="settings-reset">Reset to Default</button>
-            <button type="submit" class="btn" id="settings-save">Save Settings</button>
+            <button type="button" class="btn btn-secondary" onclick="resetTaskSettings()" id="settings-reset">Reset</button>
+            <button type="submit" class="btn" id="settings-save">Save</button>
           </div>
           <div id="settings-message" class="settings-message" aria-live="polite"></div>
         </form>
