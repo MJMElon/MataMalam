@@ -17,6 +17,7 @@
         <li><button class="nav-btn" onclick="toggleLanguage()" id="nav-lang">Language (EN)</button></li>
         <li><a onclick="showDonePage()" id="nav-done">History</a></li>
         <li><a onclick="showReportPage()" id="nav-about">Report</a></li>
+        <li><a onclick="showSettingsPage()" id="nav-settings">Settings</a></li>
       </ul>
     </nav>
   </header>
@@ -154,6 +155,44 @@
             </table>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Page View 4: Standalone Settings Page -->
+    <div id="settings-module-page" class="page-view module-page">
+      <div style="margin-bottom: 1.5rem;" class="no-print">
+        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-settings">
+          ← Back to To-Do List
+        </button>
+      </div>
+
+      <div class="module-page-card">
+        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+          <h1 style="color: var(--accent-color); font-size: 2rem;" id="settings-title">Settings</h1>
+          <p style="color: var(--text-muted);" id="settings-desc">
+            Control when tasks appear in the To-Do List and how long workers have to submit them.
+          </p>
+        </div>
+
+        <form id="settings-form" onsubmit="saveTaskSettings(event)" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
+          <div class="module-group">
+            <label for="setting-opens-before" class="module-label" id="label-opens-before">Task appears (minutes before scheduled time)</label>
+            <input type="number" id="setting-opens-before" class="select-input" min="0" max="120" step="1" required oninput="updateSettingsPreview()">
+          </div>
+
+          <div class="module-group">
+            <label for="setting-window" class="module-label" id="label-window">Submission time limit (minutes from when the task appears)</label>
+            <input type="number" id="setting-window" class="select-input" min="5" max="240" step="1" required oninput="updateSettingsPreview()">
+          </div>
+
+          <div class="coord-display" id="settings-preview" aria-live="polite"></div>
+
+          <div class="sheet-actions">
+            <button type="button" class="btn btn-secondary" onclick="resetTaskSettings()" id="settings-reset">Reset to Default</button>
+            <button type="submit" class="btn" id="settings-save">Save Settings</button>
+          </div>
+          <div id="settings-message" class="settings-message" aria-live="polite"></div>
+        </form>
       </div>
     </div>
   </main>

@@ -23,6 +23,16 @@ function showDonePage() {
   window.scrollTo(0, 0);
 }
 
+function showSettingsPage() {
+  stopActiveCamera();
+  document.querySelectorAll('.page-view').forEach(page => {
+    page.style.display = 'none';
+  });
+  document.getElementById('settings-module-page').style.display = 'block';
+  loadTaskSettingsForm();
+  window.scrollTo(0, 0);
+}
+
 function showReportPage() {
   stopActiveCamera();
   document.querySelectorAll('.page-view').forEach(page => {
@@ -46,9 +56,10 @@ const TASK_LOCATIONS = ['BNN', 'UNN1', 'UNN2'];
 const TASK_TIME_SLOTS = ['6pm', '9pm', '12am', '3am', '6am'];
 // Hours after midnight at the start of the shift date; Date rolls 24+ over into the next day
 const TASK_SLOT_HOURS = { '6pm': 18, '9pm': 21, '12am': 24, '3am': 27, '6am': 30 };
-// A task appears 15 minutes before its scheduled time and must be submitted within one hour
-const TASK_OPENS_BEFORE_MS = 15 * 60 * 1000;
-const TASK_WINDOW_MS = 60 * 60 * 1000;
+// Default timing: a task appears 15 minutes before its scheduled time and must be submitted
+// within one hour of appearing. Admins can change both in Settings.
+const DEFAULT_TASK_SETTINGS = { opensBeforeMinutes: 15, windowMinutes: 60 };
+const MINUTE_MS = 60 * 1000;
 const HISTORY_SHIFTS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -63,11 +74,86 @@ function getShiftDate(now = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function getTaskWindow(date, time) {
+function getTaskSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('mata_malam_task_settings'));
+    if (saved && Number.isFinite(saved.opensBeforeMinutes) && Number.isFinite(saved.windowMinutes)) return saved;
+  } catch (err) {}
+  return { ...DEFAULT_TASK_SETTINGS };
+}
+
+function getTaskWindow(date, time, settings = getTaskSettings()) {
   const [year, month, day] = date.split('-').map(Number);
   const scheduledAt = new Date(year, month - 1, day, TASK_SLOT_HOURS[time]).getTime();
-  const opensAt = scheduledAt - TASK_OPENS_BEFORE_MS;
-  return { scheduledAt, opensAt, closesAt: opensAt + TASK_WINDOW_MS };
+  const opensAt = scheduledAt - settings.opensBeforeMinutes * MINUTE_MS;
+  return { scheduledAt, opensAt, closesAt: opensAt + settings.windowMinutes * MINUTE_MS };
+}
+
+// Returns an error message, or null when the timing values are allowed
+function validateTaskSettings(settings) {
+  const { opensBeforeMinutes, windowMinutes } = settings;
+  if (!Number.isInteger(opensBeforeMinutes) || opensBeforeMinutes < 0 || opensBeforeMinutes > 120) {
+    return currentLang === 'BM' ? 'Masa paparan mestilah antara 0 hingga 120 minit.' : 'Task appears time must be between 0 and 120 minutes.';
+  }
+  if (!Number.isInteger(windowMinutes) || windowMinutes < 5 || windowMinutes > 240) {
+    return currentLang === 'BM' ? 'Had masa penghantaran mestilah antara 5 hingga 240 minit.' : 'Submission time limit must be between 5 and 240 minutes.';
+  }
+  if (windowMinutes <= opensBeforeMinutes) {
+    return currentLang === 'BM'
+      ? 'Had masa penghantaran mesti lebih panjang daripada masa paparan, supaya tarikh akhir selepas waktu dijadualkan.'
+      : 'Submission time limit must be longer than the appear-before time, so the deadline falls after the scheduled time.';
+  }
+  return null;
+}
+
+function readTaskSettingsForm() {
+  return {
+    opensBeforeMinutes: Number(document.getElementById('setting-opens-before').value),
+    windowMinutes: Number(document.getElementById('setting-window').value)
+  };
+}
+
+function loadTaskSettingsForm(settings = getTaskSettings()) {
+  document.getElementById('setting-opens-before').value = settings.opensBeforeMinutes;
+  document.getElementById('setting-window').value = settings.windowMinutes;
+  document.getElementById('settings-message').textContent = '';
+  updateSettingsPreview();
+}
+
+function updateSettingsPreview() {
+  const settings = readTaskSettingsForm();
+  const preview = document.getElementById('settings-preview');
+  const error = validateTaskSettings(settings);
+  if (error) {
+    preview.textContent = error;
+    preview.classList.add('settings-invalid');
+    return;
+  }
+  preview.classList.remove('settings-invalid');
+  const { opensAt, closesAt } = getTaskWindow(getShiftDate(), '6pm', settings);
+  preview.textContent = currentLang === 'BM'
+    ? `Contoh tugasan 6pm: dipaparkan pada ${formatClock(opensAt)}, mesti dihantar sebelum ${formatClock(closesAt)}.`
+    : `Example 6pm task: appears at ${formatClock(opensAt)}, must be submitted by ${formatClock(closesAt)}.`;
+}
+
+function saveTaskSettings(event) {
+  event.preventDefault();
+  const settings = readTaskSettingsForm();
+  const message = document.getElementById('settings-message');
+  const error = validateTaskSettings(settings);
+  if (error) {
+    message.style.color = 'var(--error-color)';
+    message.textContent = error;
+    return;
+  }
+  localStorage.setItem('mata_malam_task_settings', JSON.stringify(settings));
+  message.style.color = '#3fb950';
+  message.textContent = currentLang === 'BM' ? 'Tetapan disimpan.' : 'Settings saved.';
+  renderTasks();
+}
+
+function resetTaskSettings() {
+  loadTaskSettingsForm(DEFAULT_TASK_SETTINGS);
 }
 
 function getLogs() {
@@ -91,13 +177,14 @@ function getTrackingStart() {
 // Records "Work Not Completed" for every task whose window closed without a submission
 function recordMissedTasks(now = Date.now()) {
   const trackingStart = getTrackingStart();
+  const settings = getTaskSettings();
   const logs = getLogs();
   let changed = false;
 
   for (let i = 31; i >= 0; i--) {
     const date = getShiftDate(new Date(now - i * DAY_MS));
     TASK_TIME_SLOTS.forEach(time => {
-      const { closesAt } = getTaskWindow(date, time);
+      const { closesAt } = getTaskWindow(date, time, settings);
       if (closesAt > now || closesAt <= trackingStart) return;
       TASK_LOCATIONS.forEach(location => {
         if (logs.some(l => l.date === date && l.time === time && l.location === location)) return;
@@ -536,6 +623,14 @@ function toggleLanguage() {
     document.getElementById('sheet-capture').textContent = 'Ambil Gambar';
     document.getElementById('sheet-submit').textContent = 'Hantar';
     document.getElementById('nav-about').textContent = 'Laporan';
+    document.getElementById('nav-settings').textContent = 'Tetapan';
+    document.getElementById('back-home-settings').textContent = '← Kembali ke Senarai Tugasan';
+    document.getElementById('settings-title').textContent = 'Tetapan';
+    document.getElementById('settings-desc').textContent = 'Tetapkan bila tugasan dipaparkan dalam Senarai Tugasan dan berapa lama pekerja boleh menghantarnya.';
+    document.getElementById('label-opens-before').textContent = 'Tugasan dipaparkan (minit sebelum waktu dijadualkan)';
+    document.getElementById('label-window').textContent = 'Had masa penghantaran (minit dari tugasan dipaparkan)';
+    document.getElementById('settings-reset').textContent = 'Set Semula ke Asal';
+    document.getElementById('settings-save').textContent = 'Simpan Tetapan';
     document.getElementById('footer-rights').textContent = 'Hak cipta terpelihara.';
     
     // Report text translation
@@ -564,6 +659,14 @@ function toggleLanguage() {
     document.getElementById('sheet-capture').textContent = 'Capture';
     document.getElementById('sheet-submit').textContent = 'Submit';
     document.getElementById('nav-about').textContent = 'Report';
+    document.getElementById('nav-settings').textContent = 'Settings';
+    document.getElementById('back-home-settings').textContent = '← Back to To-Do List';
+    document.getElementById('settings-title').textContent = 'Settings';
+    document.getElementById('settings-desc').textContent = 'Control when tasks appear in the To-Do List and how long workers have to submit them.';
+    document.getElementById('label-opens-before').textContent = 'Task appears (minutes before scheduled time)';
+    document.getElementById('label-window').textContent = 'Submission time limit (minutes from when the task appears)';
+    document.getElementById('settings-reset').textContent = 'Reset to Default';
+    document.getElementById('settings-save').textContent = 'Save Settings';
     document.getElementById('footer-rights').textContent = 'All rights reserved.';
 
     // Report text translation
@@ -583,6 +686,7 @@ function toggleLanguage() {
     document.getElementById('th-status').textContent = 'Status';
   }
   renderTasks();
+  updateSettingsPreview();
 }
 
 // Initialize state on load

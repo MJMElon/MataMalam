@@ -460,6 +460,18 @@ button.task-item:hover {
   font-size: 0.9rem;
 }
 
+/* Settings Page */
+.settings-message {
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-height: 1.2rem;
+  text-align: center;
+}
+
+.coord-display.settings-invalid {
+  color: var(--error-color);
+}
+
 /* Standalone Page View Management */
 .page-view {
   display: block;
