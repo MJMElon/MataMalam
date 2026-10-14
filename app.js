@@ -20,32 +20,30 @@ function switchSettingsTab(tabName) {
 // Sign-in management logic
 function handleSignIn(event) {
   event.preventDefault();
-  const phone = document.getElementById('signin-phone').value.trim();
   const pin = document.getElementById('signin-pin').value.trim();
   const errorDiv = document.getElementById('signin-error');
 
-  if (!phone || !pin) {
-    errorDiv.textContent = currentLang === 'BM' ? 'Sila masukkan nombor telefon dan PIN.' : 'Please enter phone number and PIN.';
+  if (!pin) {
+    errorDiv.textContent = currentLang === 'BM' ? 'Sila masukkan PIN.' : 'Please enter your PIN.';
     return;
   }
 
   // Check if user is registered in registered_users
   const registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
-  const matchedUser = registeredUsers.find(u => u.phone === phone && u.pin === pin);
+  const matchedUser = registeredUsers.find(u => u.pin === pin);
 
   if (!matchedUser) {
-    errorDiv.textContent = currentLang === 'BM' ? 'Nombor telefon atau PIN tidak sah / belum berdaftar.' : 'Invalid credentials or phone number not registered under User Management.';
+    errorDiv.textContent = currentLang === 'BM' ? 'PIN tidak sah / belum berdaftar.' : 'Invalid PIN or PIN not registered under User Management.';
     return;
   }
 
   errorDiv.textContent = '';
-  localStorage.setItem('mata_malam_user', phone);
+  localStorage.setItem('mata_malam_user', matchedUser.phone);
   updateAuthState();
 }
 
 function handleSignOut() {
   localStorage.removeItem('mata_malam_user');
-  document.getElementById('signin-phone').value = '';
   document.getElementById('signin-pin').value = '';
   updateAuthState();
   showHomePage();
@@ -233,6 +231,13 @@ function handleRegister(event) {
     return;
   }
 
+  // PIN is the only sign-in credential, so it must be unique per user
+  if (registeredUsers.some(u => u.pin === pin)) {
+    msgDiv.style.color = 'var(--error-color)';
+    msgDiv.textContent = currentLang === 'BM' ? 'PIN sudah digunakan. Sila pilih PIN lain.' : 'PIN is already in use. Please choose a different PIN.';
+    return;
+  }
+
   registeredUsers.push({ phone, pin, role: 'Worker', permissions: { bnn: true, unn1: true, unn2: true } });
   localStorage.setItem('mata_malam_registered_users', JSON.stringify(registeredUsers));
 
@@ -394,7 +399,6 @@ function toggleLanguage() {
     document.getElementById('hero-desc').textContent = 'Ambil Gambar • Rekod Masa • Pantau Kerja';
     document.getElementById('hero-btn').textContent = 'Selaraskan Data';
     document.getElementById('signin-title').textContent = 'Log Masuk';
-    document.getElementById('label-phone').textContent = 'Nombor Telefon';
     document.getElementById('label-pin').textContent = 'PIN';
     document.getElementById('signin-btn').textContent = 'Log Masuk';
     document.getElementById('welcome-text').textContent = 'Berjaya log masuk';
@@ -435,7 +439,6 @@ function toggleLanguage() {
     document.getElementById('hero-desc').textContent = 'Take Pictures • Record Time • Monitor Work';
     document.getElementById('hero-btn').textContent = 'Synchronize Data';
     document.getElementById('signin-title').textContent = 'Sign In';
-    document.getElementById('label-phone').textContent = 'Phone Number';
     document.getElementById('label-pin').textContent = 'PIN';
     document.getElementById('signin-btn').textContent = 'Sign In';
     document.getElementById('welcome-text').textContent = 'Signed in successfully';
