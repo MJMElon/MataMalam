@@ -272,7 +272,6 @@ async function submitTask() {
 
   closeSubmitSheet();
   renderTasks();
-  updateDashboardProgress();
 }
 
 function closeSubmitSheet() {
@@ -418,30 +417,6 @@ function renderRegisteredUsersList() {
   }).join('');
 }
 
-function updateDashboardProgress() {
-  const logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
-  const today = getShiftDate();
-  
-  const modules = ['bnn', 'unn1', 'unn2'];
-  modules.forEach(mod => {
-    const count = logs.filter(log => log.location === mod.toUpperCase() && log.date === today).length;
-    const target = 5;
-    const percentage = Math.min(Math.round((count / target) * 100), 100);
-
-    document.getElementById(`dash-count-${mod}`).textContent = `${count} / ${target} Photos`;
-    document.getElementById(`dash-pct-${mod}`).textContent = `${percentage}%`;
-    
-    const fillBar = document.getElementById(`dash-fill-${mod}`);
-    fillBar.style.width = `${percentage}%`;
-    
-    if (percentage >= 100) {
-      fillBar.classList.add('complete');
-    } else {
-      fillBar.classList.remove('complete');
-    }
-  });
-}
-
 function populateReportYearDropdown() {
   const logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
   const yearSelect = document.getElementById('report-year-select');
@@ -519,8 +494,6 @@ function toggleLanguage() {
     document.getElementById('sheet-submit').textContent = 'Hantar';
     document.getElementById('nav-about').textContent = 'Laporan';
     document.getElementById('nav-settings').textContent = 'Tetapan';
-    document.getElementById('dash-title').textContent = 'Papan Pemuka Penyelesaian Langsung Hari Ini';
-    document.getElementById('dash-target-text').textContent = 'Sasaran: 5 Gambar / Hari = 100%';
     document.getElementById('footer-rights').textContent = 'Hak cipta terpelihara.';
     
     // Report text translation
@@ -558,8 +531,6 @@ function toggleLanguage() {
     document.getElementById('sheet-submit').textContent = 'Submit';
     document.getElementById('nav-about').textContent = 'Report';
     document.getElementById('nav-settings').textContent = 'Settings';
-    document.getElementById('dash-title').textContent = "Today's Live Completion Dashboard";
-    document.getElementById('dash-target-text').textContent = 'Target: 5 Photos / Day = 100%';
     document.getElementById('footer-rights').textContent = 'All rights reserved.';
 
     // Report text translation
@@ -594,5 +565,4 @@ function toggleLanguage() {
 // Initialize state on load
 window.onload = function() {
   renderTasks();
-  updateDashboardProgress();
 };
