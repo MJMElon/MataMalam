@@ -35,6 +35,7 @@
         <!-- Sign In Section -->
         <div id="signin-section" class="signin-container">
           <h3 id="signin-title">Sign In</h3>
+          <div id="bootstrap-notice" style="display: none; background-color: var(--bg-color); border: 1px solid var(--accent-color); border-radius: 4px; padding: 0.75rem; margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-muted);"></div>
           <form id="signin-form" onsubmit="handleSignIn(event)">
             <div class="form-group">
               <label for="signin-phone" id="label-phone">Phone Number</label>
@@ -59,7 +60,7 @@
       <!-- Protected Area: Shown only after sign in -->
       <div id="protected-content" style="display: none;">
         <!-- Live Dashboard Section -->
-        <section class="dashboard-container">
+        <section class="dashboard-container" id="dashboard-section">
           <div class="dashboard-header">
             <div class="dashboard-title">
               <span class="live-indicator"></span>
@@ -70,7 +71,7 @@
 
           <div class="dashboard-grid">
             <!-- BNN Live Progress -->
-            <div class="dash-card">
+            <div class="dash-card" id="dash-card-bnn">
               <div class="dash-card-header">
                 <span id="dash-label-bnn">BNN</span>
                 <span class="dash-count" id="dash-count-bnn">0 / 5 Photos</span>
@@ -82,7 +83,7 @@
             </div>
 
             <!-- UNN1 Live Progress -->
-            <div class="dash-card">
+            <div class="dash-card" id="dash-card-unn1">
               <div class="dash-card-header">
                 <span id="dash-label-unn1">UNN1</span>
                 <span class="dash-count" id="dash-count-unn1">0 / 5 Photos</span>
@@ -94,7 +95,7 @@
             </div>
 
             <!-- UNN2 Live Progress -->
-            <div class="dash-card">
+            <div class="dash-card" id="dash-card-unn2">
               <div class="dash-card-header">
                 <span id="dash-label-unn2">UNN2</span>
                 <span class="dash-count" id="dash-count-unn2">0 / 5 Photos</span>
@@ -107,19 +108,24 @@
           </div>
         </section>
 
+        <div id="no-access-notice" class="module-page-card" style="display: none; text-align: center; margin-bottom: 3rem;">
+          <h3 style="color: var(--error-color); margin-bottom: 0.5rem;" id="no-access-title">No Locations Assigned</h3>
+          <p style="color: var(--text-muted);" id="no-access-desc">Your account has no locations assigned yet. Please contact your administrator.</p>
+        </div>
+
         <section class="grid" id="features">
           <!-- BNN Card -->
-          <div class="card" onclick="enterModule('bnn')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('bnn')">
+          <div class="card" id="card-bnn" onclick="enterModule('bnn')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('bnn')">
             <h3 id="card-title-bnn">BNN</h3>
           </div>
 
           <!-- UNN1 Card -->
-          <div class="card" onclick="enterModule('unn1')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('unn1')">
+          <div class="card" id="card-unn1" onclick="enterModule('unn1')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('unn1')">
             <h3 id="card-title-unn1">UNN1</h3>
           </div>
 
           <!-- UNN2 Card -->
-          <div class="card" onclick="enterModule('unn2')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('unn2')">
+          <div class="card" id="card-unn2" onclick="enterModule('unn2')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('unn2')">
             <h3 id="card-title-unn2">UNN2</h3>
           </div>
         </section>
@@ -334,10 +340,7 @@
             <div class="module-group">
               <label for="report-module-select" class="module-label" id="label-report-module">Select Location</label>
               <select id="report-module-select" class="select-input" onchange="generateReport()">
-                <option value="ALL" id="opt-all">All Locations</option>
-                <option value="BNN">BNN</option>
-                <option value="UNN1">UNN1</option>
-                <option value="UNN2">UNN2</option>
+                <!-- Options rendered dynamically from the signed-in user's permissions -->
               </select>
             </div>
           </div>
@@ -385,8 +388,8 @@
             </div>
           </div>
 
-          <!-- Settings Tabs (Add New User & User Management) -->
-          <div style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem;">
+          <!-- Settings Tabs (Add New User & User Management) - HQ Admin only -->
+          <div id="settings-admin-section" style="background-color: var(--bg-color); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem;">
             <div class="settings-tabs">
               <button class="tab-btn active" onclick="switchSettingsTab('register')" id="tab-btn-register">Add New User</button>
               <button class="tab-btn" onclick="switchSettingsTab('registered')" id="tab-btn-registered">User Management</button>

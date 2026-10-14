@@ -1,5 +1,117 @@
 let activeStream = null;
 
+// All selectable locations, in display order.
+const MODULES = ['bnn', 'unn1', 'unn2'];
+
+// Account used to bootstrap the very first install, when no users exist yet.
+const STARTER_ADMIN = { phone: '0000', pin: '0000' };
+
+function getRegisteredUsers() {
+  return JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
+}
+
+function saveRegisteredUsers(users) {
+  localStorage.setItem('mata_malam_registered_users', JSON.stringify(users));
+}
+
+function getCurrentUser() {
+  const phone = localStorage.getItem('mata_malam_user');
+  if (!phone) return null;
+  return getRegisteredUsers().find(u => u.phone === phone) || null;
+}
+
+function isAdmin() {
+  const user = getCurrentUser();
+  return !!user && user.role === 'HQ Admin';
+}
+
+// Locations the signed-in user may see. HQ Admin sees everything; for everyone
+// else a location counts as allowed unless its permission is explicitly false,
+// so accounts created before permissions were enforced keep working until an
+// admin unticks them.
+function getAllowedModules() {
+  const user = getCurrentUser();
+  if (!user) return [];
+  if (user.role === 'HQ Admin') return MODULES.slice();
+  const perms = user.permissions || {};
+  return MODULES.filter(mod => perms[mod] !== false);
+}
+
+function canAccessModule(moduleName) {
+  return getAllowedModules().includes(moduleName);
+}
+
+// An HQ Admin must always exist, otherwise nobody can reach the admin-only
+// User Management screen. Returns 'seeded' when a starter admin had to be
+// created, so the caller can surface its credentials.
+function ensureAdminExists() {
+  const users = getRegisteredUsers();
+
+  if (users.length === 0) {
+    users.push({
+      phone: STARTER_ADMIN.phone,
+      pin: STARTER_ADMIN.pin,
+      role: 'HQ Admin',
+      permissions: { bnn: true, unn1: true, unn2: true }
+    });
+    saveRegisteredUsers(users);
+    return 'seeded';
+  }
+
+  if (!users.some(u => u.role === 'HQ Admin')) {
+    users[0].role = 'HQ Admin';
+    saveRegisteredUsers(users);
+    return 'promoted';
+  }
+
+  return 'ok';
+}
+
+function showBootstrapNotice(state) {
+  const notice = document.getElementById('bootstrap-notice');
+  if (!notice) return;
+
+  if (state !== 'seeded') {
+    notice.style.display = 'none';
+    return;
+  }
+
+  notice.style.display = 'block';
+  notice.innerHTML = currentLang === 'BM'
+    ? `Tiada pengguna berdaftar, jadi akaun HQ Admin permulaan telah dibuat &mdash; Telefon: <strong>${STARTER_ADMIN.phone}</strong>, PIN: <strong>${STARTER_ADMIN.pin}</strong>. Log masuk, tambah pengguna sebenar, kemudian tukar peranan akaun ini.`
+    : `No users were registered, so a starter HQ Admin account was created &mdash; Phone: <strong>${STARTER_ADMIN.phone}</strong>, PIN: <strong>${STARTER_ADMIN.pin}</strong>. Sign in, add your real users, then change this account's role.`;
+}
+
+function permissionDeniedMessage() {
+  return currentLang === 'BM'
+    ? 'Anda tidak mempunyai kebenaran untuk lokasi ini.'
+    : 'You do not have permission to access this location.';
+}
+
+// Show only the locations the signed-in user is allowed to see.
+function applyAccessControl() {
+  const allowed = getAllowedModules();
+
+  MODULES.forEach(mod => {
+    const visible = allowed.includes(mod);
+    const card = document.getElementById(`card-${mod}`);
+    const tile = document.getElementById(`dash-card-${mod}`);
+    if (card) card.style.display = visible ? 'block' : 'none';
+    if (tile) tile.style.display = visible ? 'block' : 'none';
+  });
+
+  const hasAccess = allowed.length > 0;
+  const dashboard = document.getElementById('dashboard-section');
+  const features = document.getElementById('features');
+  const notice = document.getElementById('no-access-notice');
+  if (dashboard) dashboard.style.display = hasAccess ? 'block' : 'none';
+  if (features) features.style.display = hasAccess ? 'grid' : 'none';
+  if (notice) notice.style.display = hasAccess ? 'none' : 'block';
+
+  const adminSection = document.getElementById('settings-admin-section');
+  if (adminSection) adminSection.style.display = isAdmin() ? 'block' : 'none';
+}
+
 document.getElementById('year').textContent = new Date().getFullYear();
 
 // Settings tab switching logic
@@ -30,7 +142,7 @@ function handleSignIn(event) {
   }
 
   // Check if user is registered in registered_users
-  const registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
+  const registeredUsers = getRegisteredUsers();
   const matchedUser = registeredUsers.find(u => u.phone === phone && u.pin === pin);
 
   if (!matchedUser) {
@@ -68,11 +180,12 @@ function updateAuthState() {
     protectedContent.style.display = 'block';
     if (syncBtn) syncBtn.style.display = 'inline-block'; 
     if (navAbout) navAbout.style.display = 'inline'; 
-    if (navSettings) navSettings.style.display = 'inline'; 
+    if (navSettings) navSettings.style.display = isAdmin() ? 'inline' : 'none'; // Settings is HQ Admin only
     if (navSignout) navSignout.style.display = 'inline-block'; // Show Sign Out in header
     if (loggedPhoneSpan) loggedPhoneSpan.textContent = loggedUser;
     const settingsDisplay = document.getElementById('settings-user-display');
     if (settingsDisplay) settingsDisplay.textContent = loggedUser;
+    applyAccessControl();
   } else {
     signinSection.style.display = 'block';
     welcomeBox.style.display = 'none';
@@ -95,6 +208,11 @@ function showHomePage() {
 }
 
 function enterModule(moduleName) {
+  if (!canAccessModule(moduleName)) {
+    alert(permissionDeniedMessage());
+    showHomePage();
+    return;
+  }
   stopActiveCamera();
   document.querySelectorAll('.page-view').forEach(page => {
     page.style.display = 'none';
@@ -110,12 +228,20 @@ function showReportPage() {
     page.style.display = 'none';
   });
   document.getElementById('report-module-page').style.display = 'block';
+  populateReportLocationDropdown();
   populateReportYearDropdown();
   generateReport();
   window.scrollTo(0, 0);
 }
 
 function showSettingsPage() {
+  if (!isAdmin()) {
+    alert(currentLang === 'BM'
+      ? 'Hanya HQ Admin boleh membuka Tetapan.'
+      : 'Only an HQ Admin can open Settings.');
+    showHomePage();
+    return;
+  }
   stopActiveCamera();
   document.querySelectorAll('.page-view').forEach(page => {
     page.style.display = 'none';
@@ -181,6 +307,12 @@ function handleFile(event, moduleName) {
 function submitData(event, moduleName) {
   event.preventDefault();
 
+  if (!canAccessModule(moduleName)) {
+    alert(permissionDeniedMessage());
+    showHomePage();
+    return;
+  }
+
   const date = document.getElementById(`date-val-${moduleName}`).textContent;
   const coord = document.getElementById(`coord-val-${moduleName}`).textContent;
   const timeRadios = document.getElementsByName(`${moduleName}-time`);
@@ -214,6 +346,8 @@ function submitData(event, moduleName) {
 
 function handleRegister(event) {
   event.preventDefault();
+
+  if (!isAdmin()) return;
   const phone = document.getElementById('reg-phone').value.trim();
   const pin = document.getElementById('reg-pin').value.trim();
   const msgDiv = document.getElementById('reg-message');
@@ -224,7 +358,7 @@ function handleRegister(event) {
     return;
   }
 
-  let registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
+  let registeredUsers = getRegisteredUsers();
   const existing = registeredUsers.find(u => u.phone === phone);
   
   if (existing) {
@@ -233,8 +367,8 @@ function handleRegister(event) {
     return;
   }
 
-  registeredUsers.push({ phone, pin, role: 'Worker', permissions: { bnn: true, unn1: true, unn2: true } });
-  localStorage.setItem('mata_malam_registered_users', JSON.stringify(registeredUsers));
+  registeredUsers.push({ phone, pin, role: 'Worker', permissions: { bnn: false, unn1: false, unn2: false } });
+  saveRegisteredUsers(registeredUsers);
 
   msgDiv.style.color = 'var(--success-color)';
   msgDiv.textContent = currentLang === 'BM' ? 'Pengguna berjaya didaftarkan!' : 'User registered successfully!';
@@ -245,27 +379,51 @@ function handleRegister(event) {
 }
 
 function updateRole(phone, newRole) {
-  let registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
+  if (!isAdmin()) return;
+
+  let registeredUsers = getRegisteredUsers();
   const user = registeredUsers.find(u => u.phone === phone);
   if (user) {
     user.role = newRole;
-    localStorage.setItem('mata_malam_registered_users', JSON.stringify(registeredUsers));
+    saveRegisteredUsers(registeredUsers);
+    reflectUserChange(phone);
   }
 }
 
 function updatePermission(phone, moduleKey, isChecked) {
-  let registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
+  if (!isAdmin()) return;
+
+  let registeredUsers = getRegisteredUsers();
   const user = registeredUsers.find(u => u.phone === phone);
   if (user) {
     if (!user.permissions) user.permissions = { bnn: true, unn1: true, unn2: true };
     user.permissions[moduleKey] = isChecked;
-    localStorage.setItem('mata_malam_registered_users', JSON.stringify(registeredUsers));
+    saveRegisteredUsers(registeredUsers);
+    reflectUserChange(phone);
   }
+}
+
+// When an admin edits their own account, re-apply the UI immediately, and leave
+// the admin screen if they just dropped their own HQ Admin role.
+function reflectUserChange(phone) {
+  if (phone !== localStorage.getItem('mata_malam_user')) return;
+  const stillAdmin = isAdmin();
+  updateAuthState();
+  updateDashboardProgress();
+  if (!stillAdmin) showHomePage();
 }
 
 function renderRegisteredUsersList() {
   const container = document.getElementById('registered-users-list');
-  const registeredUsers = JSON.parse(localStorage.getItem('mata_malam_registered_users')) || [];
+  if (!container) return;
+
+  // Never render the user list for a non-admin, even into hidden markup.
+  if (!isAdmin()) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const registeredUsers = getRegisteredUsers();
 
   if (registeredUsers.length === 0) {
     container.textContent = currentLang === 'BM' ? 'Tiada nombor telefon berdaftar.' : 'No registered phone numbers.';
@@ -303,8 +461,8 @@ function updateDashboardProgress() {
   const logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
   const today = new Date().toISOString().split('T')[0];
   
-  const modules = ['bnn', 'unn1', 'unn2'];
-  modules.forEach(mod => {
+  // Only the signed-in user's own locations.
+  getAllowedModules().forEach(mod => {
     const count = logs.filter(log => log.location === mod.toUpperCase() && log.date === today).length;
     const target = 5;
     const percentage = Math.min(Math.round((count / target) * 100), 100);
@@ -323,8 +481,28 @@ function updateDashboardProgress() {
   });
 }
 
+// The Location dropdown only offers locations the signed-in user may see.
+// "All Locations" only appears when there is more than one to choose between.
+function populateReportLocationDropdown() {
+  const select = document.getElementById('report-module-select');
+  if (!select) return;
+
+  const allowed = getAllowedModules();
+  const allLabel = currentLang === 'BM' ? 'Semua Lokasi' : 'All Locations';
+
+  let html = allowed.length > 1
+    ? `<option value="ALL" id="opt-all">${allLabel}</option>`
+    : '';
+  allowed.forEach(mod => {
+    const label = mod.toUpperCase();
+    html += `<option value="${label}">${label}</option>`;
+  });
+
+  select.innerHTML = html;
+}
+
 function populateReportYearDropdown() {
-  const logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
+  const logs = getVisibleLogs();
   const yearSelect = document.getElementById('report-year-select');
   
   yearSelect.innerHTML = `<option value="" id="opt-all-years">${currentLang === 'BM' ? 'Semua Tahun' : 'All Years'}</option>`;
@@ -338,8 +516,15 @@ function populateReportYearDropdown() {
   });
 }
 
-function generateReport() {
+// Log entries belonging to the signed-in user's own locations.
+function getVisibleLogs() {
   const logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
+  const allowed = getAllowedModules().map(mod => mod.toUpperCase());
+  return logs.filter(log => allowed.includes(log.location));
+}
+
+function generateReport() {
+  const logs = getVisibleLogs();
   const selectedMonth = document.getElementById('report-month-select').value;
   const selectedYear = document.getElementById('report-year-select').value;
   const selectedModule = document.getElementById('report-module-select').value;
@@ -382,6 +567,14 @@ function handleClick() {
   alert(currentLang === 'BM' ? 'Data berjaya diselaraskan dengan pelayan!' : 'Data synchronized successfully with server!');
 }
 
+// Writes text only when the element exists. The Location dropdown and the
+// no-access notice are built or hidden conditionally, so their nodes may be
+// absent when the language is toggled.
+function setTextIfPresent(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
 // Language Toggle logic
 let currentLang = 'EN';
 function toggleLanguage() {
@@ -414,7 +607,9 @@ function toggleLanguage() {
     document.getElementById('label-report-module').textContent = 'Pilih Lokasi';
     document.getElementById('opt-all-months').textContent = 'Semua Bulan';
     document.getElementById('opt-all-years').textContent = 'Semua Tahun';
-    document.getElementById('opt-all').textContent = 'Semua Lokasi';
+    setTextIfPresent('opt-all', 'Semua Lokasi');
+    setTextIfPresent('no-access-title', 'Tiada Lokasi Diberikan');
+    setTextIfPresent('no-access-desc', 'Akaun anda belum diberikan sebarang lokasi. Sila hubungi pentadbir anda.');
     document.getElementById('th-location').textContent = 'Lokasi';
     document.getElementById('th-date').textContent = 'Tarikh';
     document.getElementById('th-timeslot').textContent = 'Slot Masa';
@@ -455,7 +650,9 @@ function toggleLanguage() {
     document.getElementById('label-report-module').textContent = 'Select Location';
     document.getElementById('opt-all-months').textContent = 'All Months';
     document.getElementById('opt-all-years').textContent = 'All Years';
-    document.getElementById('opt-all').textContent = 'All Locations';
+    setTextIfPresent('opt-all', 'All Locations');
+    setTextIfPresent('no-access-title', 'No Locations Assigned');
+    setTextIfPresent('no-access-desc', 'Your account has no locations assigned yet. Please contact your administrator.');
     document.getElementById('th-location').textContent = 'Location';
     document.getElementById('th-date').textContent = 'Date';
     document.getElementById('th-timeslot').textContent = 'Time Slot';
@@ -473,10 +670,15 @@ function toggleLanguage() {
     document.getElementById('label-registered-list').textContent = 'Registered Phone Numbers & Permissions:';
   }
   renderRegisteredUsersList();
+  populateReportLocationDropdown();
+  showBootstrapNotice(bootstrapState);
 }
 
 // Initialize state on load
+let bootstrapState = 'ok';
 window.onload = function() {
+  bootstrapState = ensureAdminExists();
+  showBootstrapNotice(bootstrapState);
   updateAuthState();
   updateDashboardProgress();
 };
