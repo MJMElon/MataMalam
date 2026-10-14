@@ -25,13 +25,12 @@
   <main>
     <!-- Page View 1: Main Home Page -->
     <div id="home-page" class="page-view">
-      <section class="hero" id="home">
-        <h1 id="hero-title">Welcome to Mata Malam</h1>
-        <p id="hero-desc">Take Pictures • Record Time • Monitor Work</p>
+      <section class="hero" id="hero-section">
+        <div id="hero-text">
+          <h1 id="hero-title">Welcome to Mata Malam</h1>
+          <p id="hero-desc">Take Pictures • Record Time • Monitor Work</p>
+        </div>
         
-        <!-- Synchronize Data Button: Hidden by default until signed in -->
-        <button class="btn" id="hero-btn" onclick="handleClick()" style="display: none; margin-bottom: 1rem;">Synchronize Data</button>
-
         <!-- Sign In Section -->
         <div id="signin-section" class="signin-container">
           <h3 id="signin-title">Sign In</h3>
@@ -59,231 +58,86 @@
 
       <!-- Protected Area: Shown only after sign in -->
       <div id="protected-content" style="display: none;">
-        <!-- Live Dashboard Section -->
-        <section class="dashboard-container" id="dashboard-section">
-          <div class="dashboard-header">
-            <div class="dashboard-title">
-              <span class="live-indicator"></span>
-              <span id="dash-title">Today's Live Completion Dashboard</span>
-            </div>
-            <span style="font-size: 0.85rem; color: var(--text-muted);" id="dash-target-text">Target: 5 Photos / Day = 100%</span>
-          </div>
+        <!-- Flash message shown after a task is submitted -->
+        <div id="flash" role="status" style="display: none;"></div>
 
-          <div class="dashboard-grid">
-            <!-- BNN Live Progress -->
-            <div class="dash-card" id="dash-card-bnn">
-              <div class="dash-card-header">
-                <span id="dash-label-bnn">BNN</span>
-                <span class="dash-count" id="dash-count-bnn">0 / 5 Photos</span>
-              </div>
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="dash-fill-bnn"></div>
-              </div>
-              <div class="dash-percent" id="dash-pct-bnn">0%</div>
-            </div>
-
-            <!-- UNN1 Live Progress -->
-            <div class="dash-card" id="dash-card-unn1">
-              <div class="dash-card-header">
-                <span id="dash-label-unn1">UNN1</span>
-                <span class="dash-count" id="dash-count-unn1">0 / 5 Photos</span>
-              </div>
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="dash-fill-unn1"></div>
-              </div>
-              <div class="dash-percent" id="dash-pct-unn1">0%</div>
-            </div>
-
-            <!-- UNN2 Live Progress -->
-            <div class="dash-card" id="dash-card-unn2">
-              <div class="dash-card-header">
-                <span id="dash-label-unn2">UNN2</span>
-                <span class="dash-count" id="dash-count-unn2">0 / 5 Photos</span>
-              </div>
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="dash-fill-unn2"></div>
-              </div>
-              <div class="dash-percent" id="dash-pct-unn2">0%</div>
-            </div>
-          </div>
-        </section>
-
-        <div id="no-access-notice" class="module-page-card" style="display: none; text-align: center; margin-bottom: 3rem;">
+        <div id="no-access-notice" class="module-page-card" style="display: none; text-align: center; margin-bottom: 2rem;">
           <h3 style="color: var(--error-color); margin-bottom: 0.5rem;" id="no-access-title">No Locations Assigned</h3>
           <p style="color: var(--text-muted);" id="no-access-desc">Your account has no locations assigned yet. Please contact your administrator.</p>
         </div>
 
-        <section class="grid" id="features">
-          <!-- BNN Card -->
-          <div class="card" id="card-bnn" onclick="enterModule('bnn')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('bnn')">
-            <h3 id="card-title-bnn">BNN</h3>
+        <!-- To-Do List: the landing view for a signed-in user -->
+        <section class="list-section" id="todo-section">
+          <div class="list-header">
+            <div class="list-title">
+              <span class="live-indicator"></span>
+              <span id="todo-title">To-Do List</span>
+            </div>
+            <span class="list-meta" id="todo-progress"></span>
           </div>
-
-          <!-- UNN1 Card -->
-          <div class="card" id="card-unn1" onclick="enterModule('unn1')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('unn1')">
-            <h3 id="card-title-unn1">UNN1</h3>
-          </div>
-
-          <!-- UNN2 Card -->
-          <div class="card" id="card-unn2" onclick="enterModule('unn2')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' ') enterModule('unn2')">
-            <h3 id="card-title-unn2">UNN2</h3>
-          </div>
+          <p class="list-subtitle" id="todo-shift-label"></p>
+          <div id="todo-list"></div>
         </section>
+
+        <!-- Synchronize Data: secondary action under the task lists -->
+        <div class="sync-row no-print">
+          <button class="btn" id="hero-btn" onclick="handleClick()">Synchronize Data</button>
+        </div>
+
+        <!-- Done: tasks completed in the current shift -->
+        <section class="list-section" id="done-section">
+          <div class="list-header">
+            <div class="list-title">
+              <span id="done-title">Done This Shift</span>
+            </div>
+            <a class="list-link no-print" onclick="showReportPage()" id="done-history-link">View Full History</a>
+          </div>
+          <div id="done-list"></div>
+        </section>
+
       </div>
     </div>
 
-    <!-- Page View 2: Standalone BNN Module Page -->
-    <div id="bnn-module-page" class="page-view module-page">
+    <!-- Page View 2: Task Capture - one screen for any location + time slot -->
+    <div id="capture-page" class="page-view module-page">
       <div style="margin-bottom: 1.5rem;" class="no-print">
-        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-bnn">
-          ← Back to Home
+        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-capture">
+          &larr; Back to To-Do List
         </button>
       </div>
 
       <div class="module-page-card">
         <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
-          <h1 style="color: var(--accent-color); font-size: 2rem;" id="bnn-detail-title">BNN</h1>
-          <p style="color: var(--text-muted);" id="bnn-detail-desc">
-            Perform camera capture, retrieve automatic geolocation coordinates, and select monitoring time slots.
+          <div class="capture-heading">
+            <h1 id="capture-location" style="color: var(--accent-color); font-size: 2rem;">&nbsp;</h1>
+            <span class="slot-badge slot-badge-lg" id="capture-slot">&nbsp;</span>
+          </div>
+          <p style="color: var(--text-muted);" id="capture-desc">
+            Take the photo for this time slot, then submit. The task moves to Done once submitted.
           </p>
         </div>
 
-        <form id="form-bnn" onsubmit="submitData(event, 'bnn')" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
+        <form id="capture-form" onsubmit="submitCapture(event)" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
           <div class="module-group">
-            <span class="module-label label-date">Date (Automatic)</span>
-            <div class="coord-display" id="date-val-bnn">Fetching Date...</div>
+            <span class="module-label" id="capture-label-shift">Shift Date (Automatic)</span>
+            <div class="coord-display" id="capture-shift-date">&mdash;</div>
           </div>
 
           <div class="module-group">
-            <span class="module-label label-camera">Camera</span>
-            <button type="button" class="btn btn-camera" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: fit-content;" onclick="openCamera('bnn')">Open Camera</button>
-            <div class="camera-preview" id="camera-container-bnn">
-              <span style="color: var(--text-muted); font-size: 0.85rem;" class="camera-placeholder">Camera Offline</span>
+            <span class="module-label" id="capture-label-photo">Photo (Required)</span>
+            <button type="button" class="btn btn-camera" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: fit-content;" onclick="openTaskCamera()" id="capture-camera-btn">Open Camera</button>
+            <div class="camera-preview" id="capture-preview">
+              <span style="color: var(--text-muted); font-size: 0.85rem;" id="capture-placeholder">Camera Offline</span>
             </div>
-            <input type="file" id="file-input-bnn" accept="image/*" capture="environment" style="display: none;" onchange="handleFile(event, 'bnn')">
+            <input type="file" id="capture-file-input" accept="image/*" capture="environment" style="display: none;" onchange="handleTaskPhoto(event)">
           </div>
 
           <div class="module-group">
-            <span class="module-label label-coord">Coordinate (Automatic)</span>
-            <div class="coord-display" id="coord-val-bnn" aria-live="polite">Fetching Location...</div>
+            <span class="module-label" id="capture-label-coord">Coordinate (Automatic)</span>
+            <div class="coord-display" id="capture-coord" aria-live="polite">Fetching Location...</div>
           </div>
 
-          <fieldset class="module-group">
-            <legend class="module-label label-time">Time Selection</legend>
-            <div class="time-options">
-              <label class="time-badge"><input type="radio" name="bnn-time" value="6pm"> 6pm</label>
-              <label class="time-badge"><input type="radio" name="bnn-time" value="9pm"> 9pm</label>
-              <label class="time-badge"><input type="radio" name="bnn-time" value="12am"> 12am</label>
-              <label class="time-badge"><input type="radio" name="bnn-time" value="3am"> 3am</label>
-              <label class="time-badge"><input type="radio" name="bnn-time" value="6am"> 6am</label>
-            </div>
-          </fieldset>
-
-          <button type="submit" class="btn btn-submit" style="margin-top: 1rem; width: 100%;">Save Log Entry</button>
-        </form>
-      </div>
-    </div>
-
-    <!-- Page View 3: Standalone UNN1 Module Page -->
-    <div id="unn1-module-page" class="page-view module-page">
-      <div style="margin-bottom: 1.5rem;" class="no-print">
-        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-unn1">
-          ← Back to Home
-        </button>
-      </div>
-
-      <div class="module-page-card">
-        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
-          <h1 style="color: var(--accent-color); font-size: 2rem;" id="unn1-detail-title">UNN1</h1>
-          <p style="color: var(--text-muted);" id="unn1-detail-desc">
-            Perform camera capture, retrieve automatic geolocation coordinates, and select monitoring time slots.
-          </p>
-        </div>
-
-        <form id="form-unn1" onsubmit="submitData(event, 'unn1')" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
-          <div class="module-group">
-            <span class="module-label label-date">Date (Automatic)</span>
-            <div class="coord-display" id="date-val-unn1">Fetching Date...</div>
-          </div>
-
-          <div class="module-group">
-            <span class="module-label label-camera">Camera</span>
-            <button type="button" class="btn btn-camera" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: fit-content;" onclick="openCamera('unn1')">Open Camera</button>
-            <div class="camera-preview" id="camera-container-unn1">
-              <span style="color: var(--text-muted); font-size: 0.85rem;" class="camera-placeholder">Camera Offline</span>
-            </div>
-            <input type="file" id="file-input-unn1" accept="image/*" capture="environment" style="display: none;" onchange="handleFile(event, 'unn1')">
-          </div>
-
-          <div class="module-group">
-            <span class="module-label label-coord">Coordinate (Automatic)</span>
-            <div class="coord-display" id="coord-val-unn1" aria-live="polite">Fetching Location...</div>
-          </div>
-
-          <fieldset class="module-group">
-            <legend class="module-label label-time">Time Selection</legend>
-            <div class="time-options">
-              <label class="time-badge"><input type="radio" name="unn1-time" value="6pm"> 6pm</label>
-              <label class="time-badge"><input type="radio" name="unn1-time" value="9pm"> 9pm</label>
-              <label class="time-badge"><input type="radio" name="unn1-time" value="12am"> 12am</label>
-              <label class="time-badge"><input type="radio" name="unn1-time" value="3am"> 3am</label>
-              <label class="time-badge"><input type="radio" name="unn1-time" value="6am"> 6am</label>
-            </div>
-          </fieldset>
-
-          <button type="submit" class="btn btn-submit" style="margin-top: 1rem; width: 100%;">Save Log Entry</button>
-        </form>
-      </div>
-    </div>
-
-    <!-- Page View 4: Standalone UNN2 Module Page -->
-    <div id="unn2-module-page" class="page-view module-page">
-      <div style="margin-bottom: 1.5rem;" class="no-print">
-        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-unn2">
-          ← Back to Home
-        </button>
-      </div>
-
-      <div class="module-page-card">
-        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
-          <h1 style="color: var(--accent-color); font-size: 2rem;" id="unn2-detail-title">UNN2</h1>
-          <p style="color: var(--text-muted);" id="unn2-detail-desc">
-            Perform camera capture, retrieve automatic geolocation coordinates, and select monitoring time slots.
-          </p>
-        </div>
-
-        <form id="form-unn2" onsubmit="submitData(event, 'unn2')" class="module-features" style="border-top: none; margin-top: 0; padding-top: 0;">
-          <div class="module-group">
-            <span class="module-label label-date">Date (Automatic)</span>
-            <div class="coord-display" id="date-val-unn2">Fetching Date...</div>
-          </div>
-
-          <div class="module-group">
-            <span class="module-label label-camera">Camera</span>
-            <button type="button" class="btn btn-camera" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: fit-content;" onclick="openCamera('unn2')">Open Camera</button>
-            <div class="camera-preview" id="camera-container-unn2">
-              <span style="color: var(--text-muted); font-size: 0.85rem;" class="camera-placeholder">Camera Offline</span>
-            </div>
-            <input type="file" id="file-input-unn2" accept="image/*" capture="environment" style="display: none;" onchange="handleFile(event, 'unn2')">
-          </div>
-
-          <div class="module-group">
-            <span class="module-label label-coord">Coordinate (Automatic)</span>
-            <div class="coord-display" id="coord-val-unn2" aria-live="polite">Fetching Location...</div>
-          </div>
-
-          <fieldset class="module-group">
-            <legend class="module-label label-time">Time Selection</legend>
-            <div class="time-options">
-              <label class="time-badge"><input type="radio" name="unn2-time" value="6pm"> 6pm</label>
-              <label class="time-badge"><input type="radio" name="unn2-time" value="9pm"> 9pm</label>
-              <label class="time-badge"><input type="radio" name="unn2-time" value="12am"> 12am</label>
-              <label class="time-badge"><input type="radio" name="unn2-time" value="3am"> 3am</label>
-              <label class="time-badge"><input type="radio" name="unn2-time" value="6am"> 6am</label>
-            </div>
-          </fieldset>
-
-          <button type="submit" class="btn btn-submit" style="margin-top: 1rem; width: 100%;">Save Log Entry</button>
+          <button type="submit" class="btn" id="capture-submit" style="margin-top: 1rem; width: 100%;" disabled>Submit Task</button>
         </form>
       </div>
     </div>
@@ -353,6 +207,7 @@
                   <th id="th-date">Date</th>
                   <th id="th-timeslot">Time Slot</th>
                   <th id="th-coordinates">Coordinates</th>
+                  <th id="th-photo" class="no-print">Photo</th>
                 </tr>
               </thead>
               <tbody id="report-table-body">
@@ -385,6 +240,14 @@
             <span class="module-label" id="settings-current-user-label">Current Session</span>
             <div class="coord-display" id="settings-content" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
               <span>Authorized session active. Current User: <span id="settings-user-display" style="font-weight: bold;"></span></span>
+            </div>
+          </div>
+
+          <div class="module-group">
+            <span class="module-label" id="settings-storage-label">Photo Storage</span>
+            <div class="coord-display" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+              <span id="settings-storage-usage">&mdash;</span>
+              <button class="btn" onclick="clearStoredPhotos()" id="btn-clear-photos" style="background-color: transparent; border: 1px solid var(--error-color); color: var(--error-color); padding: 0.3rem 0.8rem; font-size: 0.8rem;">Delete Stored Photos</button>
             </div>
           </div>
 
