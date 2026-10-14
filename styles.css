@@ -237,7 +237,9 @@ main {
   0% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.4; transform: scale(0.9); }
   100% { opacity: 1; transform: scale(1); }
-}/* Module Utilities */
+}
+
+/* Module Utilities */
 .module-features {
   margin-top: 1rem;
   padding-top: 1rem;
