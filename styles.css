@@ -631,6 +631,48 @@ button.task-item:hover {
   white-space: nowrap;
 }
 
+.slot-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.slot-row {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.slot-input {
+  flex: 1;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color-scheme: dark;
+}
+
+.slot-remove {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.slot-remove:hover:not(:disabled) {
+  color: var(--error-color);
+  border-color: var(--error-color);
+}
+
+.slot-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .settings-message {
   font-size: 0.9rem;
   font-weight: 600;

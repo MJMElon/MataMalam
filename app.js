@@ -30,7 +30,20 @@ function showSettingsPage() {
   });
   document.getElementById('settings-module-page').style.display = 'block';
   loadTaskSettingsForm();
+  loadTaskSlotsForm();
+  switchSettingsTab('task-timing');
   window.scrollTo(0, 0);
+}
+
+function switchSettingsTab(tabName) {
+  document.querySelectorAll('#settings-module-page .tab-btn').forEach(btn => {
+    const active = btn.dataset.tab === tabName;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', String(active));
+  });
+  document.querySelectorAll('#settings-module-page .tab-content').forEach(panel => {
+    panel.classList.toggle('active', panel.id === `tab-${tabName}`);
+  });
 }
 
 function showReportPage() {
@@ -53,9 +66,9 @@ function stopActiveCamera() {
 
 // To-Do task flow: one task per location per time slot for the current night shift
 const TASK_LOCATIONS = ['BNN', 'UNN1', 'UNN2'];
-const TASK_TIME_SLOTS = ['6pm', '9pm', '12am', '3am', '6am'];
-// Hours after midnight at the start of the shift date; Date rolls 24+ over into the next day
-const TASK_SLOT_HOURS = { '6pm': 18, '9pm': 21, '12am': 24, '3am': 27, '6am': 30 };
+// Default photo times (24-hour). Admins can change the schedule in Settings.
+const DEFAULT_TASK_SLOTS = ['18:00', '21:00', '00:00', '03:00', '06:00'];
+const MAX_TASK_SLOTS = 12;
 // Default timing: a task appears 15 minutes before its scheduled time and must be submitted
 // within one hour of appearing. Admins can change both in Settings.
 const DEFAULT_TASK_SETTINGS = { opensBeforeMinutes: 15, windowMinutes: 60 };
@@ -82,9 +95,51 @@ function getTaskSettings() {
   return { ...DEFAULT_TASK_SETTINGS };
 }
 
+// Minutes from midnight at the start of the shift date; times before noon fall on the next morning
+function getSlotOffsetMinutes(hours, minutes) {
+  return (hours < 12 ? hours + 24 : hours) * 60 + minutes;
+}
+
+// "18:00" -> "6pm", "18:30" -> "6:30pm", "00:00" -> "12am"
+function formatSlotLabel(hhmm) {
+  const [hours, minutes] = hhmm.split(':').map(Number);
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  const suffix = hours < 12 ? 'am' : 'pm';
+  return minutes === 0 ? `${hour12}${suffix}` : `${hour12}:${String(minutes).padStart(2, '0')}${suffix}`;
+}
+
+// Parses a slot label such as "6pm" or "6:30pm" (stored on each log) into its shift offset
+function parseSlotLabel(label) {
+  const match = /^(\d{1,2})(?::(\d{2}))?(am|pm)$/.exec(label || '');
+  if (!match) return NaN;
+  const hours = (Number(match[1]) % 12) + (match[3] === 'pm' ? 12 : 0);
+  return getSlotOffsetMinutes(hours, Number(match[2] || 0));
+}
+
+function sortSlots(slots) {
+  const offset = hhmm => {
+    const [hours, minutes] = hhmm.split(':').map(Number);
+    return getSlotOffsetMinutes(hours, minutes);
+  };
+  return [...slots].sort((a, b) => offset(a) - offset(b));
+}
+
+function getTaskSlots() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('mata_malam_task_slots'));
+    if (Array.isArray(saved) && saved.length > 0 && saved.every(s => /^\d{2}:\d{2}$/.test(s))) return sortSlots(saved);
+  } catch (err) {}
+  return [...DEFAULT_TASK_SLOTS];
+}
+
+// Slot labels in shift order, e.g. ['6pm', '9pm', '12am', '3am', '6am']
+function getTaskTimes() {
+  return getTaskSlots().map(formatSlotLabel);
+}
+
 function getTaskWindow(date, time, settings = getTaskSettings()) {
   const [year, month, day] = date.split('-').map(Number);
-  const scheduledAt = new Date(year, month - 1, day, TASK_SLOT_HOURS[time]).getTime();
+  const scheduledAt = new Date(year, month - 1, day, 0, parseSlotLabel(time)).getTime();
   const opensAt = scheduledAt - settings.opensBeforeMinutes * MINUTE_MS;
   return { scheduledAt, opensAt, closesAt: opensAt + settings.windowMinutes * MINUTE_MS };
 }
@@ -153,11 +208,13 @@ function setSliderBubble(inputId, bubbleId, text) {
 
 function updateSettingsPreview() {
   const settings = readTaskSettingsForm();
-  const { opensAt, closesAt } = getTaskWindow(getShiftDate(), '6pm', settings);
-  // Bubble above each slider thumb shows the duration; the header shows the resulting time for a 6pm task
+  const exampleTime = getTaskTimes()[0];
+  const { opensAt, closesAt } = getTaskWindow(getShiftDate(), exampleTime, settings);
+  // Bubble above each slider thumb shows the duration; the header shows the resulting time for the first task of the shift
   setSliderBubble('setting-opens-before', 'bubble-opens-before', formatDuration(settings.opensBeforeMinutes));
   setSliderBubble('setting-window', 'bubble-window', formatDuration(settings.windowMinutes));
-  document.getElementById('value-opens-before').textContent = `6pm → ${formatClock(opensAt)}`;
+  document.getElementById('value-opens-before').textContent = `${exampleTime} → ${formatClock(opensAt)}`;
+  document.getElementById('preview-scheduled').textContent = exampleTime;
   document.getElementById('value-window').textContent = `${currentLang === 'BM' ? 'Tamat' : 'Ends'} ${formatClock(closesAt)}`;
 
   document.getElementById('preview-opens').textContent = formatClock(opensAt);
@@ -189,6 +246,79 @@ function resetTaskSettings() {
   loadTaskSettingsForm(DEFAULT_TASK_SETTINGS);
 }
 
+// Schedule tab: the admin-editable list of photo times
+function loadTaskSlotsForm(slots = getTaskSlots()) {
+  const list = document.getElementById('slot-list');
+  list.innerHTML = '';
+  slots.forEach(slot => addSlotRow(slot));
+  document.getElementById('schedule-message').textContent = '';
+}
+
+function addSlotRow(value) {
+  const list = document.getElementById('slot-list');
+  if (list.children.length >= MAX_TASK_SLOTS) return;
+  if (value === undefined) {
+    // Suggest one hour after the last time in the list
+    const inputs = list.querySelectorAll('input');
+    const last = inputs.length ? inputs[inputs.length - 1].value : '17:00';
+    const [hours, minutes] = (last || '17:00').split(':').map(Number);
+    value = `${String((hours + 1) % 24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+  const li = document.createElement('li');
+  li.className = 'slot-row';
+  li.innerHTML = `
+    <input type="time" class="select-input slot-input" value="${value}" required aria-label="${currentLang === 'BM' ? 'Masa gambar' : 'Photo time'}">
+    <button type="button" class="slot-remove" aria-label="${currentLang === 'BM' ? 'Buang' : 'Remove'}">✕</button>
+  `;
+  li.querySelector('input').oninput = () => { document.getElementById('schedule-message').textContent = ''; };
+  li.querySelector('button').onclick = () => {
+    if (list.children.length > 1) li.remove();
+    updateSlotButtons();
+  };
+  list.appendChild(li);
+  updateSlotButtons();
+}
+
+function updateSlotButtons() {
+  const count = document.getElementById('slot-list').children.length;
+  document.getElementById('slot-add').disabled = count >= MAX_TASK_SLOTS;
+  document.querySelectorAll('#slot-list .slot-remove').forEach(btn => { btn.disabled = count <= 1; });
+}
+
+function saveTaskSlots(event) {
+  event.preventDefault();
+  const message = document.getElementById('schedule-message');
+  const slots = [...document.querySelectorAll('#slot-list input')].map(input => input.value);
+
+  let error = null;
+  if (slots.some(slot => !/^\d{2}:\d{2}$/.test(slot))) {
+    error = currentLang === 'BM' ? 'Sila isi semua masa.' : 'Please fill in every time.';
+  } else if (new Set(slots).size !== slots.length) {
+    error = currentLang === 'BM' ? 'Masa yang sama dimasukkan lebih daripada sekali.' : 'The same time is listed more than once.';
+  }
+  if (error) {
+    message.style.color = 'var(--error-color)';
+    message.textContent = error;
+    return;
+  }
+
+  // Record any tasks already missed under the old schedule, then only count misses from now on,
+  // so a newly added time whose window has already passed is not marked "Work Not Completed"
+  recordMissedTasks();
+  localStorage.setItem('mata_malam_task_slots', JSON.stringify(sortSlots(slots)));
+  localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
+
+  loadTaskSlotsForm();
+  message.style.color = '#3fb950';
+  message.textContent = currentLang === 'BM' ? 'Jadual disimpan.' : 'Schedule saved.';
+  renderTasks();
+  updateSettingsPreview();
+}
+
+function resetTaskSlots() {
+  loadTaskSlotsForm(DEFAULT_TASK_SLOTS);
+}
+
 function getLogs() {
   return JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
 }
@@ -211,12 +341,13 @@ function getTrackingStart() {
 function recordMissedTasks(now = Date.now()) {
   const trackingStart = getTrackingStart();
   const settings = getTaskSettings();
+  const times = getTaskTimes();
   const logs = getLogs();
   let changed = false;
 
   for (let i = 31; i >= 0; i--) {
     const date = getShiftDate(new Date(now - i * DAY_MS));
-    TASK_TIME_SLOTS.forEach(time => {
+    times.forEach(time => {
       const { closesAt } = getTaskWindow(date, time, settings);
       if (closesAt > now || closesAt <= trackingStart) return;
       TASK_LOCATIONS.forEach(location => {
@@ -233,11 +364,12 @@ function recordMissedTasks(now = Date.now()) {
 
 function getShiftTasks(date) {
   const logs = getLogs().filter(log => log.date === date);
+  const settings = getTaskSettings();
   const tasks = [];
-  TASK_TIME_SLOTS.forEach(time => {
+  getTaskTimes().forEach(time => {
     TASK_LOCATIONS.forEach(location => {
       const log = logs.find(l => l.location === location && l.time === time);
-      tasks.push({ location, time, date, log, ...getTaskWindow(date, time) });
+      tasks.push({ location, time, date, log, ...getTaskWindow(date, time, settings) });
     });
   });
   return tasks;
@@ -252,8 +384,10 @@ function renderTasks() {
 function renderTodo(now = Date.now()) {
   const date = getShiftDate(new Date(now));
   const tasks = getShiftTasks(date);
-  const due = tasks.filter(task => !task.log && task.opensAt <= now && now < task.closesAt);
-  const next = tasks.find(task => !task.log && now < task.opensAt);
+  // Include the previous shift too, in case an early-morning window runs past the noon changeover
+  const candidates = getShiftTasks(getShiftDate(new Date(now - DAY_MS))).concat(tasks);
+  const due = candidates.filter(task => !task.log && task.opensAt <= now && now < task.closesAt);
+  const next = candidates.find(task => !task.log && now < task.opensAt);
   const completed = tasks.filter(task => task.log && task.log.status !== 'missed').length;
 
   document.getElementById('todo-meta').textContent = `${date} • ${completed} / ${tasks.length} ${currentLang === 'BM' ? 'selesai' : 'done'}`;
@@ -295,7 +429,7 @@ function renderHistory(now = Date.now()) {
   const dates = [];
   for (let i = 0; i < HISTORY_SHIFTS; i++) dates.push(getShiftDate(new Date(now - i * DAY_MS)));
   const entries = getLogs()
-    .filter(log => dates.includes(log.date) && TASK_SLOT_HOURS[log.time] !== undefined)
+    .filter(log => dates.includes(log.date) && !Number.isNaN(parseSlotLabel(log.time)))
     .map(log => ({ log, ...getTaskWindow(log.date, log.time) }))
     .sort((a, b) => b.scheduledAt - a.scheduledAt || TASK_LOCATIONS.indexOf(a.log.location) - TASK_LOCATIONS.indexOf(b.log.location));
 
@@ -660,6 +794,10 @@ function toggleLanguage() {
     document.getElementById('back-home-settings').textContent = '← Kembali ke Senarai Tugasan';
     document.getElementById('settings-title').textContent = 'Tetapan';
     document.getElementById('tab-btn-task-timing').textContent = 'Masa Tugasan';
+    document.getElementById('tab-btn-schedule').textContent = 'Jadual';
+    document.getElementById('slot-add').textContent = '+ Tambah Masa';
+    document.getElementById('schedule-reset').textContent = 'Set Semula';
+    document.getElementById('schedule-save').textContent = 'Simpan';
     document.getElementById('label-opens-before').textContent = 'Dipaparkan awal';
     document.getElementById('label-window').textContent = 'Had masa';
     document.getElementById('settings-reset').textContent = 'Set Semula';
@@ -696,6 +834,10 @@ function toggleLanguage() {
     document.getElementById('back-home-settings').textContent = '← Back to To-Do List';
     document.getElementById('settings-title').textContent = 'Settings';
     document.getElementById('tab-btn-task-timing').textContent = 'Task Timing';
+    document.getElementById('tab-btn-schedule').textContent = 'Schedule';
+    document.getElementById('slot-add').textContent = '+ Add Time';
+    document.getElementById('schedule-reset').textContent = 'Reset';
+    document.getElementById('schedule-save').textContent = 'Save';
     document.getElementById('label-opens-before').textContent = 'Appears early';
     document.getElementById('label-window').textContent = 'Time limit';
     document.getElementById('settings-reset').textContent = 'Reset';

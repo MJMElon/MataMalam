@@ -170,7 +170,8 @@
         <h1 style="color: var(--accent-color); font-size: 2rem; margin-bottom: 1rem;" id="settings-title">Settings</h1>
 
         <div class="settings-tabs" role="tablist">
-          <button type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-task-timing" id="tab-btn-task-timing">Task Timing</button>
+          <button type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-task-timing" id="tab-btn-task-timing" data-tab="task-timing" onclick="switchSettingsTab('task-timing')">Task Timing</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-schedule" id="tab-btn-schedule" data-tab="schedule" onclick="switchSettingsTab('schedule')">Schedule</button>
         </div>
 
         <!-- Tab: Task Timing -->
@@ -216,6 +217,20 @@
             <button type="submit" class="btn" id="settings-save">Save</button>
           </div>
           <div id="settings-message" class="settings-message" aria-live="polite"></div>
+        </form>
+
+        <!-- Tab: Schedule (photo times) -->
+        <form id="tab-schedule" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-schedule" onsubmit="saveTaskSlots(event)">
+          <ul class="slot-list" id="slot-list">
+            <!-- Time rows rendered dynamically -->
+          </ul>
+          <button type="button" class="btn btn-secondary" onclick="addSlotRow()" id="slot-add">+ Add Time</button>
+
+          <div class="sheet-actions">
+            <button type="button" class="btn btn-secondary" onclick="resetTaskSlots()" id="schedule-reset">Reset</button>
+            <button type="submit" class="btn" id="schedule-save">Save</button>
+          </div>
+          <div id="schedule-message" class="settings-message" aria-live="polite"></div>
         </form>
       </div>
     </div>
