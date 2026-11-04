@@ -191,9 +191,7 @@ button.task-item:hover {
 }
 
 .task-item.task-next {
-  border: 2px solid var(--accent-color);
-  padding: 1.25rem 1rem;
-  font-size: 1.1rem;
+  border-color: var(--accent-color);
 }
 
 .task-item.task-done {
@@ -217,12 +215,15 @@ button.task-item:hover {
   white-space: nowrap;
 }
 
-.task-next .task-action {
+.task-action.task-start {
   background-color: var(--accent-color);
   color: #ffffff;
   padding: 0.45rem 0.9rem;
   border-radius: 4px;
+  font-size: 0.85rem;
   font-weight: 600;
+  min-width: 6.5rem;
+  text-align: center;
 }
 
 .task-location .task-deadline {
@@ -348,18 +349,6 @@ button.task-item:hover {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-}
-
-.task-step-chips {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.3rem;
-  color: var(--accent-color);
-}
-
-.task-step-chips .icon {
-  width: 16px;
-  height: 16px;
 }
 
 /* Task sheet: the three steps of a task */

@@ -431,9 +431,8 @@ function renderTodo(now = Date.now()) {
       <span class="task-time">${task.time}</span>
       <span class="task-location">${task.location}
         <span class="task-deadline">${currentLang === 'BM' ? `Hantar sebelum ${formatClock(task.closesAt)} • ${minutesLeft} min lagi` : `Submit by ${formatClock(task.closesAt)} • ${minutesLeft} min left`}</span>
-        <span class="task-step-chips" title="${currentLang === 'BM' ? 'Gambar • Lokasi • Jejak Laluan' : 'Photo • Location • Road Track'}">${ICONS.camera}${ICONS.pin}${ICONS.route}</span>
       </span>
-      <span class="task-action">${index === 0 ? (currentLang === 'BM' ? 'Mula Tugasan' : 'Start Task') : ICONS.camera}</span>
+      <span class="task-action task-start">${currentLang === 'BM' ? 'Mula Tugasan' : 'Start Task'}</span>
     `;
     li.appendChild(btn);
     todoList.appendChild(li);
