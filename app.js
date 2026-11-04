@@ -1071,8 +1071,12 @@ function renderSheetRoute() {
   } else {
     if (slot.contains(liveRouteMapEl)) liveRouteMapEl.remove();
     state.textContent = '';
+    const otherLog = otherRecording ? findLog(activeRoute.logId) : null;
+    const otherLabel = otherLog ? `${otherLog.time} • ${otherLog.location}` : '';
     status.textContent = otherRecording
-      ? (currentLang === 'BM' ? 'Jejak laluan lain sedang direkod.' : 'Another road track is being recorded.')
+      ? (currentLang === 'BM'
+        ? `Jejak laluan ${otherLabel} sedang direkod. Hentikannya dahulu dalam Senarai Tugasan.`
+        : `The road track for ${otherLabel} is still recording. Stop it first in the To-Do List.`)
       : (currentLang === 'BM' ? 'Rekod laluan rondaan anda (pilihan sebelum hantar).' : 'Record your patrol route (optional before submitting).');
   }
 }
@@ -1188,12 +1192,30 @@ async function resumeActiveRoute() {
   if (!id || !navigator.geolocation) return;
   try {
     const route = await loadRoute(id);
-    if (!route || route.endedAt || !findLog(route.logId)) {
+    const log = route && findLog(route.logId);
+    if (!route || route.endedAt || !log) {
       // A route from a task sheet that was never submitted cannot be resumed
       if (route && !route.endedAt) deleteRoute(route.id).catch(() => {});
       localStorage.removeItem('mata_malam_active_route');
       return;
     }
+    // A recording left running for more than 12 hours is ended at its last GPS point
+    if (Date.now() - route.startedAt > 12 * 60 * 60 * 1000) {
+      const last = route.points[route.points.length - 1];
+      route.endedAt = last ? last[2] : route.startedAt;
+      await saveRoute(route);
+      localStorage.removeItem('mata_malam_active_route');
+      updateLog(route.logId, {
+        patrolOpen: false,
+        routeId: route.id,
+        routeDistance: Math.round(route.distance),
+        routeDuration: route.endedAt - route.startedAt
+      });
+      renderTasks();
+      return;
+    }
+    // Keep the task in the To-Do List so its Stop Road Track button is always reachable
+    if (!log.patrolOpen) updateLog(log.id, { patrolOpen: true });
     activeRoute = route;
     beginRouteWatch();
   } catch (err) {}
