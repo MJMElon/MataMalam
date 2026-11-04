@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mata Malam</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-04d">
+  <link rel="stylesheet" href="styles.css?v=2026-11-04e">
 </head>
 <body>
 
@@ -22,6 +22,12 @@
       </ul>
     </nav>
   </header>
+
+  <!-- Shown when a newer version is published but can't be loaded yet (e.g. while recording a road track) -->
+  <div class="update-banner" id="update-banner" hidden>
+    <span id="update-banner-text">A new version is available.</span>
+    <button type="button" class="btn" onclick="applyUpdate()" id="update-banner-btn">Update</button>
+  </div>
 
   <main>
     <!-- Page View 1: Main Home Page (To-Do List) -->
@@ -260,9 +266,10 @@
 
   <footer>
     <p>&copy; <span id="year"></span> Mata Malam. <span id="footer-rights">All rights reserved.</span></p>
+    <p class="app-version"><span id="footer-version-label">Version</span> <span id="app-version"></span></p>
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-04d"></script>
+  <script src="app.js?v=2026-11-04e"></script>
 </body>
 </html>

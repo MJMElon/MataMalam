@@ -1,3 +1,6 @@
+// App version: keep in step with version.json and the ?v= tags in index.html when publishing
+const APP_VERSION = '2026-11-04e';
+
 let activeStream = null;
 
 // Inline icons (emoji are missing from some phone/PC fonts)
@@ -1339,6 +1342,9 @@ function toggleLanguage() {
     document.getElementById('settings-reset').textContent = 'Set Semula';
     document.getElementById('settings-save').textContent = 'Simpan';
     document.getElementById('footer-rights').textContent = 'Hak cipta terpelihara.';
+    document.getElementById('footer-version-label').textContent = 'Versi';
+    document.getElementById('update-banner-text').textContent = 'Versi baharu tersedia.';
+    document.getElementById('update-banner-btn').textContent = 'Kemas Kini';
     
     // Report text translation
     document.getElementById('report-title').textContent = 'Laporan Log';
@@ -1382,6 +1388,9 @@ function toggleLanguage() {
     document.getElementById('settings-reset').textContent = 'Reset';
     document.getElementById('settings-save').textContent = 'Save';
     document.getElementById('footer-rights').textContent = 'All rights reserved.';
+    document.getElementById('footer-version-label').textContent = 'Version';
+    document.getElementById('update-banner-text').textContent = 'A new version is available.';
+    document.getElementById('update-banner-btn').textContent = 'Update';
 
     // Report text translation
     document.getElementById('report-title').textContent = 'Log Reports';
@@ -1403,8 +1412,52 @@ function toggleLanguage() {
   updateSettingsPreview();
 }
 
+// Update check: phones often keep an old copy of the page open (or cached), so the app asks the
+// server which version is live and reloads itself when a newer one has been published.
+let pendingUpdateVersion = null;
+
+async function checkForUpdate() {
+  try {
+    const response = await fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!response.ok) return;
+    const { version } = await response.json();
+    if (!version || version === APP_VERSION) return;
+    // Already reloaded for this version once: don't loop if the files are out of step
+    if (new URL(location.href).searchParams.get('v') === version) return;
+    pendingUpdateVersion = version;
+    // Don't interrupt a task in progress or a road track being recorded
+    const busy = activeRoute || !document.getElementById('submit-sheet').hidden;
+    if (busy) {
+      document.getElementById('update-banner').hidden = false;
+    } else {
+      applyUpdate();
+    }
+  } catch (err) {}
+}
+
+function applyUpdate() {
+  if (!pendingUpdateVersion) return;
+  if (activeRoute && !confirm(currentLang === 'BM'
+    ? 'Jejak laluan sedang direkod. Ia akan disambung semula selepas kemas kini. Teruskan?'
+    : 'A road track is recording. It will resume after the update. Continue?')) return;
+  // A new URL makes the browser fetch the latest page instead of its cached copy
+  const url = new URL(location.href);
+  url.searchParams.set('v', pendingUpdateVersion);
+  location.replace(url.toString());
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) checkForUpdate();
+});
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) checkForUpdate();
+});
+setInterval(checkForUpdate, 5 * 60 * 1000);
+
 // Initialize state on load
 window.onload = function() {
+  document.getElementById('app-version').textContent = APP_VERSION;
+  checkForUpdate();
   renderTasks();
   resumeActiveRoute();
 };
