@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mata Malam</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-04">
+  <link rel="stylesheet" href="styles.css?v=2026-11-04b">
 </head>
 <body>
 
@@ -60,21 +60,42 @@
       </section>
     </div>
 
-    <!-- Camera & Submit Sheet: live camera capture for a task, then review and submit -->
+    <!-- Task Sheet: the three steps of a task — take photo, auto-detect location, record road track -->
     <div id="submit-sheet" class="sheet-backdrop" hidden>
       <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-task-label">
         <h3 id="sheet-task-label"></h3>
-        <div class="camera-preview" id="sheet-photo">
-          <video id="camera-video" autoplay playsinline muted></video>
-          <img id="sheet-photo-img" alt="Captured Photo" hidden>
-          <span id="camera-status" class="camera-status" aria-live="polite"></span>
-        </div>
-        <div class="coord-display" id="sheet-coord" aria-live="polite"></div>
+
+        <!-- Step 1: Take Photo -->
+        <section class="sheet-step" id="sheet-step-photo">
+          <div class="sheet-step-head"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span id="sheet-lbl-photo">Take Photo</span><span class="sheet-step-state" id="sheet-photo-state"></span></div>
+          <div class="camera-preview" id="sheet-photo">
+            <video id="camera-video" autoplay playsinline muted></video>
+            <img id="sheet-photo-img" alt="Captured Photo" hidden>
+            <span id="camera-status" class="camera-status" aria-live="polite"></span>
+          </div>
+          <div class="sheet-actions">
+            <button type="button" class="btn btn-secondary" onclick="openTaskCamera()" id="sheet-retake" hidden>Retake</button>
+            <button type="button" class="btn" onclick="capturePhoto()" id="sheet-capture">Capture</button>
+          </div>
+        </section>
+
+        <!-- Step 2: Auto-Detect Location -->
+        <section class="sheet-step" id="sheet-step-location">
+          <div class="sheet-step-head"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span id="sheet-lbl-location">Location</span><span class="sheet-step-state" id="sheet-location-state"></span></div>
+          <div class="coord-display" id="sheet-coord" aria-live="polite"></div>
+        </section>
+
+        <!-- Step 3: Record Road Track -->
+        <section class="sheet-step" id="sheet-step-route">
+          <div class="sheet-step-head"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg><span id="sheet-lbl-route">Road Track</span><span class="sheet-step-state" id="sheet-route-state"></span></div>
+          <div class="route-map-slot" id="sheet-route-slot"></div>
+          <p class="route-status" id="sheet-route-status" aria-live="polite"></p>
+          <button type="button" class="btn btn-secondary sheet-route-toggle" onclick="toggleSheetRoute()" id="sheet-route-toggle">Start Road Track</button>
+        </section>
+
         <div class="sheet-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeSubmitSheet()" id="sheet-cancel">Cancel</button>
-          <button type="button" class="btn btn-secondary" onclick="openTaskCamera()" id="sheet-retake" hidden>Retake</button>
-          <button type="button" class="btn" onclick="capturePhoto()" id="sheet-capture">Capture</button>
-          <button type="button" class="btn" onclick="submitTask()" id="sheet-submit" hidden>Submit</button>
+          <button type="button" class="btn btn-secondary" onclick="cancelSubmitSheet()" id="sheet-cancel">Cancel</button>
+          <button type="button" class="btn" onclick="submitTask()" id="sheet-submit" disabled>Submit</button>
         </div>
       </div>
     </div>
@@ -242,6 +263,6 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-04"></script>
+  <script src="app.js?v=2026-11-04b"></script>
 </body>
 </html>

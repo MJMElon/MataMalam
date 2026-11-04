@@ -1,5 +1,12 @@
 let activeStream = null;
 
+// Inline icons (emoji are missing from some phone/PC fonts)
+const ICONS = {
+  camera: '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
+  pin: '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  route: '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>'
+};
+
 document.getElementById('year').textContent = new Date().getFullYear();
 
 // Navigation and page view handling
@@ -397,7 +404,7 @@ function renderTodo(now = Date.now()) {
   todoPhotoUrls.forEach(url => URL.revokeObjectURL(url));
   todoPhotoUrls = [];
   const todoList = document.getElementById('todo-list');
-  if (liveRouteMapEl.parentNode) liveRouteMapEl.remove();
+  if (liveRouteMapEl.closest('#todo-list')) liveRouteMapEl.remove();
   todoList.innerHTML = '';
   inProgress.forEach(log => todoList.appendChild(buildInProgressTask(log)));
 
@@ -424,9 +431,9 @@ function renderTodo(now = Date.now()) {
       <span class="task-time">${task.time}</span>
       <span class="task-location">${task.location}
         <span class="task-deadline">${currentLang === 'BM' ? `Hantar sebelum ${formatClock(task.closesAt)} • ${minutesLeft} min lagi` : `Submit by ${formatClock(task.closesAt)} • ${minutesLeft} min left`}</span>
-        <span class="task-step-chips" title="${currentLang === 'BM' ? 'Gambar • Lokasi • Jejak Laluan' : 'Photo • Location • Road Track'}">📷 📍 🛣</span>
+        <span class="task-step-chips" title="${currentLang === 'BM' ? 'Gambar • Lokasi • Jejak Laluan' : 'Photo • Location • Road Track'}">${ICONS.camera}${ICONS.pin}${ICONS.route}</span>
       </span>
-      <span class="task-action">${index === 0 ? (currentLang === 'BM' ? 'Ambil Gambar' : 'Take Photo') : '📷'}</span>
+      <span class="task-action">${index === 0 ? (currentLang === 'BM' ? 'Mula Tugasan' : 'Start Task') : ICONS.camera}</span>
     `;
     li.appendChild(btn);
     todoList.appendChild(li);
@@ -485,7 +492,7 @@ function renderHistory(now = Date.now()) {
       li.classList.add('task-has-route');
       li.insertAdjacentHTML('beforeend', `
         <div class="history-route">
-          <span>🛣 ${formatDistance(log.routeDistance || 0)} • ${formatElapsed(log.routeDuration || 0)}</span>
+          <span class="icon-text">${ICONS.route} ${formatDistance(log.routeDistance || 0)} • ${formatElapsed(log.routeDuration || 0)}</span>
           <button type="button" class="btn btn-secondary history-route-btn">${currentLang === 'BM' ? 'Peta' : 'Map'}</button>
         </div>
         <div class="history-route-map" hidden>
@@ -534,19 +541,27 @@ function startTask(task) {
     return;
   }
   const { location, time, date, closesAt } = task;
-  pendingTask = { location, time, date, closesAt };
+  // The log id is chosen now so a road track recorded in the sheet can be linked to this task
+  const logId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  pendingTask = { location, time, date, closesAt, logId, route: null };
   pendingPhoto = null;
   pendingCoordinates = fetchCoordinates();
 
   document.getElementById('sheet-task-label').textContent = `${time} • ${location}`;
   const coordEl = document.getElementById('sheet-coord');
+  const locationState = document.getElementById('sheet-location-state');
   coordEl.textContent = currentLang === 'BM' ? 'Mengesan Lokasi...' : 'Detecting Location...';
+  locationState.textContent = '';
   const current = pendingTask;
   pendingCoordinates.then(coord => {
-    if (pendingTask === current) coordEl.textContent = coord;
+    if (pendingTask !== current) return;
+    coordEl.textContent = coord;
+    locationState.textContent = parseCoordinates(coord) ? '✓' : '';
   });
 
   document.getElementById('submit-sheet').hidden = false;
+  document.querySelector('#submit-sheet .sheet').scrollTop = 0;
+  renderSheetRoute();
   openTaskCamera();
 }
 
@@ -596,7 +611,9 @@ function setSheetMode(mode) {
   const capturing = mode === 'capture';
   document.getElementById('sheet-capture').hidden = !capturing;
   document.getElementById('sheet-retake').hidden = capturing;
-  document.getElementById('sheet-submit').hidden = capturing;
+  document.getElementById('sheet-photo-state').textContent = capturing ? '' : '✓';
+  // Submit needs a photo; the road track can be recorded before or after submitting
+  document.getElementById('sheet-submit').disabled = capturing;
 }
 
 function fetchCoordinates() {
@@ -646,10 +663,8 @@ function capturePhoto(maxSize = 1280, quality = 0.7) {
     img.hidden = false;
 
     const submitBtn = document.getElementById('sheet-submit');
-    submitBtn.disabled = false;
     submitBtn.textContent = currentLang === 'BM' ? 'Hantar' : 'Submit';
     setSheetMode('review');
-    submitBtn.focus();
   }, 'image/jpeg', quality);
 }
 
@@ -664,7 +679,7 @@ async function submitTask() {
   submitBtn.textContent = currentLang === 'BM' ? 'Menghantar...' : 'Submitting...';
 
   const coordinates = await pendingCoordinates;
-  const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const id = pendingTask.logId;
 
   try {
     await savePhoto(id, pendingPhoto);
@@ -684,16 +699,35 @@ async function submitTask() {
     coordinates,
     status: 'completed',
     submittedAt: new Date().toISOString(),
-    // Stays in the To-Do List until the patrol route is recorded or the task is finished
-    patrolOpen: true
+    // A task whose road track is not finished stays in the To-Do List until it is
+    patrolOpen: !pendingTask.route,
+    ...(pendingTask.route ? {
+      routeId: pendingTask.route.id,
+      routeDistance: Math.round(pendingTask.route.distance),
+      routeDuration: pendingTask.route.duration
+    } : {})
   });
   localStorage.setItem('mata_malam_logs', JSON.stringify(logs));
 
-  closeSubmitSheet();
+  closeSubmitSheet({ submitted: true });
   renderTasks();
 }
 
-function closeSubmitSheet() {
+// Cancel asks first if a road track is being recorded, since cancelling discards it
+function cancelSubmitSheet() {
+  const recording = activeRoute && pendingTask && activeRoute.logId === pendingTask.logId;
+  if ((recording || (pendingTask && pendingTask.route)) && !confirm(currentLang === 'BM'
+    ? 'Batal akan membuang jejak laluan yang direkod. Teruskan?'
+    : 'Cancelling will discard the recorded road track. Continue?')) return;
+  closeSubmitSheet();
+}
+
+function closeSubmitSheet({ submitted = false } = {}) {
+  if (!submitted && pendingTask) {
+    // The task was not submitted, so its road track is discarded
+    if (activeRoute && activeRoute.logId === pendingTask.logId) stopRouteTracking({ discard: true });
+    if (pendingTask.route) deleteRoute(pendingTask.route.id).catch(() => {});
+  }
   stopActiveCamera();
   document.getElementById('submit-sheet').hidden = true;
   document.getElementById('camera-video').srcObject = null;
@@ -705,7 +739,7 @@ function closeSubmitSheet() {
 
 document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape' && !document.getElementById('submit-sheet').hidden) {
-    closeSubmitSheet();
+    cancelSubmitSheet();
   }
 });
 
@@ -815,6 +849,16 @@ async function saveRoute(route) {
   });
 }
 
+async function deleteRoute(id) {
+  const db = await openPhotoDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('routes', 'readwrite');
+    tx.objectStore('routes').delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 async function loadRoute(id) {
   const db = await openPhotoDb();
   return new Promise((resolve, reject) => {
@@ -858,6 +902,10 @@ function parseCoordinates(text) {
   return /^-?\d+(\.\d+)?, -?\d+(\.\d+)?$/.test(text || '') ? text.split(', ').map(Number) : null;
 }
 
+function findLog(logId) {
+  return getLogs().find(log => log.id === logId);
+}
+
 function updateLog(logId, changes) {
   const logs = getLogs();
   const log = logs.find(l => l.id === logId);
@@ -881,16 +929,16 @@ function buildInProgressTask(log) {
     <ul class="task-steps">
       <li class="task-step step-done">
         <img class="task-thumb task-thumb-small" alt="">
-        <span class="step-label">📷 ${currentLang === 'BM' ? 'Gambar' : 'Photo'}</span>
+        <span class="step-label">${ICONS.camera} ${currentLang === 'BM' ? 'Gambar' : 'Photo'}</span>
         <span class="step-value"><span class="task-check">✓</span> ${formatClock(log.submittedAt)}</span>
       </li>
       <li class="task-step ${parseCoordinates(log.coordinates) ? 'step-done' : ''}">
-        <span class="step-label">📍 ${currentLang === 'BM' ? 'Lokasi' : 'Location'}</span>
+        <span class="step-label">${ICONS.pin} ${currentLang === 'BM' ? 'Lokasi' : 'Location'}</span>
         <span class="step-value">${log.coordinates}</span>
       </li>
       <li class="task-step task-step-route">
         <div class="task-step-row">
-          <span class="step-label">🛣 ${currentLang === 'BM' ? 'Jejak Laluan' : 'Road Track'}</span>
+          <span class="step-label">${ICONS.route} ${currentLang === 'BM' ? 'Jejak Laluan' : 'Road Track'}</span>
           <span class="step-value">${tracking
             ? `<strong id="route-distance">${formatDistance(activeRoute.distance)}</strong> • <span id="route-duration">${formatElapsed(Date.now() - activeRoute.startedAt)}</span>`
             : (currentLang === 'BM' ? 'Belum direkod' : 'Not recorded yet')}</span>
@@ -977,6 +1025,7 @@ function beginRouteWatch() {
   requestRouteWakeLock();
   routeWarning = '';
   renderTodo();
+  renderSheetRoute();
   if (!liveRouteMap) {
     liveRouteMapEl.innerHTML = '';
     liveRouteMap = drawRouteMap(liveRouteMapEl, activeRoute.points);
@@ -989,6 +1038,50 @@ function updateRouteStats() {
   const duration = document.getElementById('route-duration');
   if (distance) distance.textContent = formatDistance(activeRoute.distance);
   if (duration) duration.textContent = formatElapsed(Date.now() - activeRoute.startedAt);
+  renderSheetRoute();
+}
+
+// Road Track step inside the task sheet
+function renderSheetRoute() {
+  if (!pendingTask) return;
+  const recording = activeRoute && activeRoute.logId === pendingTask.logId;
+  const otherRecording = activeRoute && !recording;
+  const toggle = document.getElementById('sheet-route-toggle');
+  const state = document.getElementById('sheet-route-state');
+  const status = document.getElementById('sheet-route-status');
+  const slot = document.getElementById('sheet-route-slot');
+
+  toggle.hidden = !!pendingTask.route;
+  toggle.disabled = !!otherRecording;
+  toggle.classList.toggle('btn-stop', !!recording);
+  toggle.classList.toggle('btn-secondary', !recording);
+  toggle.textContent = recording
+    ? (currentLang === 'BM' ? 'Henti Jejak Laluan' : 'Stop Road Track')
+    : (currentLang === 'BM' ? 'Mula Jejak Laluan' : 'Start Road Track');
+  status.classList.toggle('route-status-warning', !!(recording && routeWarning));
+
+  if (recording) {
+    if (liveRouteMapEl.parentNode !== slot) slot.appendChild(liveRouteMapEl);
+    state.innerHTML = `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span> ${formatDistance(activeRoute.distance)} • ${formatElapsed(Date.now() - activeRoute.startedAt)}`;
+    status.textContent = routeWarning || (currentLang === 'BM'
+      ? 'Merekod laluan rondaan. Anda boleh hantar gambar sambil merekod.'
+      : 'Recording patrol route. You can submit the photo while recording.');
+  } else if (pendingTask.route) {
+    state.textContent = `✓ ${formatDistance(pendingTask.route.distance)} • ${formatElapsed(pendingTask.route.duration)}`;
+    status.textContent = '';
+  } else {
+    if (slot.contains(liveRouteMapEl)) liveRouteMapEl.remove();
+    state.textContent = '';
+    status.textContent = otherRecording
+      ? (currentLang === 'BM' ? 'Jejak laluan lain sedang direkod.' : 'Another road track is being recorded.')
+      : (currentLang === 'BM' ? 'Rekod laluan rondaan anda (pilihan sebelum hantar).' : 'Record your patrol route (optional before submitting).');
+  }
+}
+
+function toggleSheetRoute() {
+  if (!pendingTask) return;
+  if (activeRoute && activeRoute.logId === pendingTask.logId) stopRouteTracking();
+  else startRouteTracking(pendingTask.logId);
 }
 
 function onRoutePosition(position) {
@@ -1030,9 +1123,10 @@ function onRoutePositionError(error) {
     ? (currentLang === 'BM' ? 'Akses lokasi ditolak. Sila benarkan lokasi untuk merekod laluan.' : 'Location access denied. Please allow location to record the route.')
     : (currentLang === 'BM' ? 'Mencari isyarat GPS...' : 'Searching for GPS signal...');
   renderTodo();
+  renderSheetRoute();
 }
 
-async function stopRouteTracking() {
+async function stopRouteTracking({ discard = false } = {}) {
   if (routeWatchId !== null) navigator.geolocation.clearWatch(routeWatchId);
   routeWatchId = null;
   releaseRouteWakeLock();
@@ -1047,8 +1141,19 @@ async function stopRouteTracking() {
   liveRouteMapEl.innerHTML = '';
   if (!route) return;
 
+  if (discard) {
+    deleteRoute(route.id).catch(() => {});
+    return;
+  }
   route.endedAt = Date.now();
   await saveRoute(route).catch(() => {});
+  // Still in the task sheet (photo not submitted yet): keep it until Submit
+  if (pendingTask && pendingTask.logId === route.logId && !findLog(route.logId)) {
+    pendingTask.route = { id: route.id, distance: route.distance, duration: route.endedAt - route.startedAt };
+    renderSheetRoute();
+    renderTodo();
+    return;
+  }
   // Link the route to its task and move the task to History
   updateLog(route.logId, {
     patrolOpen: false,
@@ -1084,7 +1189,9 @@ async function resumeActiveRoute() {
   if (!id || !navigator.geolocation) return;
   try {
     const route = await loadRoute(id);
-    if (!route || route.endedAt) {
+    if (!route || route.endedAt || !findLog(route.logId)) {
+      // A route from a task sheet that was never submitted cannot be resumed
+      if (route && !route.endedAt) deleteRoute(route.id).catch(() => {});
       localStorage.removeItem('mata_malam_active_route');
       return;
     }
@@ -1193,6 +1300,9 @@ function toggleLanguage() {
     document.getElementById('sheet-cancel').textContent = 'Batal';
     document.getElementById('sheet-retake').textContent = 'Ambil Semula';
     document.getElementById('sheet-capture').textContent = 'Ambil Gambar';
+    document.getElementById('sheet-lbl-photo').textContent = 'Ambil Gambar';
+    document.getElementById('sheet-lbl-location').textContent = 'Lokasi';
+    document.getElementById('sheet-lbl-route').textContent = 'Jejak Laluan';
     document.getElementById('sheet-submit').textContent = 'Hantar';
     document.getElementById('nav-about').textContent = 'Laporan';
     document.getElementById('nav-settings').textContent = 'Tetapan';
@@ -1233,6 +1343,9 @@ function toggleLanguage() {
     document.getElementById('sheet-cancel').textContent = 'Cancel';
     document.getElementById('sheet-retake').textContent = 'Retake';
     document.getElementById('sheet-capture').textContent = 'Capture';
+    document.getElementById('sheet-lbl-photo').textContent = 'Take Photo';
+    document.getElementById('sheet-lbl-location').textContent = 'Location';
+    document.getElementById('sheet-lbl-route').textContent = 'Road Track';
     document.getElementById('sheet-submit').textContent = 'Submit';
     document.getElementById('nav-about').textContent = 'Report';
     document.getElementById('nav-settings').textContent = 'Settings';
