@@ -26,25 +26,6 @@
   <main>
     <!-- Page View 1: Main Home Page (To-Do List) -->
     <div id="home-page" class="page-view">
-      <!-- Road Tracking: offered after a task photo is submitted, records the patrol route for that task -->
-      <section class="task-section patrol-section" id="patrol-section" hidden>
-        <div class="task-section-header">
-          <h2 id="route-title">Road Tracking</h2>
-          <span class="task-meta route-recording" id="route-meta"></span>
-        </div>
-        <p class="patrol-task" id="patrol-task"></p>
-        <div class="route-map" id="route-live-map" hidden></div>
-        <div class="route-stats" id="route-stats" hidden>
-          <div><span class="route-stat-value" id="route-distance">0 m</span><span class="route-stat-label" id="lbl-route-distance">Distance</span></div>
-          <div><span class="route-stat-value" id="route-duration">0 min</span><span class="route-stat-label" id="lbl-route-duration">Time</span></div>
-        </div>
-        <p class="route-status" id="route-status" aria-live="polite"></p>
-        <div class="sheet-actions">
-          <button type="button" class="btn btn-secondary" onclick="skipPatrol()" id="route-skip">Skip</button>
-          <button type="button" class="btn" onclick="toggleRouteTracking()" id="route-toggle">Start Road Tracking</button>
-        </div>
-      </section>
-
       <section class="task-section">
         <div class="task-section-header">
           <h2 id="todo-title">To-Do List</h2>
