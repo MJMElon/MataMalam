@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-04f';
+const APP_VERSION = '2026-11-04g';
 
 let activeStream = null;
 
@@ -223,8 +223,8 @@ function updateSettingsPreview() {
   // Bubble above each slider thumb shows the duration; the header shows the resulting time for the first task of the shift
   setSliderBubble('setting-opens-before', 'bubble-opens-before', formatDuration(settings.opensBeforeMinutes));
   setSliderBubble('setting-window', 'bubble-window', formatDuration(settings.windowMinutes));
-  document.getElementById('value-opens-before').textContent = `${exampleTime} → ${formatClock(opensAt)}`;
-  document.getElementById('preview-scheduled').textContent = exampleTime;
+  document.getElementById('value-opens-before').textContent = `${formatSlotTime(exampleTime)} → ${formatClock(opensAt)}`;
+  document.getElementById('preview-scheduled').textContent = formatSlotTime(exampleTime);
   document.getElementById('value-window').textContent = `${currentLang === 'BM' ? 'Tamat' : 'Ends'} ${formatClock(closesAt)}`;
 
   document.getElementById('preview-opens').textContent = formatClock(opensAt);
@@ -370,8 +370,22 @@ function getLogs() {
   return JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
 }
 
+// Times use one fixed format everywhere (e.g. "6:45 PM"), whatever the device's 12/24-hour setting
+function formatClockParts(hours, minutes) {
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour12}:${String(minutes).padStart(2, '0')} ${hours < 12 ? 'AM' : 'PM'}`;
+}
+
+// Shows a stored slot label such as "6pm" or "10:30am" as "6:00 PM" / "10:30 AM"
+function formatSlotTime(label) {
+  const offset = parseSlotLabel(label);
+  if (Number.isNaN(offset)) return label;
+  return formatClockParts(Math.floor(offset / 60) % 24, offset % 60);
+}
+
 function formatClock(time) {
-  return new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const d = new Date(time);
+  return formatClockParts(d.getHours(), d.getMinutes());
 }
 
 // Missed tasks are only counted from the first time the app was used on this device
@@ -452,8 +466,8 @@ function renderTodo(now = Date.now()) {
     let message;
     if (next) {
       message = currentLang === 'BM'
-        ? `Tiada tugasan buat masa ini. Tugasan seterusnya (${next.time}) akan dipaparkan pada ${formatClock(next.opensAt)}.`
-        : `No tasks due right now. The next task (${next.time}) appears at ${formatClock(next.opensAt)}.`;
+        ? `Tiada tugasan buat masa ini. Tugasan seterusnya (${formatSlotTime(next.time)}) akan dipaparkan pada ${formatClock(next.opensAt)}.`
+        : `No tasks due right now. The next task (${formatSlotTime(next.time)}) appears at ${formatClock(next.opensAt)}.`;
     } else {
       message = currentLang === 'BM' ? 'Tiada lagi tugasan untuk syif ini.' : 'No more tasks for this shift.';
     }
@@ -468,7 +482,7 @@ function renderTodo(now = Date.now()) {
     btn.className = index === 0 ? 'task-item task-next' : 'task-item';
     btn.onclick = () => startTask(task);
     btn.innerHTML = `
-      <span class="task-time">${task.time}</span>
+      <span class="task-time">${formatSlotTime(task.time)}</span>
       <span class="task-location">${task.location}
         <span class="task-deadline">${currentLang === 'BM' ? `Hantar sebelum ${formatClock(task.closesAt)} • ${minutesLeft} min lagi` : `Submit by ${formatClock(task.closesAt)} • ${minutesLeft} min left`}</span>
       </span>
@@ -523,7 +537,7 @@ function renderHistory(now = Date.now()) {
       : `<span class="task-submitted"><span class="task-check">✓</span> ${log.submittedAt ? formatClock(log.submittedAt) : ''}</span>`;
     li.innerHTML = `
       ${missed ? '<span class="task-thumb task-thumb-missed" aria-hidden="true">✕</span>' : '<img class="task-thumb" alt="">'}
-      <span class="task-time">${log.time}</span>
+      <span class="task-time">${formatSlotTime(log.time)}</span>
       <span class="task-location">${log.location}</span>
       <span class="task-action">${remark}</span>
     `;
@@ -548,7 +562,7 @@ function renderHistory(now = Date.now()) {
         const url = URL.createObjectURL(blob);
         photoUrls.push(url);
         img.src = url;
-        img.alt = `${log.location} ${log.time}`;
+        img.alt = `${log.location} ${formatSlotTime(log.time)}`;
       }).catch(() => {});
     }
     doneList.appendChild(li);
@@ -586,7 +600,7 @@ function startTask(task) {
   pendingPhoto = null;
   pendingCoordinates = fetchCoordinates();
 
-  document.getElementById('sheet-task-label').textContent = `${time} • ${location}`;
+  document.getElementById('sheet-task-label').textContent = `${formatSlotTime(time)} • ${location}`;
   const coordEl = document.getElementById('sheet-coord');
   const locationState = document.getElementById('sheet-location-state');
   coordEl.textContent = currentLang === 'BM' ? 'Mengesan Lokasi...' : 'Detecting Location...';
@@ -961,7 +975,7 @@ function buildInProgressTask(log) {
   li.className = tracking ? 'task-item task-active task-tracking' : 'task-item task-active';
   li.innerHTML = `
     <div class="task-active-head">
-      <span class="task-time">${log.time}</span>
+      <span class="task-time">${formatSlotTime(log.time)}</span>
       <span class="task-location">${log.location}</span>
       ${tracking ? `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span>` : ''}
     </div>
@@ -1112,7 +1126,7 @@ function renderSheetRoute() {
     if (slot.contains(liveRouteMapEl)) liveRouteMapEl.remove();
     state.textContent = '';
     const otherLog = otherRecording ? findLog(activeRoute.logId) : null;
-    const otherLabel = otherLog ? `${otherLog.time} • ${otherLog.location}` : '';
+    const otherLabel = otherLog ? `${formatSlotTime(otherLog.time)} • ${otherLog.location}` : '';
     status.textContent = otherRecording
       ? (currentLang === 'BM'
         ? `Jejak laluan ${otherLabel} sedang direkod. Hentikannya dahulu dalam Senarai Tugasan.`
@@ -1327,7 +1341,7 @@ function generateReport() {
     tr.innerHTML = `
       <td><strong>${log.location}</strong></td>
       <td>${log.date}</td>
-      <td>${log.time}</td>
+      <td>${formatSlotTime(log.time)}</td>
       <td style="font-family: monospace;">${log.coordinates}</td>
       <td>${log.status === 'missed'
         ? `<span class="task-remark-missed">${currentLang === 'BM' ? 'Kerja Tidak Disiapkan' : 'Work Not Completed'}</span>`
