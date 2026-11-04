@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mata Malam</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-04">
+  <link rel="stylesheet" href="styles.css?v=2026-10-17">
 </head>
 <body>
 
@@ -36,21 +35,6 @@
         </ul>
       </section>
 
-      <!-- Road Tracking: records the route walked during the shift -->
-      <section class="task-section">
-        <div class="task-section-header">
-          <h2 id="route-title">Road Tracking</h2>
-          <span class="task-meta route-recording" id="route-meta"></span>
-        </div>
-        <div class="route-map" id="route-live-map" hidden></div>
-        <div class="route-stats" id="route-stats" hidden>
-          <div><span class="route-stat-value" id="route-distance">0 m</span><span class="route-stat-label" id="lbl-route-distance">Distance</span></div>
-          <div><span class="route-stat-value" id="route-duration">0 min</span><span class="route-stat-label" id="lbl-route-duration">Time</span></div>
-        </div>
-        <p class="route-status" id="route-status" aria-live="polite"></p>
-        <button type="button" class="btn route-toggle" id="route-toggle" onclick="toggleRouteTracking()">Start Tracking</button>
-      </section>
-
       <div style="text-align: center;">
         <button class="btn" id="hero-btn" onclick="handleClick()">Synchronize Data</button>
       </div>
@@ -67,25 +51,11 @@
       <section class="task-section">
         <div class="task-section-header">
           <h2 id="done-title">History</h2>
-        </div>
-
-        <div class="settings-tabs" role="tablist">
-          <button type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="history-tasks" id="history-tab-tasks" data-tab="tasks" onclick="switchHistoryTab('tasks')">Tasks</button>
-          <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="history-routes" id="history-tab-routes" data-tab="routes" onclick="switchHistoryTab('routes')">Routes</button>
-        </div>
-
-        <div id="history-tasks" class="tab-content active" role="tabpanel" aria-labelledby="history-tab-tasks">
           <span class="task-meta" id="done-meta"></span>
-          <ul class="task-list" id="done-list">
-            <!-- Submitted tasks rendered dynamically -->
-          </ul>
         </div>
-
-        <div id="history-routes" class="tab-content" role="tabpanel" aria-labelledby="history-tab-routes">
-          <ul class="task-list" id="route-list">
-            <!-- Recorded routes rendered dynamically -->
-          </ul>
-        </div>
+        <ul class="task-list" id="done-list">
+          <!-- Submitted tasks rendered dynamically -->
+        </ul>
       </section>
     </div>
 
@@ -270,7 +240,6 @@
     <p>&copy; <span id="year"></span> Mata Malam. <span id="footer-rights">All rights reserved.</span></p>
   </footer>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-04"></script>
+  <script src="app.js?v=2026-10-17"></script>
 </body>
 </html>

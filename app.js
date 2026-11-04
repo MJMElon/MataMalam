@@ -20,7 +20,6 @@ function showDonePage() {
   });
   document.getElementById('done-module-page').style.display = 'block';
   renderTasks();
-  switchHistoryTab('tasks');
   window.scrollTo(0, 0);
 }
 
@@ -584,15 +583,7 @@ function fetchCoordinates() {
     }
     navigator.geolocation.getCurrentPosition(
       (position) => resolve(`${position.coords.latitude.toFixed(6)}, ${position.coords.longitude.toFixed(6)}`),
-      () => {
-        // While Road Tracking is recording, fall back to its latest fix (if under 2 minutes old)
-        const last = activeRoute && activeRoute.points[activeRoute.points.length - 1];
-        if (last && Date.now() - last[2] < 2 * 60 * 1000) {
-          resolve(`${last[0].toFixed(6)}, ${last[1].toFixed(6)}`);
-          return;
-        }
-        resolve(currentLang === 'BM' ? 'Gagal mendapatkan koordinat (GPS Ditutup)' : 'Failed to retrieve coordinates (GPS Disabled)');
-      },
+      () => resolve(currentLang === 'BM' ? 'Gagal mendapatkan koordinat (GPS Ditutup)' : 'Failed to retrieve coordinates (GPS Disabled)'),
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   });
@@ -660,8 +651,7 @@ async function submitTask() {
     time: pendingTask.time,
     coordinates,
     status: 'completed',
-    submittedAt: new Date().toISOString(),
-    routeId: activeRoute ? activeRoute.id : undefined
+    submittedAt: new Date().toISOString()
   });
   localStorage.setItem('mata_malam_logs', JSON.stringify(logs));
 
@@ -690,12 +680,8 @@ let photoDbPromise = null;
 function openPhotoDb() {
   if (!photoDbPromise) {
     photoDbPromise = new Promise((resolve, reject) => {
-      const request = indexedDB.open('mata_malam', 2);
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains('photos')) db.createObjectStore('photos');
-        if (!db.objectStoreNames.contains('routes')) db.createObjectStore('routes', { keyPath: 'id' });
-      };
+      const request = indexedDB.open('mata_malam', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('photos');
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
@@ -722,342 +708,6 @@ async function loadPhoto(id) {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
-}
-
-// Road Tracking: records the GPS route walked during a shift while the app is open.
-// Routes are stored in IndexedDB; task photos submitted while tracking are linked to the route.
-const ROUTE_MIN_STEP_M = 10;        // ignore GPS jitter smaller than this
-const ROUTE_MAX_ACCURACY_M = 50;    // ignore fixes less accurate than this
-const ROUTE_HISTORY_LIMIT = 30;
-
-let activeRoute = null;
-let routeWatchId = null;
-let routeWakeLock = null;
-let routeTimer = null;
-let liveRouteMap = null;
-let routeMaps = [];
-
-function distanceMeters([lat1, lng1], [lat2, lng2]) {
-  const toRad = deg => deg * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function formatDistance(meters) {
-  return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(2)} km`;
-}
-
-function formatElapsed(ms) {
-  const totalMinutes = Math.floor(ms / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes} min`;
-}
-
-// Opens the route in Google Maps as walking directions through sampled points of the recorded path
-function getGoogleMapsUrl(points) {
-  if (points.length === 0) return null;
-  const fmt = p => `${p[0].toFixed(6)},${p[1].toFixed(6)}`;
-  if (points.length === 1) return `https://www.google.com/maps/search/?api=1&query=${fmt(points[0])}`;
-  const waypoints = [];
-  const maxWaypoints = 8;
-  for (let i = 1; i <= maxWaypoints; i++) {
-    const index = Math.round((i * (points.length - 1)) / (maxWaypoints + 1));
-    if (index > 0 && index < points.length - 1 && !waypoints.includes(index)) waypoints.push(index);
-  }
-  const params = new URLSearchParams({
-    api: '1',
-    origin: fmt(points[0]),
-    destination: fmt(points[points.length - 1]),
-    travelmode: 'walking'
-  });
-  if (waypoints.length) params.set('waypoints', waypoints.map(i => fmt(points[i])).join('|'));
-  return `https://www.google.com/maps/dir/?${params.toString()}`;
-}
-
-async function saveRoute(route) {
-  const db = await openPhotoDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('routes', 'readwrite');
-    tx.objectStore('routes').put(route);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-async function loadRoutes() {
-  const db = await openPhotoDb();
-  return new Promise((resolve, reject) => {
-    const request = db.transaction('routes', 'readonly').objectStore('routes').getAll();
-    request.onsuccess = () => resolve(request.result.sort((a, b) => b.startedAt - a.startedAt));
-    request.onerror = () => reject(request.error);
-  });
-}
-
-// Draws a route on a Leaflet map (OpenStreetMap tiles); returns null if the map library is unavailable
-function drawRouteMap(container, points, photoMarkers = []) {
-  if (typeof L === 'undefined') {
-    container.innerHTML = `<span class="route-map-offline">${currentLang === 'BM' ? 'Peta tidak dapat dimuatkan (tiada internet).' : 'Map could not be loaded (no internet).'}</span>`;
-    return null;
-  }
-  const map = L.map(container, { zoomControl: true, attributionControl: true });
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-  const latLngs = points.map(p => [p[0], p[1]]);
-  const line = L.polyline(latLngs, { color: '#58a6ff', weight: 5 }).addTo(map);
-  const layers = { map, line, start: null, end: null };
-  if (latLngs.length) {
-    layers.start = L.circleMarker(latLngs[0], { radius: 7, color: '#ffffff', weight: 2, fillColor: '#3fb950', fillOpacity: 1 }).addTo(map);
-    layers.end = L.circleMarker(latLngs[latLngs.length - 1], { radius: 7, color: '#ffffff', weight: 2, fillColor: '#f85149', fillOpacity: 1 }).addTo(map);
-    map.fitBounds(line.getBounds(), { padding: [24, 24], maxZoom: 18 });
-  } else {
-    map.setView([3.139, 101.6869], 12);
-  }
-  photoMarkers.forEach(({ latLng, label }) => {
-    L.circleMarker(latLng, { radius: 6, color: '#ffffff', weight: 2, fillColor: '#d29922', fillOpacity: 1 })
-      .bindTooltip(label)
-      .addTo(map);
-  });
-  return layers;
-}
-
-async function toggleRouteTracking() {
-  if (activeRoute) {
-    await stopRouteTracking();
-  } else {
-    await startRouteTracking();
-  }
-}
-
-async function startRouteTracking() {
-  if (!navigator.geolocation) {
-    setRouteStatus(currentLang === 'BM' ? 'Geolokasi tidak disokong pada peranti ini.' : 'Location is not supported on this device.', true);
-    return;
-  }
-  activeRoute = { id: `route-${Date.now().toString(36)}`, startedAt: Date.now(), endedAt: null, points: [], distance: 0 };
-  try {
-    await saveRoute(activeRoute);
-  } catch (err) {
-    activeRoute = null;
-    setRouteStatus(currentLang === 'BM' ? 'Laluan tidak dapat disimpan pada peranti ini.' : 'The route could not be saved on this device.', true);
-    return;
-  }
-  localStorage.setItem('mata_malam_active_route', activeRoute.id);
-  beginRouteWatch();
-}
-
-// Starts (or resumes after a reload) GPS watching for the active route
-function beginRouteWatch() {
-  routeWatchId = navigator.geolocation.watchPosition(onRoutePosition, onRoutePositionError, {
-    enableHighAccuracy: true,
-    maximumAge: 0,
-    timeout: 30000
-  });
-  requestRouteWakeLock();
-  clearInterval(routeTimer);
-  routeTimer = setInterval(updateRoutePanel, 15000);
-
-  const mapEl = document.getElementById('route-live-map');
-  mapEl.hidden = false;
-  if (!liveRouteMap) liveRouteMap = drawRouteMap(mapEl, activeRoute.points);
-  setRouteStatus(currentLang === 'BM' ? 'Merekod laluan... Pastikan aplikasi kekal dibuka.' : 'Recording route... Keep the app open.');
-  updateRoutePanel();
-}
-
-function onRoutePosition(position) {
-  if (!activeRoute) return;
-  const { latitude, longitude, accuracy } = position.coords;
-  if (accuracy > ROUTE_MAX_ACCURACY_M) return;
-  const point = [latitude, longitude, Date.now()];
-  const last = activeRoute.points[activeRoute.points.length - 1];
-  if (last) {
-    const step = distanceMeters(last, point);
-    if (step < ROUTE_MIN_STEP_M) return;
-    activeRoute.distance += step;
-  }
-  activeRoute.points.push(point);
-  saveRoute(activeRoute).catch(() => {});
-
-  if (liveRouteMap) {
-    const latLng = [latitude, longitude];
-    liveRouteMap.line.addLatLng(latLng);
-    if (!liveRouteMap.start) {
-      liveRouteMap.start = L.circleMarker(latLng, { radius: 7, color: '#ffffff', weight: 2, fillColor: '#3fb950', fillOpacity: 1 }).addTo(liveRouteMap.map);
-      liveRouteMap.end = L.circleMarker(latLng, { radius: 7, color: '#ffffff', weight: 2, fillColor: '#58a6ff', fillOpacity: 1 }).addTo(liveRouteMap.map);
-      liveRouteMap.map.setView(latLng, 17);
-    } else {
-      liveRouteMap.end.setLatLng(latLng);
-      liveRouteMap.map.panTo(latLng);
-    }
-  }
-  setRouteStatus(currentLang === 'BM' ? 'Merekod laluan... Pastikan aplikasi kekal dibuka.' : 'Recording route... Keep the app open.');
-  updateRoutePanel();
-}
-
-function onRoutePositionError(error) {
-  if (error.code === error.PERMISSION_DENIED) {
-    setRouteStatus(currentLang === 'BM' ? 'Akses lokasi ditolak. Sila benarkan lokasi untuk merekod laluan.' : 'Location access denied. Please allow location to record the route.', true);
-  } else {
-    setRouteStatus(currentLang === 'BM' ? 'Mencari isyarat GPS...' : 'Searching for GPS signal...', true);
-  }
-}
-
-async function stopRouteTracking() {
-  if (routeWatchId !== null) navigator.geolocation.clearWatch(routeWatchId);
-  routeWatchId = null;
-  clearInterval(routeTimer);
-  releaseRouteWakeLock();
-
-  const route = activeRoute;
-  activeRoute = null;
-  localStorage.removeItem('mata_malam_active_route');
-  if (route) {
-    route.endedAt = Date.now();
-    await saveRoute(route).catch(() => {});
-  }
-
-  if (liveRouteMap) liveRouteMap.map.remove();
-  liveRouteMap = null;
-  const mapEl = document.getElementById('route-live-map');
-  mapEl.innerHTML = '';
-  mapEl.hidden = true;
-  setRouteStatus(route
-    ? (currentLang === 'BM' ? `Laluan disimpan: ${formatDistance(route.distance)}. Lihat di Sejarah.` : `Route saved: ${formatDistance(route.distance)}. See History.`)
-    : '');
-  updateRoutePanel();
-  renderRouteHistory();
-}
-
-// Keeps the screen on while tracking: browsers pause GPS when the screen locks
-async function requestRouteWakeLock() {
-  if (!('wakeLock' in navigator) || !activeRoute || document.hidden) return;
-  try {
-    routeWakeLock = await navigator.wakeLock.request('screen');
-  } catch (err) {
-    routeWakeLock = null;
-  }
-}
-
-function releaseRouteWakeLock() {
-  if (routeWakeLock) routeWakeLock.release().catch(() => {});
-  routeWakeLock = null;
-}
-
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && activeRoute) requestRouteWakeLock();
-});
-
-function setRouteStatus(text, isWarning = false) {
-  const status = document.getElementById('route-status');
-  status.textContent = text;
-  status.classList.toggle('route-status-warning', isWarning);
-}
-
-function updateRoutePanel() {
-  const tracking = !!activeRoute;
-  const btn = document.getElementById('route-toggle');
-  btn.textContent = tracking
-    ? (currentLang === 'BM' ? 'Henti Jejak' : 'Stop Tracking')
-    : (currentLang === 'BM' ? 'Mula Jejak' : 'Start Tracking');
-  btn.classList.toggle('btn-stop', tracking);
-  document.getElementById('route-stats').hidden = !tracking;
-  document.getElementById('route-meta').textContent = tracking ? (currentLang === 'BM' ? '● Merekod' : '● Recording') : '';
-  if (tracking) {
-    document.getElementById('route-distance').textContent = formatDistance(activeRoute.distance);
-    document.getElementById('route-duration').textContent = formatElapsed(Date.now() - activeRoute.startedAt);
-  }
-}
-
-// Resumes a route that was still recording when the app was closed or reloaded
-async function resumeActiveRoute() {
-  const id = localStorage.getItem('mata_malam_active_route');
-  if (!id || !navigator.geolocation) return;
-  try {
-    const routes = await loadRoutes();
-    const route = routes.find(r => r.id === id && !r.endedAt);
-    if (!route) {
-      localStorage.removeItem('mata_malam_active_route');
-      return;
-    }
-    activeRoute = route;
-    beginRouteWatch();
-  } catch (err) {}
-}
-
-async function renderRouteHistory() {
-  const list = document.getElementById('route-list');
-  routeMaps.forEach(m => m.map.remove());
-  routeMaps = [];
-
-  let routes = [];
-  try {
-    routes = (await loadRoutes()).filter(r => r.endedAt).slice(0, ROUTE_HISTORY_LIMIT);
-  } catch (err) {}
-
-  list.innerHTML = '';
-  if (routes.length === 0) {
-    list.innerHTML = `<li class="task-empty">${currentLang === 'BM' ? 'Tiada laluan direkodkan lagi.' : 'No routes recorded yet.'}</li>`;
-    return;
-  }
-
-  const logs = getLogs();
-  routes.forEach(route => {
-    const li = document.createElement('li');
-    li.className = 'route-card';
-    const started = new Date(route.startedAt);
-    const dateLabel = `${started.getFullYear()}-${String(started.getMonth() + 1).padStart(2, '0')}-${String(started.getDate()).padStart(2, '0')}`;
-    const photos = logs.filter(log => log.routeId === route.id).length;
-    const mapsUrl = getGoogleMapsUrl(route.points);
-    li.innerHTML = `
-      <div class="route-card-header">
-        <span class="route-card-date">${dateLabel}</span>
-        <span class="task-meta">${formatClock(route.startedAt)} – ${formatClock(route.endedAt)}</span>
-      </div>
-      <div class="route-card-stats">
-        <span><strong>${formatDistance(route.distance)}</strong></span>
-        <span>${formatElapsed(route.endedAt - route.startedAt)}</span>
-        <span>📷 ${photos}</span>
-      </div>
-      <div class="route-card-actions">
-        <button type="button" class="btn btn-secondary route-view-btn">${currentLang === 'BM' ? 'Lihat Peta' : 'View Map'}</button>
-        ${mapsUrl ? `<a class="btn btn-secondary" href="${mapsUrl}" target="_blank" rel="noopener">${currentLang === 'BM' ? 'Google Maps' : 'Google Maps'}</a>` : ''}
-      </div>
-      <div class="route-map" hidden></div>
-    `;
-    const mapEl = li.querySelector('.route-map');
-    li.querySelector('.route-view-btn').onclick = () => {
-      if (!mapEl.hidden) {
-        mapEl.hidden = true;
-        return;
-      }
-      mapEl.hidden = false;
-      if (!mapEl.dataset.drawn) {
-        mapEl.dataset.drawn = '1';
-        const photoMarkers = logs
-          .filter(log => log.routeId === route.id && /^-?\d+(\.\d+)?, -?\d+(\.\d+)?$/.test(log.coordinates))
-          .map(log => ({ latLng: log.coordinates.split(', ').map(Number), label: `${log.time} • ${log.location}` }));
-        const layers = drawRouteMap(mapEl, route.points, photoMarkers);
-        if (layers) routeMaps.push(layers);
-      }
-    };
-    list.appendChild(li);
-  });
-}
-
-function switchHistoryTab(tabName) {
-  document.querySelectorAll('#done-module-page .tab-btn').forEach(btn => {
-    const active = btn.dataset.tab === tabName;
-    btn.classList.toggle('active', active);
-    btn.setAttribute('aria-selected', String(active));
-  });
-  document.querySelectorAll('#done-module-page .tab-content').forEach(panel => {
-    panel.classList.toggle('active', panel.id === `history-${tabName}`);
-  });
-  if (tabName === 'routes') renderRouteHistory();
 }
 
 function populateReportYearDropdown() {
@@ -1133,11 +783,6 @@ function toggleLanguage() {
     document.getElementById('hero-btn').textContent = 'Selaraskan Data';
     document.getElementById('todo-title').textContent = 'Senarai Tugasan';
     document.getElementById('done-title').textContent = 'Sejarah';
-    document.getElementById('route-title').textContent = 'Penjejakan Laluan';
-    document.getElementById('lbl-route-distance').textContent = 'Jarak';
-    document.getElementById('lbl-route-duration').textContent = 'Masa';
-    document.getElementById('history-tab-tasks').textContent = 'Tugasan';
-    document.getElementById('history-tab-routes').textContent = 'Laluan';
     document.getElementById('nav-done').textContent = 'Sejarah';
     document.getElementById('back-home-done').textContent = '← Kembali ke Senarai Tugasan';
     document.getElementById('sheet-cancel').textContent = 'Batal';
@@ -1178,11 +823,6 @@ function toggleLanguage() {
     document.getElementById('hero-btn').textContent = 'Synchronize Data';
     document.getElementById('todo-title').textContent = 'To-Do List';
     document.getElementById('done-title').textContent = 'History';
-    document.getElementById('route-title').textContent = 'Road Tracking';
-    document.getElementById('lbl-route-distance').textContent = 'Distance';
-    document.getElementById('lbl-route-duration').textContent = 'Time';
-    document.getElementById('history-tab-tasks').textContent = 'Tasks';
-    document.getElementById('history-tab-routes').textContent = 'Routes';
     document.getElementById('nav-done').textContent = 'History';
     document.getElementById('back-home-done').textContent = '← Back to To-Do List';
     document.getElementById('sheet-cancel').textContent = 'Cancel';
@@ -1222,13 +862,9 @@ function toggleLanguage() {
   }
   renderTasks();
   updateSettingsPreview();
-  updateRoutePanel();
-  if (document.getElementById('history-routes').classList.contains('active')) renderRouteHistory();
 }
 
 // Initialize state on load
 window.onload = function() {
   renderTasks();
-  updateRoutePanel();
-  resumeActiveRoute();
 };
