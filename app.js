@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-04g';
+const APP_VERSION = '2026-11-04h';
 
 let activeStream = null;
 
@@ -7,6 +7,8 @@ let activeStream = null;
 const ICONS = {
   camera: '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
   pin: '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+  clock: '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  trash: '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
   route: '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>'
 };
 
@@ -261,61 +263,106 @@ function loadTaskSlotsForm(slots = getTaskSlots()) {
   const list = document.getElementById('slot-list');
   list.innerHTML = '';
   slots.forEach(slot => addSlotRow(slot));
+  updateTimeFormatToggle();
   document.getElementById('schedule-message').textContent = '';
 }
 
-// Time rows use the app's own Hour / Minute / AM-PM picker so they look and work the same on
-// every phone and computer (the browser's built-in time picker differs between devices)
-function getSlotRowValue(row) {
-  const hour12 = Number(row.querySelector('.slot-hour').value);
-  const minutes = Number(row.querySelector('.slot-minute').value);
-  const pm = row.querySelector('.slot-ampm .active').dataset.value === 'PM';
-  const hours = (hour12 % 12) + (pm ? 12 : 0);
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+function updateTimeFormatToggle() {
+  const format = getTimeFormat();
+  document.querySelectorAll('.segmented button').forEach(btn => {
+    const active = btn.dataset.format === format;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
 }
 
-function addSlotRow(value) {
+// Switches every time shown in the app between 12-hour and 24-hour format
+function setTimeFormat(format) {
+  const rows = [...document.querySelectorAll('#slot-list .slot-row')].map(getSlotRowValue);
+  localStorage.setItem('mata_malam_time_format', format === '24' ? '24' : '12');
   const list = document.getElementById('slot-list');
-  if (list.children.length >= MAX_TASK_SLOTS) return;
-  if (value === undefined) {
-    // Suggest one hour after the last time in the list
-    const rows = list.querySelectorAll('.slot-row');
-    const last = rows.length ? getSlotRowValue(rows[rows.length - 1]) : '17:00';
-    const [hours, minutes] = last.split(':').map(Number);
-    value = `${String((hours + 1) % 24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  list.innerHTML = '';
+  rows.forEach(value => addSlotRow(value, { focus: false }));
+  updateTimeFormatToggle();
+  renderTasks();
+  updateSettingsPreview();
+}
+
+// Returns the row's time as "HH:MM" (24-hour), or null while any part is still unselected.
+// Rows use the app's own selectors so they look and work the same on every phone and computer.
+function getSlotRowValue(row) {
+  const hourValue = row.querySelector('.slot-hour').value;
+  const minuteValue = row.querySelector('.slot-minute').value;
+  const ampmSelect = row.querySelector('.slot-ampm');
+  if (hourValue === '' || minuteValue === '' || (ampmSelect && ampmSelect.value === '')) return null;
+  let hours = Number(hourValue);
+  if (ampmSelect) hours = (hours % 12) + (ampmSelect.value === 'PM' ? 12 : 0);
+  return `${String(hours).padStart(2, '0')}:${String(Number(minuteValue)).padStart(2, '0')}`;
+}
+
+function slotOptions(values, selected, label) {
+  const placeholder = selected === null ? '<option value="" selected>--</option>' : '';
+  return placeholder + values.map(v => `<option value="${v}" ${v === selected ? 'selected' : ''}>${label(v)}</option>`).join('');
+}
+
+// Adds a time row. With no value it adds an empty row for the user to fill in; if an empty row
+// is already waiting, it highlights that row instead of adding another one.
+function addSlotRow(value = null, { focus = true } = {}) {
+  const list = document.getElementById('slot-list');
+  if (value === null && focus) {
+    const waiting = [...list.querySelectorAll('.slot-row')].find(row => getSlotRowValue(row) === null);
+    if (waiting) {
+      waiting.classList.remove('slot-row-attention');
+      void waiting.offsetWidth;
+      waiting.classList.add('slot-row-attention');
+      waiting.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      const firstEmpty = [...waiting.querySelectorAll('select')].find(s => s.value === '');
+      if (firstEmpty) firstEmpty.focus();
+      return;
+    }
   }
-  const [hours, minutes] = value.split(':').map(Number);
-  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
-  const pm = hours >= 12;
-  const minuteOptions = [];
-  for (let m = 0; m < 60; m += 5) minuteOptions.push(m);
-  if (!minuteOptions.includes(minutes)) minuteOptions.push(minutes);
-  minuteOptions.sort((a, b) => a - b);
+  if (list.children.length >= MAX_TASK_SLOTS) return;
+
+  const format = getTimeFormat();
+  let hours = null;
+  let minutes = null;
+  if (value) [hours, minutes] = value.split(':').map(Number);
+  const pad = n => String(n).padStart(2, '0');
+
+  const minuteValues = [];
+  for (let m = 0; m < 60; m += 5) minuteValues.push(m);
+  if (minutes !== null && !minuteValues.includes(minutes)) minuteValues.push(minutes);
+  minuteValues.sort((a, b) => a - b);
+
+  let hourHtml;
+  let ampmHtml = '';
+  if (format === '24') {
+    hourHtml = slotOptions([...Array(24).keys()], hours, pad);
+  } else {
+    const hour12 = hours === null ? null : (hours % 12 === 0 ? 12 : hours % 12);
+    hourHtml = slotOptions([12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], hour12, pad);
+    const ampm = hours === null ? null : (hours < 12 ? 'AM' : 'PM');
+    ampmHtml = `<select class="slot-select slot-ampm" aria-label="AM / PM">${slotOptions(['AM', 'PM'], ampm, v => v)}</select>`;
+  }
 
   const li = document.createElement('li');
-  li.className = 'slot-row';
+  li.className = value ? 'slot-row' : 'slot-row slot-row-empty';
   li.innerHTML = `
+    <span class="slot-clock">${ICONS.clock}</span>
     <div class="slot-time">
-      <select class="select-input slot-hour" aria-label="${currentLang === 'BM' ? 'Jam' : 'Hour'}">
-        ${[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => `<option value="${h}" ${h === hour12 ? 'selected' : ''}>${String(h).padStart(2, '0')}</option>`).join('')}
-      </select>
+      <select class="slot-select slot-hour" aria-label="${currentLang === 'BM' ? 'Jam' : 'Hour'}">${hourHtml}</select>
       <span class="slot-colon">:</span>
-      <select class="select-input slot-minute" aria-label="${currentLang === 'BM' ? 'Minit' : 'Minute'}">
-        ${minuteOptions.map(m => `<option value="${m}" ${m === minutes ? 'selected' : ''}>${String(m).padStart(2, '0')}</option>`).join('')}
-      </select>
-      <div class="slot-ampm" role="group" aria-label="AM / PM">
-        <button type="button" data-value="AM" class="${pm ? '' : 'active'}">AM</button>
-        <button type="button" data-value="PM" class="${pm ? 'active' : ''}">PM</button>
-      </div>
+      <select class="slot-select slot-minute" aria-label="${currentLang === 'BM' ? 'Minit' : 'Minute'}">${slotOptions(minuteValues, minutes, pad)}</select>
+      ${ampmHtml}
     </div>
-    <button type="button" class="slot-remove" aria-label="${currentLang === 'BM' ? 'Buang' : 'Remove'}">✕</button>
+    <button type="button" class="slot-remove" aria-label="${currentLang === 'BM' ? 'Buang' : 'Remove'}">${ICONS.trash}</button>
   `;
-  const clearMessage = () => { document.getElementById('schedule-message').textContent = ''; };
-  li.querySelectorAll('select').forEach(select => { select.onchange = clearMessage; });
-  li.querySelectorAll('.slot-ampm button').forEach(btn => {
-    btn.onclick = () => {
-      li.querySelectorAll('.slot-ampm button').forEach(b => b.classList.toggle('active', b === btn));
-      clearMessage();
+  li.querySelectorAll('select').forEach(select => {
+    select.onchange = () => {
+      const complete = getSlotRowValue(li) !== null;
+      li.classList.toggle('slot-row-empty', !complete);
+      if (complete) li.classList.remove('slot-row-error');
+      document.getElementById('schedule-message').textContent = '';
     };
   });
   li.querySelector('.slot-remove').onclick = () => {
@@ -324,8 +371,11 @@ function addSlotRow(value) {
   };
   list.appendChild(li);
   updateSlotButtons();
+  if (!value && focus) {
+    li.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    li.querySelector('.slot-hour').focus();
+  }
 }
-
 function updateSlotButtons() {
   const count = document.getElementById('slot-list').children.length;
   document.getElementById('slot-add').disabled = count >= MAX_TASK_SLOTS;
@@ -335,11 +385,16 @@ function updateSlotButtons() {
 function saveTaskSlots(event) {
   event.preventDefault();
   const message = document.getElementById('schedule-message');
-  const slots = [...document.querySelectorAll('#slot-list .slot-row')].map(getSlotRowValue);
+  const rows = [...document.querySelectorAll('#slot-list .slot-row')];
+  const slots = rows.map(getSlotRowValue);
+  rows.forEach((row, i) => row.classList.toggle('slot-row-error', slots[i] === null));
 
   let error = null;
-  if (slots.some(slot => !/^\d{2}:\d{2}$/.test(slot))) {
-    error = currentLang === 'BM' ? 'Sila isi semua masa.' : 'Please fill in every time.';
+  if (slots.some(slot => slot === null)) {
+    const ampm = getTimeFormat() === '12';
+    error = currentLang === 'BM'
+      ? `Sila pilih jam, minit${ampm ? ' dan AM/PM' : ''} untuk setiap baris.`
+      : `Please select the hour, minute${ampm ? ' and AM/PM' : ''} for every row.`;
   } else if (new Set(slots).size !== slots.length) {
     error = currentLang === 'BM' ? 'Masa yang sama dimasukkan lebih daripada sekali.' : 'The same time is listed more than once.';
   }
@@ -371,9 +426,15 @@ function getLogs() {
 }
 
 // Times use one fixed format everywhere (e.g. "6:45 PM"), whatever the device's 12/24-hour setting
+function getTimeFormat() {
+  return localStorage.getItem('mata_malam_time_format') === '24' ? '24' : '12';
+}
+
 function formatClockParts(hours, minutes) {
+  const mm = String(minutes).padStart(2, '0');
+  if (getTimeFormat() === '24') return `${String(hours).padStart(2, '0')}:${mm}`;
   const hour12 = hours % 12 === 0 ? 12 : hours % 12;
-  return `${hour12}:${String(minutes).padStart(2, '0')} ${hours < 12 ? 'AM' : 'PM'}`;
+  return `${hour12}:${mm} ${hours < 12 ? 'AM' : 'PM'}`;
 }
 
 // Shows a stored slot label such as "6pm" or "10:30am" as "6:00 PM" / "10:30 AM"
@@ -1385,9 +1446,12 @@ function toggleLanguage() {
     document.getElementById('settings-title').textContent = 'Tetapan';
     document.getElementById('tab-btn-task-timing').textContent = 'Masa Tugasan';
     document.getElementById('tab-btn-schedule').textContent = 'Jadual';
-    document.getElementById('slot-add').textContent = '+ Tambah Masa';
+    document.getElementById('slot-add-label').textContent = 'Tambah Masa';
     document.getElementById('schedule-reset').textContent = 'Set Semula';
-    document.getElementById('schedule-save').textContent = 'Simpan';
+    document.getElementById('schedule-save').textContent = 'Simpan Perubahan';
+    document.getElementById('lbl-time-format').textContent = 'Format Masa';
+    document.getElementById('fmt-12').textContent = '12 jam';
+    document.getElementById('fmt-24').textContent = '24 jam';
     document.getElementById('label-opens-before').textContent = 'Dipaparkan awal';
     document.getElementById('label-window').textContent = 'Had masa';
     document.getElementById('settings-reset').textContent = 'Set Semula';
@@ -1431,9 +1495,12 @@ function toggleLanguage() {
     document.getElementById('settings-title').textContent = 'Settings';
     document.getElementById('tab-btn-task-timing').textContent = 'Task Timing';
     document.getElementById('tab-btn-schedule').textContent = 'Schedule';
-    document.getElementById('slot-add').textContent = '+ Add Time';
+    document.getElementById('slot-add-label').textContent = 'Add Time';
     document.getElementById('schedule-reset').textContent = 'Reset';
-    document.getElementById('schedule-save').textContent = 'Save';
+    document.getElementById('schedule-save').textContent = 'Save Changes';
+    document.getElementById('lbl-time-format').textContent = 'Time Format';
+    document.getElementById('fmt-12').textContent = '12-hour';
+    document.getElementById('fmt-24').textContent = '24-hour';
     document.getElementById('label-opens-before').textContent = 'Appears early';
     document.getElementById('label-window').textContent = 'Time limit';
     document.getElementById('settings-reset').textContent = 'Reset';

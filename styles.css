@@ -842,85 +842,181 @@ button.task-item:hover {
   white-space: nowrap;
 }
 
+.time-format-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.time-format-label {
+  font-weight: 700;
+}
+
+.segmented {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.segmented button {
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+.segmented button.active {
+  background-color: var(--border-color);
+  color: var(--text-main);
+}
+
 .slot-list {
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.75rem;
 }
 
 .slot-row {
   display: flex;
-  gap: 0.6rem;
   align-items: center;
+  gap: 0.9rem;
+  background-color: var(--bg-color);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
 }
 
-.slot-time {
-  flex: 0 1 auto;
+.slot-row.slot-row-empty {
+  border: 1px dashed var(--accent-color);
+}
+
+.slot-row.slot-row-error {
+  border: 1px solid var(--error-color);
+}
+
+.slot-row.slot-row-attention {
+  animation: slotAttention 0.9s ease;
+}
+
+@keyframes slotAttention {
+  0%, 100% { box-shadow: none; }
+  30% { box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.45); }
+}
+
+.slot-clock {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  min-width: 0;
-}
-
-.slot-time .select-input {
-  width: 5.5rem;
-  flex: 0 1 5.5rem;
-  min-width: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
-  text-align: center;
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
-}
-
-.slot-colon {
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.slot-ampm {
-  display: flex;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.slot-ampm button {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  font-weight: 700;
-  padding: 0 0.7rem;
-  height: 44px;
-  cursor: pointer;
-}
-
-.slot-ampm button.active {
-  background-color: var(--accent-color);
-  color: #ffffff;
-}
-
-.slot-remove {
+  justify-content: center;
   width: 44px;
   height: 44px;
   flex-shrink: 0;
+  border-radius: 8px;
+  background-color: var(--card-bg);
+  color: var(--accent-color);
+}
+
+.slot-time {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.slot-select {
+  appearance: none;
+  -webkit-appearance: none;
   background: none;
-  border: 1px solid var(--border-color);
+  border: none;
+  border-radius: 4px;
+  color: var(--text-main);
+  font-size: 1.35rem;
+  font-weight: 600;
+  padding: 0.15rem 0.2rem;
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+.slot-select:hover,
+.slot-select:focus-visible {
+  background-color: var(--card-bg);
+  outline: none;
+}
+
+.slot-select.slot-hour,
+.slot-select.slot-minute {
+  width: 2.3em;
+  text-align: center;
+  text-align-last: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.slot-select.slot-ampm {
+  font-size: 1rem;
+  margin-left: 0.4rem;
+}
+
+.slot-row-empty .slot-select {
+  color: var(--accent-color);
+}
+
+.slot-colon {
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.slot-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  background: none;
+  border: none;
   border-radius: 6px;
   color: var(--text-muted);
-  font-size: 1rem;
   cursor: pointer;
 }
 
 .slot-remove:hover:not(:disabled) {
   color: var(--error-color);
-  border-color: var(--error-color);
+  background-color: var(--card-bg);
 }
 
 .slot-remove:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.slot-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.9rem;
+  background: none;
+  border: 1px dashed var(--accent-color);
+  border-radius: 10px;
+  color: var(--accent-color);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.slot-add:hover:not(:disabled) {
+  background-color: rgba(88, 166, 255, 0.08);
+}
+
+.slot-add:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
