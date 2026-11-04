@@ -290,6 +290,131 @@ button.task-item:hover {
   padding: 0.25rem 0;
 }
 
+/* Road Tracking */
+.patrol-section {
+  border-color: var(--accent-color);
+}
+
+.patrol-section[hidden],
+.route-map[hidden],
+.route-stats[hidden],
+.history-route-map[hidden],
+.sheet-actions .btn[hidden] {
+  display: none;
+}
+
+.patrol-task {
+  margin-bottom: 0.75rem;
+}
+
+.route-map {
+  height: 260px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-color);
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+.route-map-offline {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.route-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.route-stats > div {
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.route-stat-value {
+  display: block;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.route-stat-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.route-status {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.route-status.route-status-warning {
+  color: #d29922;
+}
+
+.route-recording {
+  color: var(--error-color);
+  font-weight: 600;
+}
+
+.btn.btn-stop {
+  background-color: var(--error-color);
+}
+
+.btn.btn-stop:hover {
+  background-color: #da3633;
+}
+
+.task-item.task-has-route {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  column-gap: 1rem;
+  row-gap: 0.6rem;
+  align-items: center;
+}
+
+.history-route {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.history-route-btn {
+  padding: 0.35rem 0.9rem;
+  font-size: 0.85rem;
+}
+
+.history-route-map {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.history-route-map .route-map {
+  margin-bottom: 0;
+}
+
+.history-route-map .btn {
+  text-align: center;
+  font-size: 0.9rem;
+}
+
 /* Photo Submit Sheet */
 .sheet-backdrop {
   position: fixed;
