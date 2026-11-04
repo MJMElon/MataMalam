@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-04e';
+const APP_VERSION = '2026-11-04f';
 
 let activeStream = null;
 
@@ -264,24 +264,61 @@ function loadTaskSlotsForm(slots = getTaskSlots()) {
   document.getElementById('schedule-message').textContent = '';
 }
 
+// Time rows use the app's own Hour / Minute / AM-PM picker so they look and work the same on
+// every phone and computer (the browser's built-in time picker differs between devices)
+function getSlotRowValue(row) {
+  const hour12 = Number(row.querySelector('.slot-hour').value);
+  const minutes = Number(row.querySelector('.slot-minute').value);
+  const pm = row.querySelector('.slot-ampm .active').dataset.value === 'PM';
+  const hours = (hour12 % 12) + (pm ? 12 : 0);
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
 function addSlotRow(value) {
   const list = document.getElementById('slot-list');
   if (list.children.length >= MAX_TASK_SLOTS) return;
   if (value === undefined) {
     // Suggest one hour after the last time in the list
-    const inputs = list.querySelectorAll('input');
-    const last = inputs.length ? inputs[inputs.length - 1].value : '17:00';
-    const [hours, minutes] = (last || '17:00').split(':').map(Number);
+    const rows = list.querySelectorAll('.slot-row');
+    const last = rows.length ? getSlotRowValue(rows[rows.length - 1]) : '17:00';
+    const [hours, minutes] = last.split(':').map(Number);
     value = `${String((hours + 1) % 24).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   }
+  const [hours, minutes] = value.split(':').map(Number);
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  const pm = hours >= 12;
+  const minuteOptions = [];
+  for (let m = 0; m < 60; m += 5) minuteOptions.push(m);
+  if (!minuteOptions.includes(minutes)) minuteOptions.push(minutes);
+  minuteOptions.sort((a, b) => a - b);
+
   const li = document.createElement('li');
   li.className = 'slot-row';
   li.innerHTML = `
-    <input type="time" class="select-input slot-input" value="${value}" required aria-label="${currentLang === 'BM' ? 'Masa gambar' : 'Photo time'}">
+    <div class="slot-time">
+      <select class="select-input slot-hour" aria-label="${currentLang === 'BM' ? 'Jam' : 'Hour'}">
+        ${[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(h => `<option value="${h}" ${h === hour12 ? 'selected' : ''}>${String(h).padStart(2, '0')}</option>`).join('')}
+      </select>
+      <span class="slot-colon">:</span>
+      <select class="select-input slot-minute" aria-label="${currentLang === 'BM' ? 'Minit' : 'Minute'}">
+        ${minuteOptions.map(m => `<option value="${m}" ${m === minutes ? 'selected' : ''}>${String(m).padStart(2, '0')}</option>`).join('')}
+      </select>
+      <div class="slot-ampm" role="group" aria-label="AM / PM">
+        <button type="button" data-value="AM" class="${pm ? '' : 'active'}">AM</button>
+        <button type="button" data-value="PM" class="${pm ? 'active' : ''}">PM</button>
+      </div>
+    </div>
     <button type="button" class="slot-remove" aria-label="${currentLang === 'BM' ? 'Buang' : 'Remove'}">✕</button>
   `;
-  li.querySelector('input').oninput = () => { document.getElementById('schedule-message').textContent = ''; };
-  li.querySelector('button').onclick = () => {
+  const clearMessage = () => { document.getElementById('schedule-message').textContent = ''; };
+  li.querySelectorAll('select').forEach(select => { select.onchange = clearMessage; });
+  li.querySelectorAll('.slot-ampm button').forEach(btn => {
+    btn.onclick = () => {
+      li.querySelectorAll('.slot-ampm button').forEach(b => b.classList.toggle('active', b === btn));
+      clearMessage();
+    };
+  });
+  li.querySelector('.slot-remove').onclick = () => {
     if (list.children.length > 1) li.remove();
     updateSlotButtons();
   };
@@ -298,7 +335,7 @@ function updateSlotButtons() {
 function saveTaskSlots(event) {
   event.preventDefault();
   const message = document.getElementById('schedule-message');
-  const slots = [...document.querySelectorAll('#slot-list input')].map(input => input.value);
+  const slots = [...document.querySelectorAll('#slot-list .slot-row')].map(getSlotRowValue);
 
   let error = null;
   if (slots.some(slot => !/^\d{2}:\d{2}$/.test(slot))) {

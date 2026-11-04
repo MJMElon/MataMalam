@@ -855,11 +855,52 @@ button.task-item:hover {
   align-items: center;
 }
 
-.slot-input {
-  flex: 1;
+.slot-time {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.slot-time .select-input {
+  width: 5.5rem;
+  flex: 0 1 5.5rem;
+  min-width: 0;
   font-size: 1.1rem;
   font-weight: 600;
-  color-scheme: dark;
+  text-align: center;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.slot-colon {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.slot-ampm {
+  display: flex;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.slot-ampm button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0 0.7rem;
+  height: 44px;
+  cursor: pointer;
+}
+
+.slot-ampm button.active {
+  background-color: var(--accent-color);
+  color: #ffffff;
 }
 
 .slot-remove {
