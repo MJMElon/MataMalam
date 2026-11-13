@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mata Malam</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-04h">
+  <link rel="stylesheet" href="styles.css?v=2026-11-13a">
 </head>
 <body>
 
@@ -200,6 +200,7 @@
         <div class="settings-tabs" role="tablist">
           <button type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-task-timing" id="tab-btn-task-timing" data-tab="task-timing" onclick="switchSettingsTab('task-timing')">Task Timing</button>
           <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-schedule" id="tab-btn-schedule" data-tab="schedule" onclick="switchSettingsTab('schedule')">Schedule</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-locations" id="tab-btn-locations" data-tab="locations" onclick="switchSettingsTab('locations')">Locations</button>
         </div>
 
         <!-- Tab: Task Timing -->
@@ -268,6 +269,25 @@
           </div>
           <div id="schedule-message" class="settings-message" aria-live="polite"></div>
         </form>
+
+        <!-- Tab: Locations (checkpoint pins on a map) -->
+        <form id="tab-locations" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-locations" onsubmit="saveCheckpoints(event)">
+          <div class="checkpoint-picker" id="checkpoint-picker" role="group" aria-labelledby="checkpoint-hint">
+            <!-- Location buttons rendered dynamically -->
+          </div>
+          <p class="checkpoint-hint" id="checkpoint-hint">Choose a location, then tap the map to place its pin.</p>
+          <div class="checkpoint-map" id="checkpoint-map"></div>
+          <div class="checkpoint-tools">
+            <button type="button" class="btn btn-secondary" onclick="pinCheckpointHere()" id="checkpoint-here"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7"/></svg><span id="checkpoint-here-label">Use My Location</span></button>
+            <button type="button" class="btn btn-secondary" onclick="clearCheckpoint()" id="checkpoint-clear">Remove Pin</button>
+          </div>
+
+          <div class="sheet-actions">
+            <button type="button" class="btn btn-secondary" onclick="resetCheckpoints()" id="checkpoint-reset">Reset</button>
+            <button type="submit" class="btn" id="checkpoint-save">Save Changes</button>
+          </div>
+          <div id="checkpoint-message" class="settings-message" aria-live="polite"></div>
+        </form>
       </div>
     </div>
   </main>
@@ -278,6 +298,6 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-04h"></script>
+  <script src="app.js?v=2026-11-13a"></script>
 </body>
 </html>

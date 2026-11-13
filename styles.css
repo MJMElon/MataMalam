@@ -690,6 +690,14 @@ button.task-item:hover {
   padding: 0.6rem 0.75rem;
   cursor: pointer;
   white-space: nowrap;
+  flex: 1 1 auto;
+}
+
+@media (max-width: 480px) {
+  .tab-btn {
+    padding: 0.6rem 0.35rem;
+    font-size: 0.9rem;
+  }
 }
 
 .tab-btn:hover {
@@ -1088,6 +1096,121 @@ footer {
   background-color: #ffffff;
   color: #1f6feb;
   padding: 0.35rem 0.9rem;
+}
+
+/* Settings > Locations (checkpoint pins) */
+.checkpoint-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.checkpoint-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.6rem 0.4rem;
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.checkpoint-chip.active {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+.checkpoint-chip-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.checkpoint-chip-state {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.checkpoint-chip.is-set .checkpoint-chip-state {
+  color: #3fb950;
+}
+
+.checkpoint-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: -0.75rem 0 0;
+}
+
+.checkpoint-map {
+  height: 360px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-color);
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.checkpoint-tools {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: -0.75rem;
+}
+
+.checkpoint-tools .btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.checkpoint-marker {
+  position: relative;
+}
+
+.checkpoint-marker-dot {
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: #d29922;
+  border: 3px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.checkpoint-marker-label {
+  position: absolute;
+  left: 0;
+  bottom: 12px;
+  transform: translateX(-50%);
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  background-color: #161b22;
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.checkpoint-marker.selected .checkpoint-marker-dot {
+  background-color: #58a6ff;
+}
+
+.checkpoint-marker.selected .checkpoint-marker-label {
+  background-color: #1f6feb;
+}
+
+.checkpoint-distance {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 
 /* Print Styles */

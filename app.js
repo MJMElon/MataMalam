@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-04h';
+const APP_VERSION = '2026-11-13a';
 
 let activeStream = null;
 
@@ -43,6 +43,7 @@ function showSettingsPage() {
   document.getElementById('settings-module-page').style.display = 'block';
   loadTaskSettingsForm();
   loadTaskSlotsForm();
+  loadCheckpointsForm();
   switchSettingsTab('task-timing');
   window.scrollTo(0, 0);
 }
@@ -56,6 +57,7 @@ function switchSettingsTab(tabName) {
   document.querySelectorAll('#settings-module-page .tab-content').forEach(panel => {
     panel.classList.toggle('active', panel.id === `tab-${tabName}`);
   });
+  if (tabName === 'locations') initCheckpointMap();
 }
 
 function showReportPage() {
@@ -78,6 +80,187 @@ function stopActiveCamera() {
 
 // To-Do task flow: one task per location per time slot for the current night shift
 const TASK_LOCATIONS = ['BNN', 'UNN1', 'UNN2'];
+
+// Checkpoint pins: where each location is on the map, set by the admin in Settings > Locations.
+// Saved as { BNN: [lat, lng], UNN1: [lat, lng], ... }; a location without a pin is simply left out.
+function getCheckpoints() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('mata_malam_checkpoints'));
+    if (saved && typeof saved === 'object') return saved;
+  } catch (err) {}
+  return {};
+}
+
+let checkpointDraft = {};
+let checkpointSelected = TASK_LOCATIONS[0];
+let checkpointMap = null;
+let checkpointMarkers = {};
+
+function loadCheckpointsForm() {
+  checkpointDraft = { ...getCheckpoints() };
+  checkpointSelected = TASK_LOCATIONS[0];
+  document.getElementById('checkpoint-message').textContent = '';
+  renderCheckpointPicker();
+  if (checkpointMap) {
+    drawCheckpointMarkers();
+    fitCheckpointMap();
+  }
+}
+
+function renderCheckpointPicker() {
+  const picker = document.getElementById('checkpoint-picker');
+  picker.innerHTML = TASK_LOCATIONS.map(location => {
+    const set = Boolean(checkpointDraft[location]);
+    const state = set ? (currentLang === 'BM' ? 'Ditetapkan' : 'Pinned') : (currentLang === 'BM' ? 'Belum ditetapkan' : 'Not set');
+    return `<button type="button" class="checkpoint-chip${location === checkpointSelected ? ' active' : ''}${set ? ' is-set' : ''}" data-location="${location}" aria-pressed="${location === checkpointSelected}">
+      <span class="checkpoint-chip-name">${location}</span>
+      <span class="checkpoint-chip-state">${state}</span>
+    </button>`;
+  }).join('');
+  picker.querySelectorAll('.checkpoint-chip').forEach(btn => {
+    btn.onclick = () => selectCheckpoint(btn.dataset.location);
+  });
+  document.getElementById('checkpoint-clear').disabled = !checkpointDraft[checkpointSelected];
+}
+
+function selectCheckpoint(location) {
+  checkpointSelected = location;
+  renderCheckpointPicker();
+  drawCheckpointMarkers();
+  const pin = checkpointDraft[location];
+  if (pin && checkpointMap) checkpointMap.panTo(pin);
+}
+
+// The map is created the first time the Locations tab is opened (Leaflet needs a visible container)
+function initCheckpointMap() {
+  const container = document.getElementById('checkpoint-map');
+  if (checkpointMap) {
+    checkpointMap.invalidateSize();
+    return;
+  }
+  if (typeof L === 'undefined') {
+    container.innerHTML = `<span class="route-map-offline">${currentLang === 'BM' ? 'Peta tidak dapat dimuatkan (tiada internet).' : 'Map could not be loaded (no internet).'}</span>`;
+    return;
+  }
+  checkpointMap = L.map(container);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(checkpointMap);
+  checkpointMap.on('click', event => placeCheckpoint([event.latlng.lat, event.latlng.lng]));
+  drawCheckpointMarkers();
+  fitCheckpointMap();
+}
+
+function fitCheckpointMap() {
+  const pins = TASK_LOCATIONS.map(location => checkpointDraft[location]).filter(Boolean);
+  if (pins.length > 1) {
+    checkpointMap.fitBounds(pins, { padding: [40, 40], maxZoom: 18 });
+  } else if (pins.length === 1) {
+    checkpointMap.setView(pins[0], 17);
+  } else {
+    checkpointMap.setView([3.139, 101.6869], 12);
+    // No pins yet: start the map where the admin is standing
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(position => {
+        if (TASK_LOCATIONS.some(location => checkpointDraft[location])) return;
+        checkpointMap.setView([position.coords.latitude, position.coords.longitude], 17);
+      }, () => {}, { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
+    }
+  }
+}
+
+function checkpointIcon(location, selected) {
+  return L.divIcon({
+    className: `checkpoint-marker${selected ? ' selected' : ''}`,
+    html: `<span class="checkpoint-marker-label">${location}</span><span class="checkpoint-marker-dot"></span>`,
+    iconSize: [0, 0]
+  });
+}
+
+function drawCheckpointMarkers() {
+  if (!checkpointMap) return;
+  Object.values(checkpointMarkers).forEach(marker => marker.remove());
+  checkpointMarkers = {};
+  TASK_LOCATIONS.forEach(location => {
+    const pin = checkpointDraft[location];
+    if (!pin) return;
+    const selected = location === checkpointSelected;
+    // Pins can be dragged to fine-tune them; tapping a pin selects its location
+    const marker = L.marker(pin, { icon: checkpointIcon(location, selected), draggable: true, zIndexOffset: selected ? 1000 : 0 }).addTo(checkpointMap);
+    marker.on('click', () => selectCheckpoint(location));
+    marker.on('dragend', () => {
+      const { lat, lng } = marker.getLatLng();
+      checkpointSelected = location;
+      placeCheckpoint([lat, lng]);
+    });
+    checkpointMarkers[location] = marker;
+  });
+}
+
+function placeCheckpoint([lat, lng]) {
+  checkpointDraft[checkpointSelected] = [Number(lat.toFixed(6)), Number(lng.toFixed(6))];
+  document.getElementById('checkpoint-message').textContent = '';
+  renderCheckpointPicker();
+  drawCheckpointMarkers();
+}
+
+function pinCheckpointHere() {
+  const btn = document.getElementById('checkpoint-here');
+  const message = document.getElementById('checkpoint-message');
+  if (!navigator.geolocation) {
+    message.textContent = currentLang === 'BM' ? 'Geolokasi tidak disokong' : 'Geolocation not supported';
+    return;
+  }
+  btn.disabled = true;
+  message.textContent = currentLang === 'BM' ? 'Mengesan Lokasi...' : 'Detecting Location...';
+  navigator.geolocation.getCurrentPosition(position => {
+    btn.disabled = false;
+    const point = [position.coords.latitude, position.coords.longitude];
+    placeCheckpoint(point);
+    if (checkpointMap) checkpointMap.setView(point, Math.max(checkpointMap.getZoom(), 17));
+  }, () => {
+    btn.disabled = false;
+    message.textContent = currentLang === 'BM' ? 'Gagal mendapatkan lokasi. Sila hidupkan GPS.' : 'Could not get your location. Please turn on GPS.';
+  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+}
+
+function clearCheckpoint() {
+  delete checkpointDraft[checkpointSelected];
+  document.getElementById('checkpoint-message').textContent = '';
+  renderCheckpointPicker();
+  drawCheckpointMarkers();
+}
+
+function resetCheckpoints() {
+  loadCheckpointsForm();
+}
+
+function saveCheckpoints(event) {
+  event.preventDefault();
+  const saved = {};
+  TASK_LOCATIONS.forEach(location => {
+    if (checkpointDraft[location]) saved[location] = checkpointDraft[location];
+  });
+  localStorage.setItem('mata_malam_checkpoints', JSON.stringify(saved));
+  checkpointDraft = { ...saved };
+  const message = document.getElementById('checkpoint-message');
+  message.textContent = currentLang === 'BM' ? 'Disimpan ✓' : 'Saved ✓';
+  setTimeout(() => {
+    if (message.textContent === 'Disimpan ✓' || message.textContent === 'Saved ✓') message.textContent = '';
+  }, 3000);
+}
+
+// "35 m from the BNN pin" under the detected location in the task sheet
+function describeCheckpointDistance(location, coordText) {
+  const pin = getCheckpoints()[location];
+  const here = parseCoordinates(coordText);
+  if (!pin || !here) return '';
+  const meters = distanceMeters(here, pin);
+  return currentLang === 'BM'
+    ? `${formatDistance(meters)} dari pin ${location}`
+    : `${formatDistance(meters)} from the ${location} pin`;
+}
 // Default photo times (24-hour). Admins can change the schedule in Settings.
 const DEFAULT_TASK_SLOTS = ['18:00', '21:00', '00:00', '03:00', '06:00'];
 const MAX_TASK_SLOTS = 12;
@@ -670,6 +853,13 @@ function startTask(task) {
   pendingCoordinates.then(coord => {
     if (pendingTask !== current) return;
     coordEl.textContent = coord;
+    const distance = describeCheckpointDistance(location, coord);
+    if (distance) {
+      const note = document.createElement('span');
+      note.className = 'checkpoint-distance';
+      note.textContent = distance;
+      coordEl.appendChild(note);
+    }
     locationState.textContent = parseCoordinates(coord) ? '✓' : '';
   });
 
@@ -1446,6 +1636,12 @@ function toggleLanguage() {
     document.getElementById('settings-title').textContent = 'Tetapan';
     document.getElementById('tab-btn-task-timing').textContent = 'Masa Tugasan';
     document.getElementById('tab-btn-schedule').textContent = 'Jadual';
+    document.getElementById('tab-btn-locations').textContent = 'Lokasi';
+    document.getElementById('checkpoint-hint').textContent = 'Pilih lokasi, kemudian ketik peta untuk meletakkan pin.';
+    document.getElementById('checkpoint-here-label').textContent = 'Guna Lokasi Saya';
+    document.getElementById('checkpoint-clear').textContent = 'Buang Pin';
+    document.getElementById('checkpoint-reset').textContent = 'Set Semula';
+    document.getElementById('checkpoint-save').textContent = 'Simpan Perubahan';
     document.getElementById('slot-add-label').textContent = 'Tambah Masa';
     document.getElementById('schedule-reset').textContent = 'Set Semula';
     document.getElementById('schedule-save').textContent = 'Simpan Perubahan';
@@ -1495,6 +1691,12 @@ function toggleLanguage() {
     document.getElementById('settings-title').textContent = 'Settings';
     document.getElementById('tab-btn-task-timing').textContent = 'Task Timing';
     document.getElementById('tab-btn-schedule').textContent = 'Schedule';
+    document.getElementById('tab-btn-locations').textContent = 'Locations';
+    document.getElementById('checkpoint-hint').textContent = 'Choose a location, then tap the map to place its pin.';
+    document.getElementById('checkpoint-here-label').textContent = 'Use My Location';
+    document.getElementById('checkpoint-clear').textContent = 'Remove Pin';
+    document.getElementById('checkpoint-reset').textContent = 'Reset';
+    document.getElementById('checkpoint-save').textContent = 'Save Changes';
     document.getElementById('slot-add-label').textContent = 'Add Time';
     document.getElementById('schedule-reset').textContent = 'Reset';
     document.getElementById('schedule-save').textContent = 'Save Changes';
@@ -1528,6 +1730,7 @@ function toggleLanguage() {
   }
   renderTasks();
   updateSettingsPreview();
+  renderCheckpointPicker();
 }
 
 // Update check: phones often keep an old copy of the page open (or cached), so the app asks the
