@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-04h';
+const APP_VERSION = '2026-11-13a';
 
 let activeStream = null;
 
@@ -42,8 +42,10 @@ function showSettingsPage() {
   });
   document.getElementById('settings-module-page').style.display = 'block';
   loadTaskSettingsForm();
+  renderLocationSettings();
   loadTaskSlotsForm();
   switchSettingsTab('task-timing');
+  syncLocations();
   window.scrollTo(0, 0);
 }
 
@@ -65,6 +67,7 @@ function showReportPage() {
   });
   document.getElementById('report-module-page').style.display = 'block';
   populateReportYearDropdown();
+  populateReportLocations();
   generateReport();
   window.scrollTo(0, 0);
 }
@@ -77,7 +80,15 @@ function stopActiveCamera() {
 }
 
 // To-Do task flow: one task per location per time slot for the current night shift
-const TASK_LOCATIONS = ['BNN', 'UNN1', 'UNN2'];
+// Locations come from the MJM AI System's nursery list (Operation > Settings). This built-in
+// list is only used until the first successful sync, or when the AI System cannot be reached.
+const DEFAULT_LOCATIONS = [
+  { code: 'BNN', name: 'BNN' },
+  { code: 'UNN1', name: 'UNN 1' },
+  { code: 'UNN2', name: 'UNN 2' }
+];
+const AI_SYSTEM_URL = 'https://kibqjztozokohqmhqqqf.supabase.co';
+const AI_SYSTEM_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpYnFqenRvem9rb2hxbWhxcXFmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyMzQzNjIsImV4cCI6MjA4OTgxMDM2Mn0.J7qJUZhWXYf5b9oey4wXJkjdi66jomEMw_NeV9NWF7M';
 // Default photo times (24-hour). Admins can change the schedule in Settings.
 const DEFAULT_TASK_SLOTS = ['18:00', '21:00', '00:00', '03:00', '06:00'];
 const MAX_TASK_SLOTS = 12;
@@ -136,17 +147,138 @@ function sortSlots(slots) {
   return [...slots].sort((a, b) => offset(a) - offset(b));
 }
 
-function getTaskSlots() {
+function isSlotList(value) {
+  return Array.isArray(value) && value.length > 0 && value.every(s => /^\d{2}:\d{2}$/.test(s));
+}
+
+// The single schedule used before each location had its own; still the starting point for a
+// location nobody has set times for yet
+function getSharedSlots() {
   try {
     const saved = JSON.parse(localStorage.getItem('mata_malam_task_slots'));
-    if (Array.isArray(saved) && saved.length > 0 && saved.every(s => /^\d{2}:\d{2}$/.test(s))) return sortSlots(saved);
+    if (isSlotList(saved)) return sortSlots(saved);
   } catch (err) {}
   return [...DEFAULT_TASK_SLOTS];
 }
 
+// A location's code is its name without spaces ("UNN 1" -> "UNN1"), the same rule the AI System uses
+function locationCode(name) {
+  return String(name || '').replace(/\s+/g, '').toUpperCase();
+}
+
+// The main nursery (BNN, UNN1, UNN2, ...) is patrolled unless switched off; other places in the
+// AI System's list (e.g. PN, UNE) are listed but stay off until switched on
+function isMainNursery(code) {
+  return /^(BNN|UNN)\d*$/.test(code);
+}
+
+function sortLocations(list) {
+  const rank = l => (isMainNursery(l.code) ? 0 : 1);
+  return [...list].sort((a, b) => rank(a) - rank(b) || a.code.localeCompare(b.code, 'en', { numeric: true }));
+}
+
+function getLocationCache() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('mata_malam_locations'));
+    if (saved && Array.isArray(saved.list) && saved.list.length > 0 && saved.list.every(l => l && l.code)) return saved;
+  } catch (err) {}
+  return null;
+}
+
+// Every location known to the app, as { code, name }
+function getLocations() {
+  const cache = getLocationCache();
+  return sortLocations(cache ? cache.list : DEFAULT_LOCATIONS);
+}
+
+function getLocationSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('mata_malam_location_settings'));
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) return saved;
+  } catch (err) {}
+  return {};
+}
+
+function saveLocationSetting(code, changes) {
+  const all = getLocationSettings();
+  all[code] = { ...(all[code] || {}), ...changes };
+  localStorage.setItem('mata_malam_location_settings', JSON.stringify(all));
+}
+
+function isLocationActive(code) {
+  const setting = getLocationSettings()[code];
+  return setting && typeof setting.active === 'boolean' ? setting.active : isMainNursery(code);
+}
+
+// Codes of the locations that get check-in tasks, in display order
+function getActiveLocations() {
+  return getLocations().map(l => l.code).filter(isLocationActive);
+}
+
+function locationOrder(code) {
+  const index = getLocations().findIndex(l => l.code === code);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+// Each location has its own check-in times
+function getTaskSlots(location) {
+  const setting = getLocationSettings()[location];
+  if (setting && isSlotList(setting.slots)) return sortSlots(setting.slots);
+  return getSharedSlots();
+}
+
 // Slot labels in shift order, e.g. ['6pm', '9pm', '12am', '3am', '6am']
-function getTaskTimes() {
-  return getTaskSlots().map(formatSlotLabel);
+function getTaskTimes(location) {
+  return getTaskSlots(location).map(formatSlotLabel);
+}
+
+// The earliest check-in of the shift across the active locations (used for the timing preview)
+function getFirstTaskTime() {
+  const slots = getActiveLocations().flatMap(getTaskSlots);
+  return formatSlotLabel(sortSlots(slots.length ? slots : DEFAULT_TASK_SLOTS)[0]);
+}
+
+// Reads the nursery list from the MJM AI System. Keeps the saved list when it cannot be reached.
+let locationSyncState = '';
+async function syncLocations({ manual = false } = {}) {
+  if (manual) {
+    locationSyncState = 'loading';
+    renderLocationSettings();
+  }
+  try {
+    const response = await fetch(`${AI_SYSTEM_URL}/rest/v1/rpc/mata_malam_locations`, {
+      method: 'POST',
+      headers: { apikey: AI_SYSTEM_KEY, Authorization: `Bearer ${AI_SYSTEM_KEY}`, 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const rows = await response.json();
+    const seen = new Set();
+    const list = [];
+    (Array.isArray(rows) ? rows : []).forEach(row => {
+      const name = String((row && row.name) || row || '').trim();
+      const code = locationCode(name);
+      if (!code || seen.has(code)) return;
+      seen.add(code);
+      list.push({ code, name });
+    });
+    if (list.length === 0) throw new Error('empty list');
+    const before = JSON.stringify(getActiveLocations());
+    // Close off what was already missed before the list changes, then only count misses from now
+    // on, so a newly listed location is not marked "Work Not Completed" for times already past
+    recordMissedTasks();
+    localStorage.setItem('mata_malam_locations', JSON.stringify({ list, syncedAt: Date.now() }));
+    if (JSON.stringify(getActiveLocations()) !== before) {
+      localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
+    }
+    locationSyncState = 'ok';
+    renderTasks();
+  } catch (err) {
+    locationSyncState = 'failed';
+  }
+  renderLocationSettings();
+  renderScheduleLocations();
+  populateReportLocations();
 }
 
 function getTaskWindow(date, time, settings = getTaskSettings()) {
@@ -220,7 +352,7 @@ function setSliderBubble(inputId, bubbleId, text) {
 
 function updateSettingsPreview() {
   const settings = readTaskSettingsForm();
-  const exampleTime = getTaskTimes()[0];
+  const exampleTime = getFirstTaskTime();
   const { opensAt, closesAt } = getTaskWindow(getShiftDate(), exampleTime, settings);
   // Bubble above each slider thumb shows the duration; the header shows the resulting time for the first task of the shift
   setSliderBubble('setting-opens-before', 'bubble-opens-before', formatDuration(settings.opensBeforeMinutes));
@@ -258,13 +390,123 @@ function resetTaskSettings() {
   loadTaskSettingsForm(DEFAULT_TASK_SETTINGS);
 }
 
-// Schedule tab: the admin-editable list of photo times
-function loadTaskSlotsForm(slots = getTaskSlots()) {
+// Location tab: the locations read from the AI System, which ones are patrolled, and their times
+function renderLocationSettings() {
+  const listEl = document.getElementById('location-list');
+  if (!listEl) return;
+  const bm = currentLang === 'BM';
+  const cache = getLocationCache();
+  const active = getActiveLocations();
+  listEl.innerHTML = '';
+  getLocations().forEach(({ code, name }) => {
+    const on = active.includes(code);
+    const li = document.createElement('li');
+    li.className = on ? 'location-row' : 'location-row location-row-off';
+    const times = getTaskSlots(code).map(slot => `<span class="location-time">${formatSlotTime(formatSlotLabel(slot))}</span>`).join('');
+    li.innerHTML = `
+      <div class="location-head">
+        <span class="location-name">${ICONS.pin}<span></span></span>
+        <label class="switch">
+          <input type="checkbox" ${on ? 'checked' : ''} aria-label="${bm ? 'Aktif' : 'Active'}">
+          <span class="switch-track"></span>
+        </label>
+      </div>
+      <div class="location-times">${on ? times : `<span class="location-off-note">${bm ? 'Tidak aktif — tiada tugasan' : 'Off — no check-in tasks'}</span>`}</div>
+      <button type="button" class="btn btn-secondary location-edit" ${on ? '' : 'hidden'}>${bm ? 'Ubah Masa' : 'Edit Times'}</button>
+    `;
+    li.querySelector('.location-name span').textContent = name;
+    li.querySelector('input').onchange = (event) => setLocationActive(code, event.target.checked);
+    li.querySelector('.location-edit').onclick = () => {
+      selectScheduleLocation(code, { force: true });
+      switchSettingsTab('schedule');
+    };
+    listEl.appendChild(li);
+  });
+
+  const status = document.getElementById('location-status');
+  let text;
+  if (locationSyncState === 'loading') {
+    text = bm ? 'Sedang membaca daripada AI System…' : 'Reading from the AI System…';
+  } else if (locationSyncState === 'failed') {
+    text = cache
+      ? (bm ? 'AI System tidak dapat dihubungi. Senarai yang disimpan digunakan.' : 'Could not reach the AI System. Using the saved list.')
+      : (bm ? 'AI System tidak dapat dihubungi. Senarai asal digunakan.' : 'Could not reach the AI System. Using the built-in list.');
+  } else if (cache) {
+    const d = new Date(cache.syncedAt);
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    text = `${bm ? 'Daripada AI System • dikemas kini' : 'From the AI System • updated'} ${day} ${formatClock(d)}`;
+  } else {
+    text = bm ? 'Senarai asal (belum dibaca daripada AI System).' : 'Built-in list (not read from the AI System yet).';
+  }
+  status.textContent = text;
+  status.classList.toggle('location-status-warn', locationSyncState === 'failed');
+  document.getElementById('location-refresh').disabled = locationSyncState === 'loading';
+}
+
+function setLocationActive(code, active) {
+  const message = document.getElementById('location-message');
+  message.textContent = '';
+  if (!active && getActiveLocations().length <= 1 && isLocationActive(code)) {
+    message.style.color = 'var(--error-color)';
+    message.textContent = currentLang === 'BM' ? 'Sekurang-kurangnya satu lokasi mesti aktif.' : 'At least one location must stay on.';
+    renderLocationSettings();
+    return;
+  }
+  // Same rule as a schedule change: settle what was missed so far, then count misses from now
+  recordMissedTasks();
+  saveLocationSetting(code, { active });
+  localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
+  renderLocationSettings();
+  renderScheduleLocations();
+  loadTaskSlotsForm();
+  renderTasks();
+  updateSettingsPreview();
+}
+
+// Schedule tab: each location's own list of check-in times
+let scheduleLocation = null;
+let scheduleDirty = false;
+
+function getScheduleLocation() {
+  const active = getActiveLocations();
+  if (!active.includes(scheduleLocation)) scheduleLocation = active[0] || getLocations()[0].code;
+  return scheduleLocation;
+}
+
+function renderScheduleLocations() {
+  const el = document.getElementById('schedule-locations');
+  if (!el) return;
+  const current = getScheduleLocation();
+  el.innerHTML = '';
+  const active = getActiveLocations();
+  getLocations().filter(l => active.includes(l.code)).forEach(({ code, name }) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = code === current ? 'loc-pill active' : 'loc-pill';
+    btn.setAttribute('aria-pressed', String(code === current));
+    btn.textContent = name;
+    btn.onclick = () => selectScheduleLocation(code);
+    el.appendChild(btn);
+  });
+}
+
+function selectScheduleLocation(code, { force = false } = {}) {
+  if (code === scheduleLocation && !force) return;
+  if (scheduleDirty && code !== scheduleLocation && !confirm(currentLang === 'BM'
+    ? 'Perubahan masa belum disimpan. Tinggalkan tanpa simpan?'
+    : 'The time changes are not saved yet. Leave without saving?')) return;
+  scheduleLocation = code;
+  loadTaskSlotsForm();
+}
+
+function loadTaskSlotsForm(slots = getTaskSlots(getScheduleLocation())) {
+  renderScheduleLocations();
   const list = document.getElementById('slot-list');
   list.innerHTML = '';
   slots.forEach(slot => addSlotRow(slot));
   updateTimeFormatToggle();
   document.getElementById('schedule-message').textContent = '';
+  scheduleDirty = false;
 }
 
 function updateTimeFormatToggle() {
@@ -284,6 +526,7 @@ function setTimeFormat(format) {
   list.innerHTML = '';
   rows.forEach(value => addSlotRow(value, { focus: false }));
   updateTimeFormatToggle();
+  renderLocationSettings();
   renderTasks();
   updateSettingsPreview();
 }
@@ -363,10 +606,11 @@ function addSlotRow(value = null, { focus = true } = {}) {
       li.classList.toggle('slot-row-empty', !complete);
       if (complete) li.classList.remove('slot-row-error');
       document.getElementById('schedule-message').textContent = '';
+      scheduleDirty = true;
     };
   });
   li.querySelector('.slot-remove').onclick = () => {
-    if (list.children.length > 1) li.remove();
+    if (list.children.length > 1) { li.remove(); scheduleDirty = true; }
     updateSlotButtons();
   };
   list.appendChild(li);
@@ -407,18 +651,21 @@ function saveTaskSlots(event) {
   // Record any tasks already missed under the old schedule, then only count misses from now on,
   // so a newly added time whose window has already passed is not marked "Work Not Completed"
   recordMissedTasks();
-  localStorage.setItem('mata_malam_task_slots', JSON.stringify(sortSlots(slots)));
+  const location = getScheduleLocation();
+  saveLocationSetting(location, { slots: sortSlots(slots) });
   localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
 
   loadTaskSlotsForm();
   message.style.color = '#3fb950';
-  message.textContent = currentLang === 'BM' ? 'Jadual disimpan.' : 'Schedule saved.';
+  message.textContent = currentLang === 'BM' ? `Jadual ${location} disimpan.` : `${location} schedule saved.`;
+  renderLocationSettings();
   renderTasks();
   updateSettingsPreview();
 }
 
 function resetTaskSlots() {
   loadTaskSlotsForm(DEFAULT_TASK_SLOTS);
+  scheduleDirty = true;
 }
 
 function getLogs() {
@@ -463,16 +710,16 @@ function getTrackingStart() {
 function recordMissedTasks(now = Date.now()) {
   const trackingStart = getTrackingStart();
   const settings = getTaskSettings();
-  const times = getTaskTimes();
+  const schedule = getActiveLocations().map(location => ({ location, times: getTaskTimes(location) }));
   const logs = getLogs();
   let changed = false;
 
   for (let i = 31; i >= 0; i--) {
     const date = getShiftDate(new Date(now - i * DAY_MS));
-    times.forEach(time => {
-      const { closesAt } = getTaskWindow(date, time, settings);
-      if (closesAt > now || closesAt <= trackingStart) return;
-      TASK_LOCATIONS.forEach(location => {
+    schedule.forEach(({ location, times }) => {
+      times.forEach(time => {
+        const { closesAt } = getTaskWindow(date, time, settings);
+        if (closesAt > now || closesAt <= trackingStart) return;
         if (logs.some(l => l.date === date && l.time === time && l.location === location)) return;
         logs.push({ location, date, time, coordinates: '-', status: 'missed', recordedAt: new Date(closesAt).toISOString() });
         changed = true;
@@ -488,13 +735,14 @@ function getShiftTasks(date) {
   const logs = getLogs().filter(log => log.date === date);
   const settings = getTaskSettings();
   const tasks = [];
-  getTaskTimes().forEach(time => {
-    TASK_LOCATIONS.forEach(location => {
+  getActiveLocations().forEach(location => {
+    getTaskTimes(location).forEach(time => {
       const log = logs.find(l => l.location === location && l.time === time);
       tasks.push({ location, time, date, log, ...getTaskWindow(date, time, settings) });
     });
   });
-  return tasks;
+  // Each location has its own times, so put the whole shift in clock order
+  return tasks.sort((a, b) => a.scheduledAt - b.scheduledAt || locationOrder(a.location) - locationOrder(b.location));
 }
 
 function renderTasks() {
@@ -560,7 +808,7 @@ function renderHistory(now = Date.now()) {
   const entries = getLogs()
     .filter(log => dates.includes(log.date) && !log.patrolOpen && !Number.isNaN(parseSlotLabel(log.time)))
     .map(log => ({ log, ...getTaskWindow(log.date, log.time) }))
-    .sort((a, b) => b.scheduledAt - a.scheduledAt || TASK_LOCATIONS.indexOf(a.log.location) - TASK_LOCATIONS.indexOf(b.log.location));
+    .sort((a, b) => b.scheduledAt - a.scheduledAt || locationOrder(a.log.location) - locationOrder(b.log.location));
 
   photoUrls.forEach(url => URL.revokeObjectURL(url));
   photoUrls = [];
@@ -1373,6 +1621,28 @@ function populateReportYearDropdown() {
   });
 }
 
+// The report's location filter: the current locations, plus any older one that still has logs
+function populateReportLocations() {
+  const select = document.getElementById('report-module-select');
+  if (!select) return;
+  const selected = select.value || 'ALL';
+  const names = new Map(getLocations().map(l => [l.code, l.name]));
+  getLogs().forEach(log => { if (log.location && !names.has(log.location)) names.set(log.location, log.location); });
+  select.innerHTML = '';
+  const all = document.createElement('option');
+  all.value = 'ALL';
+  all.id = 'opt-all';
+  all.textContent = currentLang === 'BM' ? 'Semua Lokasi' : 'All Locations';
+  select.appendChild(all);
+  names.forEach((name, code) => {
+    const opt = document.createElement('option');
+    opt.value = code;
+    opt.textContent = name;
+    select.appendChild(opt);
+  });
+  select.value = [...select.options].some(o => o.value === selected) ? selected : 'ALL';
+}
+
 function generateReport() {
   const logs = JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
   const selectedMonth = document.getElementById('report-month-select').value;
@@ -1446,6 +1716,9 @@ function toggleLanguage() {
     document.getElementById('settings-title').textContent = 'Tetapan';
     document.getElementById('tab-btn-task-timing').textContent = 'Masa Tugasan';
     document.getElementById('tab-btn-schedule').textContent = 'Jadual';
+    document.getElementById('tab-btn-location').textContent = 'Lokasi';
+    document.getElementById('location-refresh-label').textContent = 'Muat Semula daripada AI System';
+    document.getElementById('lbl-schedule-location').textContent = 'Lokasi';
     document.getElementById('slot-add-label').textContent = 'Tambah Masa';
     document.getElementById('schedule-reset').textContent = 'Set Semula';
     document.getElementById('schedule-save').textContent = 'Simpan Perubahan';
@@ -1495,6 +1768,9 @@ function toggleLanguage() {
     document.getElementById('settings-title').textContent = 'Settings';
     document.getElementById('tab-btn-task-timing').textContent = 'Task Timing';
     document.getElementById('tab-btn-schedule').textContent = 'Schedule';
+    document.getElementById('tab-btn-location').textContent = 'Location';
+    document.getElementById('location-refresh-label').textContent = 'Refresh from AI System';
+    document.getElementById('lbl-schedule-location').textContent = 'Location';
     document.getElementById('slot-add-label').textContent = 'Add Time';
     document.getElementById('schedule-reset').textContent = 'Reset';
     document.getElementById('schedule-save').textContent = 'Save Changes';
@@ -1528,6 +1804,7 @@ function toggleLanguage() {
   }
   renderTasks();
   updateSettingsPreview();
+  renderLocationSettings();
 }
 
 // Update check: phones often keep an old copy of the page open (or cached), so the app asks the
@@ -1578,4 +1855,5 @@ window.onload = function() {
   checkForUpdate();
   renderTasks();
   resumeActiveRoute();
+  syncLocations();
 };
