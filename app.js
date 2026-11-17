@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-13b';
+const APP_VERSION = '2026-11-17a';
 
 let activeStream = null;
 
@@ -1929,12 +1929,41 @@ function signOut() {
           : `${waiting} check-in(s) are not sent yet. They stay on this phone and are sent when you sign in again. Sign out?`)
     : (bm ? 'Log keluar?' : 'Sign out?');
   if (!confirm(question)) return;
-  if (session) rpc('worker_signout', { p_token: session.token }, 8000).catch(() => {});
+  if (session && !session.fromPortal) rpc('worker_signout', { p_token: session.token }, 8000).catch(() => {});
   localStorage.removeItem('mata_malam_session');
   showSignIn();
 }
 
-function startSession() {
+// Opened from the 555 Worker Portal's Mata Malam button: the portal hands over its PIN session in
+// the address (#wt=<token>), so the guard is not asked for the PIN a second time. The token is
+// taken out of the address at once, and is only believed after the AI System has said whose it is.
+function takeHandedToken() {
+  const match = /[#&]wt=([^&]+)/.exec(location.hash || '');
+  if (!match) return null;
+  history.replaceState(null, '', location.pathname + location.search);
+  const token = decodeURIComponent(match[1]);
+  return /^[0-9a-fA-F-]{36}$/.test(token) ? token : null;
+}
+
+async function startSession() {
+  const handed = takeHandedToken();
+  const current = getSession();
+  if (handed && !(current && current.token === handed)) {
+    try {
+      const who = await rpc('worker_whoami', { p_token: handed });
+      if (who && who.token && who.worker && who.worker.name) {
+        // fromPortal: the session is the Worker Portal's too, so signing out here must not end it there
+        localStorage.setItem('mata_malam_session', JSON.stringify({
+          token: who.token,
+          worker: { id: who.worker.id, name: who.worker.name, role: who.worker.role || '' },
+          canEdit: false,
+          fromPortal: true
+        }));
+      }
+    } catch (err) {
+      // No signal: carry on with whoever was already signed in on this phone, if anybody
+    }
+  }
   if (!getSession()) {
     showSignIn();
     return;
@@ -2138,7 +2167,8 @@ async function syncNow({ manual = false } = {}) {
       localStorage.setItem('mata_malam_session', JSON.stringify({
         token: session.token,
         worker: { id: state.worker.id, name: state.worker.name, role: state.worker.role || '' },
-        canEdit: !!state.can_edit
+        canEdit: !!state.can_edit,
+        ...(session.fromPortal ? { fromPortal: true } : {})
       }));
       const seen = new Set();
       const list = [];
