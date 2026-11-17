@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mata Malam</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-13a">
+  <link rel="stylesheet" href="styles.css?v=2026-11-13b">
 </head>
 <body>
 
@@ -29,6 +29,18 @@
     <button type="button" class="btn" onclick="applyUpdate()" id="update-banner-btn">Update</button>
   </div>
 
+  <!-- Sign in: the PIN on the guard's row of the payroll register, the same one as the 555 Worker Portal -->
+  <div id="signin-page" class="signin-page" hidden>
+    <form class="signin-card" onsubmit="signIn(event)">
+      <h1 id="signin-title">Sign In</h1>
+      <p id="signin-hint">Enter your PIN (the same one as the 555 Worker Portal).</p>
+      <input type="password" inputmode="text" autocomplete="off" autocapitalize="characters" id="signin-pin" class="signin-pin" aria-labelledby="signin-title" maxlength="12">
+      <button type="submit" class="btn" id="signin-btn">Enter</button>
+      <div id="signin-message" class="settings-message" aria-live="polite"></div>
+      <button type="button" class="nav-btn" onclick="toggleLanguage()" id="signin-lang">Bahasa Melayu</button>
+    </form>
+  </div>
+
   <main>
     <!-- Page View 1: Main Home Page (To-Do List) -->
     <div id="home-page" class="page-view">
@@ -37,6 +49,7 @@
           <h2 id="todo-title">To-Do List</h2>
           <span class="task-meta" id="todo-meta"></span>
         </div>
+        <p class="nav-user-line"><span id="nav-user"></span><button type="button" class="nav-btn nav-signout" onclick="signOut()" id="nav-signout">Sign Out</button></p>
         <ul class="task-list" id="todo-list">
           <!-- Pending tasks rendered dynamically -->
         </ul>
@@ -44,6 +57,7 @@
 
       <div style="text-align: center;">
         <button class="btn" id="hero-btn" onclick="handleClick()">Synchronize Data</button>
+        <p class="sync-status" id="sync-status" aria-live="polite"></p>
       </div>
     </div>
 
@@ -168,6 +182,7 @@
               <thead>
                 <tr>
                   <th id="th-location">Location</th>
+                  <th id="th-guard">Guard</th>
                   <th id="th-date">Date</th>
                   <th id="th-timeslot">Time Slot</th>
                   <th id="th-coordinates">Coordinates</th>
@@ -194,6 +209,7 @@
       <div class="module-page-card">
         <h1 style="color: var(--accent-color); font-size: 2rem; margin-bottom: 1rem;" id="settings-title">Settings</h1>
 
+        <p class="settings-readonly-note" id="settings-readonly-note" hidden></p>
         <div class="settings-tabs" role="tablist">
           <button type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-task-timing" id="tab-btn-task-timing" data-tab="task-timing" onclick="switchSettingsTab('task-timing')">Task Timing</button>
           <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-location" id="tab-btn-location" data-tab="location" onclick="switchSettingsTab('location')">Location</button>
@@ -251,7 +267,7 @@
             <!-- Location rows rendered dynamically -->
           </ul>
           <p class="location-status" id="location-status" aria-live="polite"></p>
-          <button type="button" class="slot-add" onclick="syncLocations({ manual: true })" id="location-refresh"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg><span id="location-refresh-label">Refresh from AI System</span></button>
+          <button type="button" class="slot-add" onclick="syncNow({ manual: true })" id="location-refresh"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg><span id="location-refresh-label">Refresh from AI System</span></button>
           <div id="location-message" class="settings-message" aria-live="polite"></div>
         </div>
 
@@ -291,6 +307,6 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-13a"></script>
+  <script src="app.js?v=2026-11-13b"></script>
 </body>
 </html>

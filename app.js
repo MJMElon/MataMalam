@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-13a';
+const APP_VERSION = '2026-11-13b';
 
 let activeStream = null;
 
@@ -44,8 +44,9 @@ function showSettingsPage() {
   loadTaskSettingsForm();
   renderLocationSettings();
   loadTaskSlotsForm();
+  applySettingsAccess();
   switchSettingsTab('task-timing');
-  syncLocations();
+  syncNow();
   window.scrollTo(0, 0);
 }
 
@@ -238,48 +239,7 @@ function getFirstTaskTime() {
   return formatSlotLabel(sortSlots(slots.length ? slots : DEFAULT_TASK_SLOTS)[0]);
 }
 
-// Reads the nursery list from the MJM AI System. Keeps the saved list when it cannot be reached.
 let locationSyncState = '';
-async function syncLocations({ manual = false } = {}) {
-  if (manual) {
-    locationSyncState = 'loading';
-    renderLocationSettings();
-  }
-  try {
-    const response = await fetch(`${AI_SYSTEM_URL}/rest/v1/rpc/mata_malam_locations`, {
-      method: 'POST',
-      headers: { apikey: AI_SYSTEM_KEY, Authorization: `Bearer ${AI_SYSTEM_KEY}`, 'Content-Type': 'application/json' },
-      body: '{}'
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const rows = await response.json();
-    const seen = new Set();
-    const list = [];
-    (Array.isArray(rows) ? rows : []).forEach(row => {
-      const name = String((row && row.name) || row || '').trim();
-      const code = locationCode(name);
-      if (!code || seen.has(code)) return;
-      seen.add(code);
-      list.push({ code, name });
-    });
-    if (list.length === 0) throw new Error('empty list');
-    const before = JSON.stringify(getActiveLocations());
-    // Close off what was already missed before the list changes, then only count misses from now
-    // on, so a newly listed location is not marked "Work Not Completed" for times already past
-    recordMissedTasks();
-    localStorage.setItem('mata_malam_locations', JSON.stringify({ list, syncedAt: Date.now() }));
-    if (JSON.stringify(getActiveLocations()) !== before) {
-      localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
-    }
-    locationSyncState = 'ok';
-    renderTasks();
-  } catch (err) {
-    locationSyncState = 'failed';
-  }
-  renderLocationSettings();
-  renderScheduleLocations();
-  populateReportLocations();
-}
 
 function getTaskWindow(date, time, settings = getTaskSettings()) {
   const [year, month, day] = date.split('-').map(Number);
@@ -380,9 +340,11 @@ function saveTaskSettings(event) {
     message.textContent = error;
     return;
   }
+  if (denySettingsEdit(message)) return;
   localStorage.setItem('mata_malam_task_settings', JSON.stringify(settings));
   message.style.color = '#3fb950';
   message.textContent = currentLang === 'BM' ? 'Tetapan disimpan.' : 'Settings saved.';
+  settingsChanged();
   renderTasks();
 }
 
@@ -407,12 +369,12 @@ function renderLocationSettings() {
       <div class="location-head">
         <span class="location-name">${ICONS.pin}<span></span></span>
         <label class="switch">
-          <input type="checkbox" ${on ? 'checked' : ''} aria-label="${bm ? 'Aktif' : 'Active'}">
+          <input type="checkbox" ${on ? 'checked' : ''} ${canEditSettings() ? '' : 'disabled'} aria-label="${bm ? 'Aktif' : 'Active'}">
           <span class="switch-track"></span>
         </label>
       </div>
       <div class="location-times">${on ? times : `<span class="location-off-note">${bm ? 'Tidak aktif — tiada tugasan' : 'Off — no check-in tasks'}</span>`}</div>
-      <button type="button" class="btn btn-secondary location-edit" ${on ? '' : 'hidden'}>${bm ? 'Ubah Masa' : 'Edit Times'}</button>
+      <button type="button" class="btn btn-secondary location-edit" ${on ? '' : 'hidden'}>${canEditSettings() ? (bm ? 'Ubah Masa' : 'Edit Times') : (bm ? 'Lihat Masa' : 'View Times')}</button>
     `;
     li.querySelector('.location-name span').textContent = name;
     li.querySelector('input').onchange = (event) => setLocationActive(code, event.target.checked);
@@ -446,6 +408,10 @@ function renderLocationSettings() {
 function setLocationActive(code, active) {
   const message = document.getElementById('location-message');
   message.textContent = '';
+  if (denySettingsEdit(message)) {
+    renderLocationSettings();
+    return;
+  }
   if (!active && getActiveLocations().length <= 1 && isLocationActive(code)) {
     message.style.color = 'var(--error-color)';
     message.textContent = currentLang === 'BM' ? 'Sekurang-kurangnya satu lokasi mesti aktif.' : 'At least one location must stay on.';
@@ -456,6 +422,7 @@ function setLocationActive(code, active) {
   recordMissedTasks();
   saveLocationSetting(code, { active });
   localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
+  settingsChanged();
   renderLocationSettings();
   renderScheduleLocations();
   loadTaskSlotsForm();
@@ -507,6 +474,7 @@ function loadTaskSlotsForm(slots = getTaskSlots(getScheduleLocation())) {
   updateTimeFormatToggle();
   document.getElementById('schedule-message').textContent = '';
   scheduleDirty = false;
+  applySettingsAccess();
 }
 
 function updateTimeFormatToggle() {
@@ -647,6 +615,7 @@ function saveTaskSlots(event) {
     message.textContent = error;
     return;
   }
+  if (denySettingsEdit(message)) return;
 
   // Record any tasks already missed under the old schedule, then only count misses from now on,
   // so a newly added time whose window has already passed is not marked "Work Not Completed"
@@ -654,6 +623,7 @@ function saveTaskSlots(event) {
   const location = getScheduleLocation();
   saveLocationSetting(location, { slots: sortSlots(slots) });
   localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
+  settingsChanged();
 
   loadTaskSlotsForm();
   message.style.color = '#3fb950';
@@ -847,10 +817,11 @@ function renderHistory(now = Date.now()) {
     li.innerHTML = `
       ${missed ? '<span class="task-thumb task-thumb-missed" aria-hidden="true">✕</span>' : '<img class="task-thumb" alt="">'}
       <span class="task-time">${formatSlotTime(log.time)}</span>
-      <span class="task-location">${log.location}</span>
+      <span class="task-location">${log.location}<span class="task-deadline task-by"></span></span>
       <span class="task-action">${remark}</span>
     `;
-    if (!missed && log.routeId) {
+    if (!missed && log.workerName) li.querySelector('.task-by').textContent = log.workerName;
+    if (!missed && (log.routeId || log.hasRoute)) {
       li.classList.add('task-has-route');
       li.insertAdjacentHTML('beforeend', `
         <div class="history-route">
@@ -866,13 +837,17 @@ function renderHistory(now = Date.now()) {
     }
     const img = li.querySelector('img');
     if (img && log.id) {
+      img.alt = `${log.location} ${formatSlotTime(log.time)}`;
       loadPhoto(log.id).then(blob => {
-        if (!blob) return;
+        if (!blob) {
+          // Taken on another phone: shown from the AI System
+          if (log.photoUrl) img.src = log.photoUrl;
+          return;
+        }
         const url = URL.createObjectURL(blob);
         photoUrls.push(url);
         img.src = url;
-        img.alt = `${log.location} ${formatSlotTime(log.time)}`;
-      }).catch(() => {});
+      }).catch(() => { if (log.photoUrl) img.src = log.photoUrl; });
     }
     doneList.appendChild(li);
   });
@@ -1061,6 +1036,8 @@ async function submitTask() {
     coordinates,
     status: 'completed',
     submittedAt: new Date().toISOString(),
+    rev: 1,
+    ...(getSession() ? { workerId: getSession().worker.id, workerName: getSession().worker.name } : {}),
     // A task whose road track is not finished stays in the To-Do List until it is
     patrolOpen: !pendingTask.route,
     ...(pendingTask.route ? {
@@ -1073,6 +1050,7 @@ async function submitTask() {
 
   closeSubmitSheet({ submitted: true });
   renderTasks();
+  syncSoon();
 }
 
 // Cancel asks first if a road track is being recorded, since cancelling discards it
@@ -1269,6 +1247,18 @@ function findLog(logId) {
 }
 
 function updateLog(logId, changes) {
+  const logs = getLogs();
+  const log = logs.find(l => l.id === logId);
+  if (!log) return;
+  Object.assign(log, changes);
+  // Every change to a check-in is sent to the AI System again (see syncNow)
+  log.rev = (log.rev || 0) + 1;
+  localStorage.setItem('mata_malam_logs', JSON.stringify(logs));
+  syncSoon();
+}
+
+// Notes kept about a check-in's own sync; these are not changes to send
+function markLog(logId, changes) {
   const logs = getLogs();
   const log = logs.find(l => l.id === logId);
   if (!log) return;
@@ -1584,6 +1574,18 @@ async function resumeActiveRoute() {
   } catch (err) {}
 }
 
+// The road track of a check-in: from this phone when it was recorded here, else from the AI System
+async function loadLogRoute(log) {
+  if (log.routeId) {
+    const local = await loadRoute(log.routeId).catch(() => null);
+    if (local) return local;
+  }
+  const session = getSession();
+  if (!log.hasRoute || !session) return null;
+  const points = await rpc('mata_malam_route', { p_token: session.token, p_uid: log.id });
+  return Array.isArray(points) && points.length ? { points } : null;
+}
+
 // History: shows a task's recorded route with a map and a Google Maps link
 function toggleHistoryRoute(button, log) {
   const panel = button.closest('li').querySelector('.history-route-map');
@@ -1594,7 +1596,7 @@ function toggleHistoryRoute(button, log) {
   panel.hidden = false;
   if (panel.dataset.loaded) return;
   panel.dataset.loaded = '1';
-  loadRoute(log.routeId).then(route => {
+  loadLogRoute(log).then(route => {
     if (!route) return;
     const mapEl = panel.querySelector('.route-map');
     const layers = drawRouteMap(mapEl, route.points, parseCoordinates(log.coordinates));
@@ -1662,7 +1664,7 @@ function generateReport() {
 
   if (filteredLogs.length === 0) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td colspan="5" style="text-align: center; color: var(--text-muted);">${currentLang === 'BM' ? 'Tiada rekod log ditemui.' : 'No log records found.'}</td>`;
+    tr.innerHTML = `<td colspan="6" style="text-align: center; color: var(--text-muted);">${currentLang === 'BM' ? 'Tiada rekod log ditemui.' : 'No log records found.'}</td>`;
     tbody.appendChild(tr);
     return;
   }
@@ -1671,6 +1673,7 @@ function generateReport() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><strong>${log.location}</strong></td>
+      <td class="report-guard"></td>
       <td>${log.date}</td>
       <td>${formatSlotTime(log.time)}</td>
       <td style="font-family: monospace;">${log.coordinates}</td>
@@ -1678,6 +1681,7 @@ function generateReport() {
         ? `<span class="task-remark-missed">${currentLang === 'BM' ? 'Kerja Tidak Disiapkan' : 'Work Not Completed'}</span>`
         : (currentLang === 'BM' ? 'Selesai' : 'Completed')}</td>
     `;
+    tr.querySelector('.report-guard').textContent = log.status === 'missed' ? '-' : (log.workerName || '-');
     tbody.appendChild(tr);
   });
 }
@@ -1687,7 +1691,7 @@ function printReport() {
 }
 
 function handleClick() {
-  alert(currentLang === 'BM' ? 'Data berjaya diselaraskan dengan pelayan!' : 'Data synchronized successfully with server!');
+  syncNow({ manual: true });
 }
 
 // Language Toggle logic
@@ -1698,7 +1702,12 @@ function toggleLanguage() {
   langBtn.textContent = `Language (${currentLang})`;
 
   if (currentLang === 'BM') {
-    document.getElementById('hero-btn').textContent = 'Selaraskan Data';
+    document.getElementById('nav-signout').textContent = 'Log Keluar';
+    document.getElementById('signin-title').textContent = 'Log Masuk';
+    document.getElementById('signin-hint').textContent = 'Masukkan PIN anda (sama seperti 555 Worker Portal).';
+    document.getElementById('signin-btn').textContent = 'Masuk';
+    document.getElementById('signin-lang').textContent = 'English';
+    document.getElementById('th-guard').textContent = 'Pengawal';
     document.getElementById('todo-title').textContent = 'Senarai Tugasan';
     document.getElementById('done-title').textContent = 'Sejarah';
     document.getElementById('nav-done').textContent = 'Sejarah';
@@ -1750,7 +1759,12 @@ function toggleLanguage() {
     document.getElementById('th-coordinates').textContent = 'Koordinat';
     document.getElementById('th-status').textContent = 'Status';
   } else {
-    document.getElementById('hero-btn').textContent = 'Synchronize Data';
+    document.getElementById('nav-signout').textContent = 'Sign Out';
+    document.getElementById('signin-title').textContent = 'Sign In';
+    document.getElementById('signin-hint').textContent = 'Enter your PIN (the same one as the 555 Worker Portal).';
+    document.getElementById('signin-btn').textContent = 'Enter';
+    document.getElementById('signin-lang').textContent = 'Bahasa Melayu';
+    document.getElementById('th-guard').textContent = 'Guard';
     document.getElementById('todo-title').textContent = 'To-Do List';
     document.getElementById('done-title').textContent = 'History';
     document.getElementById('nav-done').textContent = 'History';
@@ -1805,7 +1819,400 @@ function toggleLanguage() {
   renderTasks();
   updateSettingsPreview();
   renderLocationSettings();
+  applySettingsAccess();
+  renderSyncStatus();
 }
+
+// ───────────────────────── Link to the MJM AI System ─────────────────────────
+// The guard signs in with the PIN on their row of the payroll register (the same door as the
+// 555 Worker Portal). The phone holds a token and nothing else: every read and write below is a
+// database function that turns the token back into a worker first. Check-ins are always saved on
+// the phone first and sent from there, so the app works the same with no signal.
+
+function getSession() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('mata_malam_session'));
+    if (saved && saved.token && saved.worker && saved.worker.name) return saved;
+  } catch (err) {}
+  return null;
+}
+
+function canEditSettings() {
+  const session = getSession();
+  return !!(session && session.canEdit);
+}
+
+// A call that never answers must end that call, not the sync
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function rpc(name, body, timeoutMs = 20000) {
+  const response = await fetchWithTimeout(`${AI_SYSTEM_URL}/rest/v1/rpc/${name}`, {
+    method: 'POST',
+    headers: { apikey: AI_SYSTEM_KEY, Authorization: `Bearer ${AI_SYSTEM_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {})
+  }, timeoutMs);
+  if (!response.ok) {
+    let detail = {};
+    try { detail = await response.json(); } catch (err) {}
+    const error = new Error(detail.message || `HTTP ${response.status}`);
+    error.refused = true;            // the AI System answered, and said no
+    error.code = detail.code || '';
+    throw error;
+  }
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+
+function showSignIn(message = '') {
+  document.body.classList.add('signed-out');
+  document.getElementById('signin-page').hidden = false;
+  document.getElementById('signin-message').textContent = message;
+  document.getElementById('signin-pin').value = '';
+}
+
+async function signIn(event) {
+  event.preventDefault();
+  const message = document.getElementById('signin-message');
+  const button = document.getElementById('signin-btn');
+  const pin = document.getElementById('signin-pin').value.trim();
+  const bm = currentLang === 'BM';
+  if (!pin) {
+    message.textContent = bm ? 'Masukkan PIN anda.' : 'Enter your PIN.';
+    return;
+  }
+  button.disabled = true;
+  message.textContent = bm ? 'Menyemak…' : 'Checking…';
+  try {
+    const who = await rpc('worker_signin', { p_pin: pin });
+    if (!who || !who.token || !who.worker || !who.worker.name) throw new Error(bm ? 'Jawapan tidak sah. Cuba lagi.' : 'The answer was not a sign-in. Try again.');
+    localStorage.setItem('mata_malam_session', JSON.stringify({
+      token: who.token,
+      worker: { id: who.worker.id, name: who.worker.name, role: who.worker.role || '' },
+      canEdit: false
+    }));
+    document.getElementById('signin-page').hidden = true;
+    document.body.classList.remove('signed-out');
+    enterApp();
+  } catch (err) {
+    if (err.refused) {
+      message.textContent = /PIN not recognised/i.test(err.message)
+        ? (bm ? 'PIN tidak dikenali.' : 'PIN not recognised.')
+        : err.message;
+    } else {
+      message.textContent = bm
+        ? 'Tidak dapat menghubungi AI System. Log masuk kali pertama memerlukan isyarat.'
+        : 'Could not reach the AI System. Signing in for the first time needs a signal.';
+    }
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function signOut() {
+  const session = getSession();
+  const waiting = pendingLogs().length;
+  const bm = currentLang === 'BM';
+  if (activeRoute) {
+    alert(bm ? 'Hentikan jejak laluan dahulu.' : 'Stop the road track first.');
+    return;
+  }
+  const question = waiting
+    ? (bm ? `${waiting} rekod belum dihantar. Ia kekal pada telefon ini dan dihantar apabila anda log masuk semula. Log keluar?`
+          : `${waiting} check-in(s) are not sent yet. They stay on this phone and are sent when you sign in again. Sign out?`)
+    : (bm ? 'Log keluar?' : 'Sign out?');
+  if (!confirm(question)) return;
+  if (session) rpc('worker_signout', { p_token: session.token }, 8000).catch(() => {});
+  localStorage.removeItem('mata_malam_session');
+  showSignIn();
+}
+
+function startSession() {
+  if (!getSession()) {
+    showSignIn();
+    return;
+  }
+  enterApp();
+}
+
+function enterApp() {
+  const session = getSession();
+  document.getElementById('nav-user').textContent = session ? session.worker.name : '';
+  renderTasks();
+  renderSyncStatus();
+  resumeActiveRoute();
+  syncNow();
+}
+
+// Only people the office allows may change the locations and times; everybody else reads them
+function applySettingsAccess() {
+  const page = document.getElementById('settings-module-page');
+  if (!page) return;
+  const allowed = canEditSettings();
+  page.classList.toggle('settings-readonly', !allowed);
+  page.querySelectorAll('#tab-task-timing input, #slot-list select').forEach(el => { el.disabled = !allowed; });
+  document.getElementById('settings-readonly-note').hidden = allowed;
+  document.getElementById('settings-readonly-note').textContent = currentLang === 'BM'
+    ? 'Hanya Admin, Pengurus Estet atau Field Conductor boleh mengubah tetapan ini.'
+    : 'Only an Admin, Estate Manager or Field Conductor can change these settings.';
+}
+
+function denySettingsEdit(messageEl) {
+  if (canEditSettings()) return false;
+  messageEl.style.color = 'var(--error-color)';
+  messageEl.textContent = currentLang === 'BM' ? 'Anda tidak dibenarkan mengubah tetapan.' : 'You are not allowed to change the settings.';
+  return true;
+}
+
+// The whole configuration as the AI System stores it: every location with its switch and its times
+function buildSettingsPayload() {
+  const locations = {};
+  getLocations().forEach(({ code }) => {
+    locations[code] = { active: isLocationActive(code), slots: getTaskSlots(code) };
+  });
+  return { locations, timing: getTaskSettings() };
+}
+
+function settingsChanged() {
+  localStorage.setItem('mata_malam_settings_dirty', '1');
+  syncSoon();
+}
+
+// Takes the company's settings from the AI System onto this phone
+function applyRemoteSettings(settings, stamp) {
+  if (!settings || typeof settings !== 'object') return;
+  const before = JSON.stringify(buildSettingsPayload());
+  const next = {};
+  Object.entries(settings.locations || {}).forEach(([code, value]) => {
+    if (!value || typeof value !== 'object') return;
+    next[code] = {
+      ...(typeof value.active === 'boolean' ? { active: value.active } : {}),
+      ...(isSlotList(value.slots) ? { slots: sortSlots(value.slots) } : {})
+    };
+  });
+  const timing = settings.timing;
+  const timingOk = timing && validateTaskSettings(timing) === null;
+  // Settle what was missed under the old times before they change, then count misses from now
+  recordMissedTasks();
+  localStorage.setItem('mata_malam_location_settings', JSON.stringify(next));
+  if (timingOk) localStorage.setItem('mata_malam_task_settings', JSON.stringify({ opensBeforeMinutes: timing.opensBeforeMinutes, windowMinutes: timing.windowMinutes }));
+  localStorage.setItem('mata_malam_settings_at', stamp || '');
+  if (JSON.stringify(buildSettingsPayload()) !== before) {
+    localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
+  }
+}
+
+// Check-ins made on this phone by this guard that the AI System has not got yet (or not the latest of)
+function pendingLogs() {
+  const session = getSession();
+  return getLogs().filter(log =>
+    log.status === 'completed' && log.id && !log.remote &&
+    (log.rev || 0) !== log.syncedRev &&
+    (!log.workerId || (session && log.workerId === session.worker.id)));
+}
+
+async function uploadLogPhoto(session, log) {
+  const blob = await loadPhoto(log.id).catch(() => null);
+  if (!blob) return null;
+  const ticket = await rpc('mata_malam_photo_ticket', { p_token: session.token });
+  const path = `mata_malam_photos/${ticket}/${log.id}.jpg`;
+  const response = await fetchWithTimeout(`${AI_SYSTEM_URL}/storage/v1/object/documents/${path}`, {
+    method: 'POST',
+    headers: { apikey: AI_SYSTEM_KEY, Authorization: `Bearer ${AI_SYSTEM_KEY}`, 'Content-Type': 'image/jpeg' },
+    body: blob
+  }, 45000);
+  rpc('worker_photo_done', { p_token: session.token, p_ticket: ticket }, 8000).catch(() => {});
+  if (!response.ok) throw new Error(`photo upload HTTP ${response.status}`);
+  const url = `${AI_SYSTEM_URL}/storage/v1/object/public/documents/${path}`;
+  // Remembered at once, so a send that fails after this does not upload the picture again
+  markLog(log.id, { photoUrl: url });
+  return url;
+}
+
+async function pushLog(session, log) {
+  const rev = log.rev || 0;
+  const photoUrl = log.photoUrl || await uploadLogPhoto(session, log);
+  let route = null;
+  if (log.routeId) {
+    const saved = await loadRoute(log.routeId).catch(() => null);
+    if (saved && Array.isArray(saved.points)) route = saved.points;
+  }
+  await rpc('mata_malam_submit', {
+    p_token: session.token,
+    p_log: {
+      id: log.id, location: log.location, date: log.date, time: log.time,
+      coordinates: log.coordinates, submittedAt: log.submittedAt, photoUrl,
+      patrolOpen: !!log.patrolOpen, route,
+      routeDistance: log.routeDistance == null ? null : log.routeDistance,
+      routeDuration: log.routeDuration == null ? null : log.routeDuration
+    }
+  }, 30000);
+  markLog(log.id, { syncedRev: rev, syncError: '' });
+}
+
+// Adds check-ins made on other phones, so a task one guard has done is done for everybody
+function mergeRemoteLogs(remoteLogs) {
+  const logs = getLogs();
+  let changed = false;
+  (remoteLogs || []).forEach(remote => {
+    if (!remote || !remote.id) return;
+    const mine = logs.find(l => l.id === remote.id);
+    if (mine) {
+      if (!mine.workerName && remote.workerName) { mine.workerName = remote.workerName; mine.workerId = remote.workerId; changed = true; }
+      if (!mine.photoUrl && remote.photoUrl) { mine.photoUrl = remote.photoUrl; changed = true; }
+      return;
+    }
+    // A task this phone had written off as not done was done on another phone
+    for (let i = logs.length - 1; i >= 0; i--) {
+      const l = logs[i];
+      if (l.status === 'missed' && l.location === remote.location && l.date === remote.date && l.time === remote.time) logs.splice(i, 1);
+    }
+    logs.push({ ...remote, patrolOpen: false, remote: true, rev: 0, syncedRev: 0 });
+    changed = true;
+  });
+  if (changed) localStorage.setItem('mata_malam_logs', JSON.stringify(logs));
+  return changed;
+}
+
+let syncing = false;
+let syncStartedAt = 0;
+let syncTimer = null;
+let syncState = '';   // '', 'working', 'offline'
+
+function syncSoon() {
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncNow(), 1500);
+}
+
+async function syncNow({ manual = false } = {}) {
+  const session = getSession();
+  if (!session) return;
+  // A sync that has been running longer than any sync can is taken over rather than waited on
+  if (syncing && Date.now() - syncStartedAt < 5 * 60 * 1000) return;
+  syncing = true;
+  syncStartedAt = Date.now();
+  syncState = 'working';
+  locationSyncState = 'loading';
+  renderSyncStatus();
+  renderLocationSettings();
+  let reached = false;
+  let signedOut = false;
+  try {
+    // 1. Settings changed on this phone go up first, so the pull below does not undo them
+    if (localStorage.getItem('mata_malam_settings_dirty') && session.canEdit) {
+      try {
+        const saved = await rpc('mata_malam_save_settings', { p_token: session.token, p_settings: buildSettingsPayload() });
+        localStorage.removeItem('mata_malam_settings_dirty');
+        localStorage.setItem('mata_malam_settings_at', (saved && saved.settings_at) || '');
+        reached = true;
+      } catch (err) {
+        if (err.refused && err.code === '28000') throw err;
+        if (err.refused) localStorage.removeItem('mata_malam_settings_dirty');
+      }
+    }
+
+    // 2. Check-ins, one at a time: one that fails waits for the next sync, the rest carry on
+    for (const log of pendingLogs()) {
+      if (log.syncError && !manual) continue;
+      try {
+        await pushLog(session, log);
+        reached = true;
+      } catch (err) {
+        if (err.refused && err.code === '28000') throw err;
+        if (err.refused) markLog(log.id, { syncError: err.message });
+      }
+      renderSyncStatus();
+    }
+
+    // 3. The company's locations, settings and everybody's check-ins come down
+    const state = await rpc('mata_malam_state', { p_token: session.token });
+    reached = true;
+    if (state && state.worker) {
+      localStorage.setItem('mata_malam_session', JSON.stringify({
+        token: session.token,
+        worker: { id: state.worker.id, name: state.worker.name, role: state.worker.role || '' },
+        canEdit: !!state.can_edit
+      }));
+      const seen = new Set();
+      const list = [];
+      (state.locations || []).forEach(name => {
+        const code = locationCode(name);
+        if (!code || seen.has(code)) return;
+        seen.add(code);
+        list.push({ code, name: String(name).trim() });
+      });
+      const dirty = !!localStorage.getItem('mata_malam_settings_dirty');
+      if (list.length) {
+        const before = JSON.stringify(getActiveLocations());
+        recordMissedTasks();
+        localStorage.setItem('mata_malam_locations', JSON.stringify({ list, syncedAt: Date.now() }));
+        if (JSON.stringify(getActiveLocations()) !== before) localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
+      }
+      if (state.settings_at) {
+        if (!dirty && state.settings_at !== localStorage.getItem('mata_malam_settings_at')) applyRemoteSettings(state.settings, state.settings_at);
+      } else if (state.can_edit) {
+        // Nobody has saved the company's settings yet: this phone's become them
+        localStorage.setItem('mata_malam_settings_dirty', '1');
+        syncSoon();
+      }
+      mergeRemoteLogs(state.logs);
+      localStorage.setItem('mata_malam_last_sync', String(Date.now()));
+    }
+    syncState = '';
+    locationSyncState = 'ok';
+  } catch (err) {
+    if (err.refused && err.code === '28000') signedOut = true;
+    syncState = reached || err.refused ? '' : 'offline';
+    locationSyncState = 'failed';
+  } finally {
+    syncing = false;
+  }
+
+  if (signedOut) {
+    localStorage.removeItem('mata_malam_session');
+    showSignIn(currentLang === 'BM' ? 'Sesi anda telah tamat. Sila log masuk semula.' : 'Your session has ended. Please sign in again.');
+    return;
+  }
+  document.getElementById('nav-user').textContent = getSession() ? getSession().worker.name : '';
+  renderTasks();
+  renderLocationSettings();
+  renderScheduleLocations();
+  populateReportLocations();
+  applySettingsAccess();
+  renderSyncStatus();
+  if (manual && document.getElementById('report-module-page').style.display === 'block') generateReport();
+}
+
+function renderSyncStatus() {
+  const button = document.getElementById('hero-btn');
+  const status = document.getElementById('sync-status');
+  if (!button || !status) return;
+  const bm = currentLang === 'BM';
+  const waiting = pendingLogs().length;
+  const stuck = pendingLogs().filter(l => l.syncError).length;
+  const last = Number(localStorage.getItem('mata_malam_last_sync'));
+  button.disabled = syncState === 'working';
+  button.textContent = syncState === 'working' ? (bm ? 'Menyelaras…' : 'Synchronizing…') : (bm ? 'Selaraskan Data' : 'Synchronize Data');
+  const parts = [];
+  if (syncState === 'offline') parts.push(bm ? 'Tiada isyarat — disimpan pada telefon ini' : 'No signal — saved on this phone');
+  if (waiting) parts.push(bm ? `${waiting} belum dihantar` : `${waiting} waiting to send`);
+  if (stuck) parts.push(bm ? `${stuck} ditolak` : `${stuck} refused`);
+  if (!waiting && syncState !== 'offline' && last) parts.push(bm ? 'Semua dihantar' : 'All sent');
+  if (last) parts.push(`${bm ? 'Selaras terakhir' : 'Last synced'} ${formatClock(last)}`);
+  status.textContent = parts.join(' • ');
+  status.classList.toggle('sync-status-warn', syncState === 'offline' || waiting > 0);
+}
+
+window.addEventListener('online', () => syncNow());
+document.addEventListener('visibilitychange', () => { if (!document.hidden) syncNow(); });
+setInterval(() => syncNow(), 3 * 60 * 1000);
 
 // Update check: phones often keep an old copy of the page open (or cached), so the app asks the
 // server which version is live and reloads itself when a newer one has been published.
@@ -1853,7 +2260,5 @@ setInterval(checkForUpdate, 5 * 60 * 1000);
 window.onload = function() {
   document.getElementById('app-version').textContent = APP_VERSION;
   checkForUpdate();
-  renderTasks();
-  resumeActiveRoute();
-  syncLocations();
+  startSession();
 };
