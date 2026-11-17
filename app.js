@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-13a';
+const APP_VERSION = '2026-11-17a';
 
 let activeStream = null;
 
@@ -459,17 +459,6 @@ function updateTimeFormatToggle() {
   });
 }
 
-// Switches every time shown in the app between 12-hour and 24-hour format
-function setTimeFormat(format) {
-  const rows = [...document.querySelectorAll('#slot-list .slot-row')].map(getSlotRowValue);
-  localStorage.setItem('mata_malam_time_format', format === '24' ? '24' : '12');
-  const list = document.getElementById('slot-list');
-  list.innerHTML = '';
-  rows.forEach(value => addSlotRow(value, { focus: false }));
-  updateTimeFormatToggle();
-  renderTasks();
-  updateSettingsPreview();
-}
 
 // Returns the row's time as "HH:MM" (24-hour), or null while any part is still unselected.
 // Rows use the app's own selectors so they look and work the same on every phone and computer.
@@ -608,9 +597,9 @@ function getLogs() {
   return JSON.parse(localStorage.getItem('mata_malam_logs')) || [];
 }
 
-// Times use one fixed format everywhere (e.g. "6:45 PM"), whatever the device's 12/24-hour setting
+// Every time in the app is shown in 24-hour format (e.g. "18:45"), whatever the device's own setting
 function getTimeFormat() {
-  return localStorage.getItem('mata_malam_time_format') === '24' ? '24' : '12';
+  return '24';
 }
 
 function formatClockParts(hours, minutes) {
@@ -1646,7 +1635,6 @@ function toggleLanguage() {
     document.getElementById('schedule-reset').textContent = 'Set Semula';
     document.getElementById('schedule-save').textContent = 'Simpan Perubahan';
     document.getElementById('lbl-time-format').textContent = 'Format Masa';
-    document.getElementById('fmt-12').textContent = '12 jam';
     document.getElementById('fmt-24').textContent = '24 jam';
     document.getElementById('label-opens-before').textContent = 'Dipaparkan awal';
     document.getElementById('label-window').textContent = 'Had masa';
@@ -1701,7 +1689,6 @@ function toggleLanguage() {
     document.getElementById('schedule-reset').textContent = 'Reset';
     document.getElementById('schedule-save').textContent = 'Save Changes';
     document.getElementById('lbl-time-format').textContent = 'Time Format';
-    document.getElementById('fmt-12').textContent = '12-hour';
     document.getElementById('fmt-24').textContent = '24-hour';
     document.getElementById('label-opens-before').textContent = 'Appears early';
     document.getElementById('label-window').textContent = 'Time limit';
