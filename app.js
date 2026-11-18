@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-18b';
+const APP_VERSION = '2026-11-18c';
 
 let activeStream = null;
 
@@ -2260,9 +2260,18 @@ async function startSession() {
   enterApp();
 }
 
-function enterApp() {
+// The guard's name, and Sign Out only for somebody who signed in HERE with a PIN. A guard who came
+// in from the 555 Worker Portal is signed in there: that is where they sign out, and coming in
+// again as somebody else replaces whoever was here.
+function renderUser() {
   const session = getSession();
   document.getElementById('nav-user').textContent = session ? session.worker.name : '';
+  document.getElementById('nav-signout').hidden = !session || !!session.fromPortal;
+}
+
+function enterApp() {
+  const session = getSession();
+  renderUser();
   renderTasks();
   renderSyncStatus();
   resumeActiveRoute();
@@ -2499,7 +2508,7 @@ async function syncNow({ manual = false } = {}) {
     showSignIn(currentLang === 'BM' ? 'Sesi anda telah tamat. Sila log masuk semula.' : 'Your session has ended. Please sign in again.');
     return;
   }
-  document.getElementById('nav-user').textContent = getSession() ? getSession().worker.name : '';
+  renderUser();
   renderTasks();
   renderLocationSettings();
   renderScheduleLocations();

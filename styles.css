@@ -1573,3 +1573,7 @@ body.signed-out header nav {
 .checkpoint-outline-note:empty {
   display: none;
 }
+
+.nav-signout[hidden] {
+  display: none;
+}
