@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-18e';
+const APP_VERSION = '2026-11-18f';
 
 let activeStream = null;
 
@@ -2155,9 +2155,11 @@ function getSession() {
   return null;
 }
 
+// The settings are the office's: System Setting > Mata Malam on the MJM AI System is the one place
+// they are changed, and this app only follows them. So nobody changes them here, whoever they are,
+// and the Settings link and page are not offered (see renderUser and showSettingsPage).
 function canEditSettings() {
-  const session = getSession();
-  return !!(session && session.canEdit);
+  return false;
 }
 
 // A call that never answers must end that call, not the sync
@@ -2365,6 +2367,14 @@ function applyRemoteSettings(settings, stamp) {
   recordMissedTasks();
   localStorage.setItem('mata_malam_location_settings', JSON.stringify(next));
   if (timingOk) localStorage.setItem('mata_malam_task_settings', JSON.stringify({ opensBeforeMinutes: timing.opensBeforeMinutes, windowMinutes: timing.windowMinutes }));
+  // Where each location is pinned, set on the office map. Used for "35 m from the BNN pin".
+  if (settings.pins && typeof settings.pins === 'object' && !Array.isArray(settings.pins)) {
+    const pins = {};
+    Object.entries(settings.pins).forEach(([code, pin]) => {
+      if (Array.isArray(pin) && pin.length === 2 && pin.every(Number.isFinite)) pins[code] = [pin[0], pin[1]];
+    });
+    localStorage.setItem('mata_malam_checkpoints', JSON.stringify(pins));
+  }
   localStorage.setItem('mata_malam_settings_at', stamp || '');
   if (JSON.stringify(buildSettingsPayload()) !== before) {
     localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
@@ -2467,18 +2477,10 @@ async function syncNow({ manual = false } = {}) {
   let reached = false;
   let signedOut = false;
   try {
-    // 1. Settings changed on this phone go up first, so the pull below does not undo them
-    if (localStorage.getItem('mata_malam_settings_dirty') && session.canEdit) {
-      try {
-        const saved = await rpc('mata_malam_save_settings', { p_token: session.token, p_settings: buildSettingsPayload() });
-        localStorage.removeItem('mata_malam_settings_dirty');
-        localStorage.setItem('mata_malam_settings_at', (saved && saved.settings_at) || '');
-        reached = true;
-      } catch (err) {
-        if (err.refused && err.code === '28000') throw err;
-        if (err.refused) localStorage.removeItem('mata_malam_settings_dirty');
-      }
-    }
+    // 1. Nothing about the settings goes UP from a phone any more: the office page is the one writer.
+    //    A change left waiting from the days this app had its own Settings is dropped, or it would
+    //    stop the office's settings ever being taken below.
+    localStorage.removeItem('mata_malam_settings_dirty');
 
     // 2. Check-ins, one at a time: one that fails waits for the next sync, the rest carry on
     for (const log of pendingLogs()) {
@@ -2511,19 +2513,15 @@ async function syncNow({ manual = false } = {}) {
         seen.add(code);
         list.push({ code, name: String(name).trim() });
       });
-      const dirty = !!localStorage.getItem('mata_malam_settings_dirty');
       if (list.length) {
         const before = JSON.stringify(getActiveLocations());
         recordMissedTasks();
         localStorage.setItem('mata_malam_locations', JSON.stringify({ list, syncedAt: Date.now() }));
         if (JSON.stringify(getActiveLocations()) !== before) localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
       }
-      if (state.settings_at) {
-        if (!dirty && state.settings_at !== localStorage.getItem('mata_malam_settings_at')) applyRemoteSettings(state.settings, state.settings_at);
-      } else if (state.can_edit) {
-        // Nobody has saved the company's settings yet: this phone's become them
-        localStorage.setItem('mata_malam_settings_dirty', '1');
-        syncSoon();
+      // Until the office has saved once there is nothing to follow, and the phone keeps the times it has
+      if (state.settings_at && state.settings_at !== localStorage.getItem('mata_malam_settings_at')) {
+        applyRemoteSettings(state.settings, state.settings_at);
       }
       mergeRemoteLogs(state.logs);
       localStorage.setItem('mata_malam_last_sync', String(Date.now()));
