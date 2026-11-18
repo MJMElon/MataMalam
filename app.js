@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-18d';
+const APP_VERSION = '2026-11-18e';
 
 let activeStream = null;
 
@@ -36,6 +36,11 @@ function showDonePage() {
 }
 
 function showSettingsPage() {
+  // Asked here as well as by hiding the link: a hidden link does not stop a call
+  if (!canEditSettings()) {
+    showHomePage();
+    return;
+  }
   stopActiveCamera();
   document.querySelectorAll('.page-view').forEach(page => {
     page.style.display = 'none';
@@ -2291,6 +2296,10 @@ function renderUser() {
   const session = getSession();
   document.getElementById('nav-user').textContent = session ? session.worker.name : '';
   document.getElementById('nav-signout').hidden = !session || !!session.fromPortal;
+  // Settings is only for the people who may change it; everybody else has nothing to do there
+  const settingsLink = document.getElementById('nav-settings');
+  (settingsLink.closest('li') || settingsLink).hidden = !canEditSettings();
+  if (!canEditSettings() && document.getElementById('settings-module-page').style.display === 'block') showHomePage();
 }
 
 function enterApp() {

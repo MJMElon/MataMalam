@@ -1594,3 +1594,7 @@ body.signed-out header nav {
 .location-row-editing {
   border-color: var(--accent-color);
 }
+
+nav li[hidden] {
+  display: none;
+}
