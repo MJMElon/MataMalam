@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mata Malam</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-18c">
+  <link rel="stylesheet" href="styles.css?v=2026-11-18d">
 </head>
 <body>
 
@@ -212,8 +212,7 @@
         <p class="settings-readonly-note" id="settings-readonly-note" hidden></p>
         <div class="settings-tabs" role="tablist">
           <button type="button" class="tab-btn active" role="tab" aria-selected="true" aria-controls="tab-task-timing" id="tab-btn-task-timing" data-tab="task-timing" onclick="switchSettingsTab('task-timing')">Task Timing</button>
-          <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-location" id="tab-btn-location" data-tab="location" onclick="switchSettingsTab('location')">Location</button>
-          <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-schedule" id="tab-btn-schedule" data-tab="schedule" onclick="switchSettingsTab('schedule')">Schedule</button>
+          <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-location" id="tab-btn-location" data-tab="location" onclick="switchSettingsTab('location')">Location &amp; Time</button>
           <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-locations" id="tab-btn-locations" data-tab="locations" onclick="switchSettingsTab('locations')">Map Pins</button>
         </div>
 
@@ -267,25 +266,8 @@
           <ul class="location-list" id="location-list">
             <!-- Location rows rendered dynamically -->
           </ul>
-          <p class="location-status" id="location-status" aria-live="polite"></p>
-          <button type="button" class="slot-add" onclick="syncNow({ manual: true })" id="location-refresh"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg><span id="location-refresh-label">Refresh from AI System</span></button>
-          <div id="location-message" class="settings-message" aria-live="polite"></div>
-        </div>
-
-        <!-- Tab: Schedule (photo times) -->
-        <form id="tab-schedule" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-schedule" onsubmit="saveTaskSlots(event)">
-          <div class="time-format-row">
-            <span class="time-format-label" id="lbl-time-format">Time Format</span>
-            <div class="segmented" role="group" aria-labelledby="lbl-time-format">
-              <button type="button" data-format="24" class="active" aria-pressed="true" id="fmt-24">24-hour</button>
-            </div>
-          </div>
-
-          <div class="time-format-row schedule-location-row">
-            <span class="time-format-label" id="lbl-schedule-location">Location</span>
-            <div class="loc-pills" id="schedule-locations" role="group" aria-labelledby="lbl-schedule-location"></div>
-          </div>
-
+          <!-- The time editor: one form, shown inside whichever location's times are open -->
+          <form id="schedule-editor" class="schedule-editor" onsubmit="saveTaskSlots(event)" hidden>
           <ul class="slot-list" id="slot-list">
             <!-- Time rows rendered dynamically -->
           </ul>
@@ -297,6 +279,10 @@
           </div>
           <div id="schedule-message" class="settings-message" aria-live="polite"></div>
         </form>
+          <p class="location-status" id="location-status" aria-live="polite"></p>
+          <button type="button" class="slot-add" onclick="syncNow({ manual: true })" id="location-refresh"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg><span id="location-refresh-label">Refresh from AI System</span></button>
+          <div id="location-message" class="settings-message" aria-live="polite"></div>
+        </div>
 
         <!-- Tab: Locations (checkpoint pins on a map) -->
         <form id="tab-locations" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-locations" onsubmit="saveCheckpoints(event)">
@@ -327,6 +313,6 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-18c"></script>
+  <script src="app.js?v=2026-11-18d"></script>
 </body>
 </html>

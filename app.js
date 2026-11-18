@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-18c';
+const APP_VERSION = '2026-11-18d';
 
 let activeStream = null;
 
@@ -641,9 +641,16 @@ function renderLocationSettings() {
   const bm = currentLang === 'BM';
   const cache = getLocationCache();
   const active = getActiveLocations();
+  // The time editor is ONE form that sits inside the location being edited. It is parked before
+  // the list is rebuilt (so what is half keyed in it is not thrown away) and put back afterwards.
+  const editor = document.getElementById('schedule-editor');
+  document.getElementById('tab-location').appendChild(editor);
+  editor.hidden = true;
+  if (editingLocation && !active.includes(editingLocation)) editingLocation = null;
   listEl.innerHTML = '';
   getLocations().forEach(({ code, name }) => {
     const on = active.includes(code);
+    const open = on && code === editingLocation;
     const li = document.createElement('li');
     li.className = on ? 'location-row' : 'location-row location-row-off';
     const times = getTaskSlots(code).map(slot => `<span class="location-time">${formatSlotTime(formatSlotLabel(slot))}</span>`).join('');
@@ -656,14 +663,18 @@ function renderLocationSettings() {
         </label>
       </div>
       <div class="location-times">${on ? times : `<span class="location-off-note">${bm ? 'Tidak aktif — tiada tugasan' : 'Off — no check-in tasks'}</span>`}</div>
-      <button type="button" class="btn btn-secondary location-edit" ${on ? '' : 'hidden'}>${canEditSettings() ? (bm ? 'Ubah Masa' : 'Edit Times') : (bm ? 'Lihat Masa' : 'View Times')}</button>
+      <button type="button" class="btn btn-secondary location-edit" ${on ? '' : 'hidden'} aria-expanded="${open}">${open
+        ? (bm ? 'Tutup' : 'Close')
+        : (canEditSettings() ? (bm ? 'Ubah Masa' : 'Edit Times') : (bm ? 'Lihat Masa' : 'View Times'))}</button>
     `;
     li.querySelector('.location-name span').textContent = name;
     li.querySelector('input').onchange = (event) => setLocationActive(code, event.target.checked);
-    li.querySelector('.location-edit').onclick = () => {
-      selectScheduleLocation(code, { force: true });
-      switchSettingsTab('schedule');
-    };
+    li.querySelector('.location-edit').onclick = () => toggleLocationTimes(code);
+    if (open) {
+      li.classList.add('location-row-editing');
+      li.appendChild(editor);
+      editor.hidden = false;
+    }
     listEl.appendChild(li);
   });
 
@@ -715,9 +726,30 @@ function setLocationActive(code, active) {
 // Schedule tab: each location's own list of check-in times
 let scheduleLocation = null;
 let scheduleDirty = false;
+// The location whose times are open for editing in the Location & Time tab (null = none open)
+let editingLocation = null;
+
+// Opens a location's times inside its own card, or closes them again
+function toggleLocationTimes(code) {
+  const leaveQuestion = currentLang === 'BM'
+    ? 'Perubahan masa belum disimpan. Tinggalkan tanpa simpan?'
+    : 'The time changes are not saved yet. Leave without saving?';
+  if (scheduleDirty && !confirm(leaveQuestion)) return;
+  if (editingLocation === code) {
+    editingLocation = null;
+    scheduleDirty = false;
+  } else {
+    editingLocation = code;
+    scheduleLocation = code;
+    loadTaskSlotsForm();
+  }
+  renderLocationSettings();
+  if (editingLocation) document.getElementById('schedule-editor').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
 
 function getScheduleLocation() {
   const active = getActiveLocations();
+  if (editingLocation && active.includes(editingLocation)) scheduleLocation = editingLocation;
   if (!active.includes(scheduleLocation)) scheduleLocation = active[0] || getLocations()[0].code;
   return scheduleLocation;
 }
@@ -2001,10 +2033,8 @@ function toggleLanguage() {
     document.getElementById('back-home-settings').textContent = '← Kembali ke Senarai Tugasan';
     document.getElementById('settings-title').textContent = 'Tetapan';
     document.getElementById('tab-btn-task-timing').textContent = 'Masa Tugasan';
-    document.getElementById('tab-btn-schedule').textContent = 'Jadual';
-    document.getElementById('tab-btn-location').textContent = 'Lokasi';
+    document.getElementById('tab-btn-location').textContent = 'Lokasi & Masa';
     document.getElementById('location-refresh-label').textContent = 'Muat Semula daripada AI System';
-    document.getElementById('lbl-schedule-location').textContent = 'Lokasi';
     document.getElementById('tab-btn-locations').textContent = 'Pin Peta';
     document.getElementById('checkpoint-hint').textContent = 'Pilih lokasi, kemudian ketik peta untuk meletakkan pin.';
     document.getElementById('checkpoint-here-label').textContent = 'Guna Lokasi Saya';
@@ -2014,8 +2044,6 @@ function toggleLanguage() {
     document.getElementById('slot-add-label').textContent = 'Tambah Masa';
     document.getElementById('schedule-reset').textContent = 'Set Semula';
     document.getElementById('schedule-save').textContent = 'Simpan Perubahan';
-    document.getElementById('lbl-time-format').textContent = 'Format Masa';
-    document.getElementById('fmt-24').textContent = '24 jam';
     document.getElementById('label-opens-before').textContent = 'Dipaparkan awal';
     document.getElementById('label-window').textContent = 'Had masa';
     document.getElementById('settings-reset').textContent = 'Set Semula';
@@ -2063,10 +2091,8 @@ function toggleLanguage() {
     document.getElementById('back-home-settings').textContent = '← Back to To-Do List';
     document.getElementById('settings-title').textContent = 'Settings';
     document.getElementById('tab-btn-task-timing').textContent = 'Task Timing';
-    document.getElementById('tab-btn-schedule').textContent = 'Schedule';
-    document.getElementById('tab-btn-location').textContent = 'Location';
+    document.getElementById('tab-btn-location').textContent = 'Location & Time';
     document.getElementById('location-refresh-label').textContent = 'Refresh from AI System';
-    document.getElementById('lbl-schedule-location').textContent = 'Location';
     document.getElementById('tab-btn-locations').textContent = 'Map Pins';
     document.getElementById('checkpoint-hint').textContent = 'Choose a location, then tap the map to place its pin.';
     document.getElementById('checkpoint-here-label').textContent = 'Use My Location';
@@ -2076,8 +2102,6 @@ function toggleLanguage() {
     document.getElementById('slot-add-label').textContent = 'Add Time';
     document.getElementById('schedule-reset').textContent = 'Reset';
     document.getElementById('schedule-save').textContent = 'Save Changes';
-    document.getElementById('lbl-time-format').textContent = 'Time Format';
-    document.getElementById('fmt-24').textContent = '24-hour';
     document.getElementById('label-opens-before').textContent = 'Appears early';
     document.getElementById('label-window').textContent = 'Time limit';
     document.getElementById('settings-reset').textContent = 'Reset';
@@ -2286,9 +2310,11 @@ function applySettingsAccess() {
   page.classList.toggle('settings-readonly', !allowed);
   page.querySelectorAll('#tab-task-timing input, #slot-list select').forEach(el => { el.disabled = !allowed; });
   document.getElementById('settings-readonly-note').hidden = allowed;
+  const who = getSession() ? getSession().worker : null;
+  const as = who ? `${who.name}${who.role ? ` (${who.role})` : ''}` : '';
   document.getElementById('settings-readonly-note').textContent = currentLang === 'BM'
-    ? 'Hanya Admin, Pengurus Estet atau Field Conductor boleh mengubah tetapan ini.'
-    : 'Only an Admin, Estate Manager or Field Conductor can change these settings.';
+    ? `Anda log masuk sebagai ${as}. Hanya Admin, Pengurus Estet atau Field Conductor boleh mengubah masa dan lokasi, jadi Tambah Masa dan Simpan tidak dipaparkan.`
+    : `You are signed in as ${as}. Only an Admin, Estate Manager or Field Conductor can change the times and locations, so Add Time and Save are not shown.`;
 }
 
 function denySettingsEdit(messageEl) {

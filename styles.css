@@ -1519,7 +1519,7 @@ body.signed-out header nav {
 }
 
 .settings-readonly #tab-task-timing .sheet-actions,
-.settings-readonly #tab-schedule .sheet-actions,
+.settings-readonly #schedule-editor .sheet-actions,
 .settings-readonly #slot-add,
 .settings-readonly .slot-remove {
   display: none;
@@ -1576,4 +1576,21 @@ body.signed-out header nav {
 
 .nav-signout[hidden] {
   display: none;
+}
+
+/* Location & Time: a location's times open inside its own card */
+.schedule-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+}
+
+.schedule-editor[hidden] {
+  display: none;
+}
+
+.location-row-editing {
+  border-color: var(--accent-color);
 }
