@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-18f';
+const APP_VERSION = '2026-11-18g';
 
 let activeStream = null;
 
@@ -368,14 +368,33 @@ function saveCheckpoints(event) {
 }
 
 // "35 m from the BNN pin" under the detected location in the task sheet
+// A location can have several pins (a gate, a pump house, a store), placed by the office on
+// System Setting > Mata Malam. The distance shown is to the NEAREST of that location's pins, by name.
+function getLocationPins(location) {
+  let list = [];
+  try {
+    const saved = JSON.parse(localStorage.getItem('mata_malam_pins'));
+    if (Array.isArray(saved)) list = saved;
+  } catch (err) {}
+  const mine = list.filter(p => p && p.location === location && Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  if (mine.length) return mine;
+  // A pin placed on this phone before the office kept them
+  const old = getCheckpoints()[location];
+  return Array.isArray(old) ? [{ name: `${location} pin`, location, lat: old[0], lng: old[1] }] : [];
+}
+
 function describeCheckpointDistance(location, coordText) {
-  const pin = getCheckpoints()[location];
   const here = parseCoordinates(coordText);
-  if (!pin || !here) return '';
-  const meters = distanceMeters(here, pin);
+  const pins = getLocationPins(location);
+  if (!pins.length || !here) return '';
+  let nearest = null;
+  pins.forEach(pin => {
+    const meters = distanceMeters(here, [pin.lat, pin.lng]);
+    if (!nearest || meters < nearest.meters) nearest = { meters, name: pin.name || location };
+  });
   return currentLang === 'BM'
-    ? `${formatDistance(meters)} dari pin ${location}`
-    : `${formatDistance(meters)} from the ${location} pin`;
+    ? `${formatDistance(nearest.meters)} dari ${nearest.name}`
+    : `${formatDistance(nearest.meters)} from ${nearest.name}`;
 }
 // Default photo times (24-hour). Admins can change the schedule in Settings.
 const DEFAULT_TASK_SLOTS = ['18:00', '21:00', '00:00', '03:00', '06:00'];
@@ -2367,13 +2386,22 @@ function applyRemoteSettings(settings, stamp) {
   recordMissedTasks();
   localStorage.setItem('mata_malam_location_settings', JSON.stringify(next));
   if (timingOk) localStorage.setItem('mata_malam_task_settings', JSON.stringify({ opensBeforeMinutes: timing.opensBeforeMinutes, windowMinutes: timing.windowMinutes }));
-  // Where each location is pinned, set on the office map. Used for "35 m from the BNN pin".
-  if (settings.pins && typeof settings.pins === 'object' && !Array.isArray(settings.pins)) {
-    const pins = {};
-    Object.entries(settings.pins).forEach(([code, pin]) => {
-      if (Array.isArray(pin) && pin.length === 2 && pin.every(Number.isFinite)) pins[code] = [pin[0], pin[1]];
-    });
-    localStorage.setItem('mata_malam_checkpoints', JSON.stringify(pins));
+  // Where each location's pins are, set on the office map: a list, any number per location.
+  // The one-pin-per-location shape it had for a day ({ BNN: [lat, lng] }) is still read.
+  if (settings.pins && typeof settings.pins === 'object') {
+    const pins = [];
+    if (Array.isArray(settings.pins)) {
+      settings.pins.forEach(p => {
+        if (p && p.location && Number.isFinite(p.lat) && Number.isFinite(p.lng)) {
+          pins.push({ name: String(p.name || p.location), location: String(p.location), lat: p.lat, lng: p.lng });
+        }
+      });
+    } else {
+      Object.entries(settings.pins).forEach(([code, pin]) => {
+        if (Array.isArray(pin) && pin.length === 2 && pin.every(Number.isFinite)) pins.push({ name: `${code} pin`, location: code, lat: pin[0], lng: pin[1] });
+      });
+    }
+    localStorage.setItem('mata_malam_pins', JSON.stringify(pins));
   }
   localStorage.setItem('mata_malam_settings_at', stamp || '');
   if (JSON.stringify(buildSettingsPayload()) !== before) {
