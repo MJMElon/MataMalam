@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-18a';
+const APP_VERSION = '2026-11-18b';
 
 let activeStream = null;
 
@@ -139,8 +139,99 @@ function selectCheckpoint(location) {
   checkpointSelected = location;
   renderCheckpointPicker();
   drawCheckpointMarkers();
+  drawSiteOutlines();
   const pin = checkpointDraft[location];
   if (pin && checkpointMap) checkpointMap.panTo(pin);
+  // No pin yet: go to that nursery's outline, which is where the pin belongs
+  else if (checkpointMap && outlineBounds(location)) checkpointMap.fitBounds(outlineBounds(location), { padding: [24, 24], maxZoom: 18 });
+}
+
+// Site outlines: the nursery boundaries uploaded on the MJM AI System (System Setting > Boundary),
+// drawn on the pin map so whoever is placing a pin can see where each nursery is. They are kept on
+// the phone after the first read, so the map still shows them with no signal.
+const OUTLINE_COLORS = ['#3fb950', '#d29922', '#a371f7', '#f778ba', '#58a6ff'];
+let siteOutlineLayers = [];
+
+function getSiteOutlines() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('mata_malam_outlines'));
+    if (saved && Array.isArray(saved.list)) return saved;
+  } catch (err) {}
+  return null;
+}
+
+// The outline of one location, as Leaflet bounds, or null when the AI System has none for it
+function outlineBounds(location) {
+  if (typeof L === 'undefined') return null;
+  const saved = getSiteOutlines();
+  const row = saved && saved.list.find(o => locationCode(o.nursery) === location);
+  if (!row || !row.geojson) return null;
+  try {
+    const bounds = L.geoJSON(row.geojson).getBounds();
+    return bounds.isValid() ? bounds : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function drawSiteOutlines() {
+  if (!checkpointMap || typeof L === 'undefined') return;
+  siteOutlineLayers.forEach(layer => layer.remove());
+  siteOutlineLayers = [];
+  const saved = getSiteOutlines();
+  const note = document.getElementById('checkpoint-outline-note');
+  const drawn = [];
+  ((saved && saved.list) || []).forEach((row, index) => {
+    if (!row || !row.geojson) return;
+    const code = locationCode(row.nursery);
+    const selected = code === checkpointSelected;
+    const color = OUTLINE_COLORS[index % OUTLINE_COLORS.length];
+    try {
+      // Not interactive: a tap inside an outline still reaches the map and places the pin
+      const layer = L.geoJSON(row.geojson, {
+        interactive: false,
+        style: { color, weight: selected ? 3 : 1.5, opacity: selected ? 1 : 0.7, fillColor: color, fillOpacity: selected ? 0.18 : 0.06 }
+      }).addTo(checkpointMap);
+      const bounds = layer.getBounds();
+      // A location that already has a pin is named by the pin, so its outline carries no second label
+      if (bounds.isValid() && !checkpointDraft[code]) {
+        const label = L.marker(bounds.getCenter(), {
+          interactive: false,
+          keyboard: false,
+          icon: L.divIcon({ className: `outline-label${selected ? ' selected' : ''}`, html: `<span style="border-color:${color}"></span>`, iconSize: [0, 0] })
+        }).addTo(checkpointMap);
+        const span = label.getElement() && label.getElement().querySelector('span');
+        if (span) span.textContent = row.nursery || code;
+        siteOutlineLayers.push(label);
+      }
+      siteOutlineLayers.push(layer);
+      drawn.push(row.nursery || code);
+    } catch (err) {}
+  });
+  if (note) {
+    note.textContent = drawn.length
+      ? `${currentLang === 'BM' ? 'Sempadan daripada AI System' : 'Boundaries from the AI System'}: ${drawn.join(', ')}`
+      : '';
+  }
+}
+
+// Reads the outlines when the pin map is opened: once a day is enough, they change rarely
+async function loadSiteOutlines({ force = false } = {}) {
+  const session = getSession();
+  const saved = getSiteOutlines();
+  if (!session) return;
+  if (!force && saved && Date.now() - saved.at < 24 * 60 * 60 * 1000) return;
+  try {
+    const list = await rpc('mata_malam_boundaries', { p_token: session.token });
+    if (!Array.isArray(list)) return;
+    const hadNone = !saved || saved.list.length === 0;
+    localStorage.setItem('mata_malam_outlines', JSON.stringify({ at: Date.now(), list }));
+    drawSiteOutlines();
+    // First time the outlines arrive on a map with no pins: show the nurseries rather than the default view
+    if (hadNone && checkpointMap) fitCheckpointMap();
+  } catch (err) {
+    // No signal, or the AI System has not got the function yet: the map works as it did without them
+  }
 }
 
 // The map is created the first time the Locations tab is opened (Leaflet needs a visible container)
@@ -148,6 +239,7 @@ function initCheckpointMap() {
   const container = document.getElementById('checkpoint-map');
   if (checkpointMap) {
     checkpointMap.invalidateSize();
+    loadSiteOutlines();
     return;
   }
   if (typeof L === 'undefined') {
@@ -161,7 +253,9 @@ function initCheckpointMap() {
   }).addTo(checkpointMap);
   checkpointMap.on('click', event => placeCheckpoint([event.latlng.lat, event.latlng.lng]));
   drawCheckpointMarkers();
+  drawSiteOutlines();
   fitCheckpointMap();
+  loadSiteOutlines();
 }
 
 function fitCheckpointMap() {
@@ -170,6 +264,9 @@ function fitCheckpointMap() {
     checkpointMap.fitBounds(pins, { padding: [40, 40], maxZoom: 18 });
   } else if (pins.length === 1) {
     checkpointMap.setView(pins[0], 17);
+  } else if (outlineBounds(checkpointSelected)) {
+    // No pins yet: start on the selected nursery's outline
+    checkpointMap.fitBounds(outlineBounds(checkpointSelected), { padding: [24, 24], maxZoom: 18 });
   } else {
     checkpointMap.setView([3.139, 101.6869], 12);
     // No pins yet: start the map where the admin is standing
@@ -215,6 +312,7 @@ function placeCheckpoint([lat, lng]) {
   document.getElementById('checkpoint-message').textContent = '';
   renderCheckpointPicker();
   drawCheckpointMarkers();
+  drawSiteOutlines();
 }
 
 function pinCheckpointHere() {
@@ -242,6 +340,7 @@ function clearCheckpoint() {
   document.getElementById('checkpoint-message').textContent = '';
   renderCheckpointPicker();
   drawCheckpointMarkers();
+  drawSiteOutlines();
 }
 
 function resetCheckpoints() {
@@ -2010,6 +2109,7 @@ function toggleLanguage() {
   applySettingsAccess();
   renderSyncStatus();
   renderCheckpointPicker();
+  drawSiteOutlines();
 }
 
 // ───────────────────────── Link to the MJM AI System ─────────────────────────

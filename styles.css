@@ -1543,3 +1543,33 @@ body.signed-out header nav {
   font-size: 0.85rem;
   line-height: 1.2;
 }
+
+/* Map Pins: the nursery outlines from the AI System */
+.outline-label span {
+  display: inline-block;
+  transform: translate(-50%, -50%);
+  background-color: rgba(13, 17, 23, 0.8);
+  border: 1px solid;
+  border-radius: 999px;
+  color: #f0f6fc;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.5rem;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.outline-label.selected span {
+  font-size: 0.82rem;
+  background-color: rgba(13, 17, 23, 0.95);
+}
+
+.checkpoint-outline-note {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: -0.75rem;
+}
+
+.checkpoint-outline-note:empty {
+  display: none;
+}
