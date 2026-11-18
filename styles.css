@@ -1598,3 +1598,18 @@ body.signed-out header nav {
 nav li[hidden] {
   display: none;
 }
+
+/* A check-in with no picture (Capture photo switched off in the office) */
+.task-thumb-none {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.sheet-step[hidden],
+nav li[hidden] {
+  display: none;
+}

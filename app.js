@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-18g';
+const APP_VERSION = '2026-11-18h';
 
 let activeStream = null;
 
@@ -26,6 +26,7 @@ function showHomePage() {
 }
 
 function showDonePage() {
+  if (!can('history')) { showHomePage(); return; }
   stopActiveCamera();
   document.querySelectorAll('.page-view').forEach(page => {
     page.style.display = 'none';
@@ -69,6 +70,7 @@ function switchSettingsTab(tabName) {
 }
 
 function showReportPage() {
+  if (!can('report')) { showHomePage(); return; }
   stopActiveCamera();
   document.querySelectorAll('.page-view').forEach(page => {
     page.style.display = 'none';
@@ -1027,6 +1029,15 @@ function recordMissedTasks(now = Date.now()) {
   return changed;
 }
 
+// A check-in made while Capture photo was off has no picture: a tick, never a broken image
+function noPhotoThumb(img) {
+  const mark = document.createElement('span');
+  mark.className = 'task-thumb task-thumb-none';
+  mark.setAttribute('aria-hidden', 'true');
+  mark.textContent = '✓';
+  img.replaceWith(mark);
+}
+
 function getShiftTasks(date) {
   const logs = getLogs().filter(log => log.date === date);
   const settings = getTaskSettings();
@@ -1065,6 +1076,15 @@ function renderTodo(now = Date.now()) {
   const todoList = document.getElementById('todo-list');
   if (liveRouteMapEl.closest('#todo-list')) liveRouteMapEl.remove();
   todoList.innerHTML = '';
+  if (!can('home')) {
+    // Switched off in the office for this person's column: said in words, never an empty list
+    const closed = !moduleOpen()
+      ? (currentLang === 'BM' ? 'Mata Malam tidak dibuka untuk akaun anda. Sila hubungi pejabat.' : 'Mata Malam is not open for your account. Please ask the office.')
+      : (currentLang === 'BM' ? 'Tugasan daftar masuk tidak dibuka untuk akaun anda.' : 'Check-in tasks are not open for your account.');
+    document.getElementById('todo-meta').textContent = '';
+    todoList.insertAdjacentHTML('beforeend', `<li class="task-empty" id="todo-closed">${closed}</li>`);
+    return;
+  }
   inProgress.forEach(log => todoList.appendChild(buildInProgressTask(log)));
 
   if (due.length === 0) {
@@ -1168,12 +1188,13 @@ function renderHistory(now = Date.now()) {
         if (!blob) {
           // Taken on another phone: shown from the AI System
           if (log.photoUrl) img.src = log.photoUrl;
+          else noPhotoThumb(img);
           return;
         }
         const url = URL.createObjectURL(blob);
         photoUrls.push(url);
         img.src = url;
-      }).catch(() => { if (log.photoUrl) img.src = log.photoUrl; });
+      }).catch(() => { if (log.photoUrl) img.src = log.photoUrl; else noPhotoThumb(img); });
     }
     doneList.appendChild(li);
   });
@@ -1199,6 +1220,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 function startTask(task) {
+  if (!can('home')) return;
   if (Date.now() >= task.closesAt) {
     refreshTaskSchedule();
     return;
@@ -1231,8 +1253,17 @@ function startTask(task) {
 
   document.getElementById('submit-sheet').hidden = false;
   document.querySelector('#submit-sheet .sheet').scrollTop = 0;
+  // Capture photo and GPS track record are each a switch in the office. A step that is off is not
+  // shown, and Submit does not wait for a photo nobody is asked to take.
+  const wantPhoto = can('photo');
+  document.getElementById('sheet-step-photo').hidden = !wantPhoto;
+  document.getElementById('sheet-step-route').hidden = !can('gps');
   renderSheetRoute();
-  openTaskCamera();
+  if (wantPhoto) openTaskCamera();
+  else {
+    stopActiveCamera();
+    document.getElementById('sheet-submit').disabled = false;
+  }
 }
 
 // Photos come only from the live camera stream, so gallery images cannot be submitted
@@ -1339,7 +1370,7 @@ function capturePhoto(maxSize = 1280, quality = 0.7) {
 }
 
 async function submitTask() {
-  if (!pendingTask || !pendingPhoto) return;
+  if (!pendingTask || (!pendingPhoto && can('photo'))) return;
   if (Date.now() >= pendingTask.closesAt) {
     refreshTaskSchedule();
     return;
@@ -1352,7 +1383,7 @@ async function submitTask() {
   const id = pendingTask.logId;
 
   try {
-    await savePhoto(id, pendingPhoto);
+    if (pendingPhoto) await savePhoto(id, pendingPhoto);
   } catch (err) {
     alert(currentLang === 'BM' ? 'Gambar tidak dapat disimpan pada peranti ini.' : 'The photo could not be saved on this device.');
     submitBtn.disabled = false;
@@ -1372,7 +1403,7 @@ async function submitTask() {
     rev: 1,
     ...(getSession() ? { workerId: getSession().worker.id, workerName: getSession().worker.name } : {}),
     // A task whose road track is not finished stays in the To-Do List until it is
-    patrolOpen: !pendingTask.route,
+    patrolOpen: !pendingTask.route && can('gps'),
     ...(pendingTask.route ? {
       routeId: pendingTask.route.id,
       routeDistance: Math.round(pendingTask.route.distance),
@@ -1768,7 +1799,7 @@ function renderSheetRoute() {
 }
 
 function toggleSheetRoute() {
-  if (!pendingTask) return;
+  if (!pendingTask || !can('gps')) return;
   if (activeRoute && activeRoute.logId === pendingTask.logId) stopRouteTracking();
   else startRouteTracking(pendingTask.logId);
 }
@@ -2174,6 +2205,38 @@ function getSession() {
   return null;
 }
 
+// What this person may use, switched on System Setting > Portal View & Function > Mata Malam in the
+// office. There are two columns there: FC Portal (Field Conductor, Assistant Field Conductor, Admin,
+// Estate Manager) and Worker Portal (everybody else), and the database says which one this person
+// reads. Nothing known yet (no signal, or a database from before the switches) means everything is
+// on: a switch nobody could read must not take the app away from a guard on shift.
+const ACCESS_FUNCTIONS = ['home', 'photo', 'gps', 'history', 'report'];
+function getAccess() {
+  const session = getSession();
+  const access = session && session.access;
+  return access && typeof access === 'object' ? access : null;
+}
+function moduleOpen() {
+  const access = getAccess();
+  return !access || access.on !== false;
+}
+function can(fn) {
+  if (!moduleOpen()) return false;
+  const access = getAccess();
+  return !(access && access.fn && access.fn[fn] === false);
+}
+
+function applyAccess() {
+  const hide = (id, hidden) => {
+    const el = document.getElementById(id);
+    if (el) (el.closest('li') || el).hidden = hidden;
+  };
+  hide('nav-done', !can('history'));
+  hide('nav-about', !can('report'));
+  const shown = (id) => document.getElementById(id).style.display === 'block';
+  if ((!can('history') && shown('done-module-page')) || (!can('report') && shown('report-module-page'))) showHomePage();
+}
+
 // The settings are the office's: System Setting > Mata Malam on the MJM AI System is the one place
 // they are changed, and this app only follows them. So nobody changes them here, whoever they are,
 // and the Settings link and page are not offered (see renderUser and showSettingsPage).
@@ -2321,6 +2384,7 @@ function renderUser() {
   const settingsLink = document.getElementById('nav-settings');
   (settingsLink.closest('li') || settingsLink).hidden = !canEditSettings();
   if (!canEditSettings() && document.getElementById('settings-module-page').style.display === 'block') showHomePage();
+  applyAccess();
 }
 
 function enterApp() {
@@ -2531,6 +2595,7 @@ async function syncNow({ manual = false } = {}) {
         token: session.token,
         worker: { id: state.worker.id, name: state.worker.name, role: state.worker.role || '' },
         canEdit: !!state.can_edit,
+        ...(state.access && typeof state.access === 'object' ? { access: state.access } : (session.access ? { access: session.access } : {})),
         ...(session.fromPortal ? { fromPortal: true } : {})
       }));
       const seen = new Set();
