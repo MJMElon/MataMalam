@@ -1709,3 +1709,45 @@ nav li[hidden] {
 .round-pin-go { flex: 0 0 auto; }
 .round-pin-name { font-weight: 700; }
 .sheet-backdrop .round-map .leaflet-container { height: 100%; }
+
+/* Daily Work Report */
+.report-summary { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+.report-summary:empty { display: none; }
+.report-sum-card { border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 0.8rem; background: var(--bg-color); font-size: 0.9rem; }
+.report-sum-card strong { color: var(--text-main); margin-right: 0.4rem; }
+.report-times { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.report-time { display: inline-block; white-space: nowrap; padding: 1px 7px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; }
+.report-time.ok { background: #e6f4ea; color: #1e7b34; }
+.report-time.no { background: #fde8e8; color: #b3261e; }
+.report-time.wait { background: #eef1f5; color: #5f6b7a; }
+.report-day { white-space: nowrap; font-weight: 700; }
+.report-day.ok { color: #2e9b4a; }
+.report-day.no { color: #e5534b; }
+.report-day.wait { color: var(--text-muted); }
+.report-done { white-space: nowrap; }
+@media print {
+  .report-time.ok, .report-time.no, .report-time.wait { border: 1px solid #999; background: #fff !important; color: #000 !important; }
+  .report-day.ok, .report-day.no, .report-day.wait { color: #000 !important; }
+  .report-sum-card { background: #fff !important; color: #000 !important; }
+}
+
+/* On a phone a day is a CARD: the table is six columns and the answer (Daily Work) was off the screen */
+@media screen and (max-width: 640px) {
+  #report-module-page .report-table thead { display: none; }
+  #report-module-page .report-table, #report-module-page .report-table tbody { display: block; }
+  #report-module-page .report-table tr {
+    display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 0.75rem;
+    border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem 0.85rem;
+    margin-bottom: 0.6rem; background: var(--card-bg);
+  }
+  #report-module-page .report-table td { display: block; border: none; padding: 0; background: transparent; }
+  #report-module-page .report-table td[colspan] { grid-column: 1 / -1; }
+  #report-module-page .rc-date { font-weight: 700; color: var(--text-main); }
+  #report-module-page .rc-day { grid-column: 2; grid-row: 1; text-align: right; }
+  #report-module-page .rc-loc { grid-column: 1; grid-row: 2; }
+  #report-module-page .rc-done { grid-column: 2; grid-row: 2; text-align: right; }
+  #report-module-page .rc-times, #report-module-page .rc-guard { grid-column: 1 / -1; }
+  #report-module-page .rc-done::before, #report-module-page .rc-guard::before {
+    content: attr(data-label) ": "; color: var(--text-muted); font-size: 0.8rem;
+  }
+}

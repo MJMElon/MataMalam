@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mata Malam</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-19e">
+  <link rel="stylesheet" href="styles.css?v=2026-11-20a">
 </head>
 <body>
 
@@ -152,9 +152,9 @@
       <div class="module-page-card">
         <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
           <div>
-            <h1 style="color: var(--accent-color); font-size: 2rem;" id="report-title">Log Reports</h1>
+            <h1 style="color: var(--accent-color); font-size: 2rem;" id="report-title">Daily Work Report</h1>
             <p style="color: var(--text-muted);" id="report-desc">
-              Filter submitted log entries by month, year, and location selection.
+              A day is complete when every check-in time set in System Setting was done at that location, every pin included.
             </p>
           </div>
           <button class="btn no-print" onclick="printReport()" id="btn-print" style="padding: 0.6rem 1.25rem;">
@@ -198,16 +198,17 @@
             </div>
           </div>
 
+          <div class="report-summary" id="report-summary"></div>
           <div class="report-table-container">
             <table class="report-table">
               <thead>
                 <tr>
-                  <th id="th-location">Location</th>
-                  <th id="th-guard">Guard</th>
                   <th id="th-date">Date</th>
-                  <th id="th-timeslot">Time Slot</th>
-                  <th id="th-coordinates">Coordinates</th>
-                  <th id="th-status">Status</th>
+                  <th id="th-location">Location</th>
+                  <th id="th-timeslot">Check-in Times</th>
+                  <th id="th-coordinates">Done</th>
+                  <th id="th-status">Daily Work</th>
+                  <th id="th-guard">Guards</th>
                 </tr>
               </thead>
               <tbody id="report-table-body">
@@ -334,6 +335,6 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-19e"></script>
+  <script src="app.js?v=2026-11-20a"></script>
 </body>
 </html>
