@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-19a';
+const APP_VERSION = '2026-11-19b';
 
 let activeStream = null;
 
@@ -1436,7 +1436,8 @@ async function submitTask() {
     rev: 1,
     ...(getSession() ? { workerId: getSession().worker.id, workerName: getSession().worker.name } : {}),
     // A task whose road track is not finished stays in the To-Do List until it is
-    patrolOpen: !pendingTask.route && can('gps'),
+    // Only the round's first check-in waits in the To-Do List for the road track
+    patrolOpen: !pendingTask.route && can('gps') && !roundAnchor(pendingTask, pendingTask.logId),
     ...(pendingTask.route ? {
       routeId: pendingTask.route.id,
       routeDistance: Math.round(pendingTask.route.distance),
@@ -1672,9 +1673,12 @@ function buildInProgressTask(log) {
   li.innerHTML = `
     <div class="task-active-head">
       <span class="task-time">${formatSlotTime(log.time)}</span>
-      <span class="task-location">${log.location}${pointSuffix(log.point)}</span>
+      <span class="task-location">${log.location}${roundProgress(log) ? '' : pointSuffix(log.point)}</span>
       ${tracking ? `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span>` : ''}
     </div>
+    ${roundProgress(log) ? `<p class="round-progress" data-done="${roundProgress(log).done}" data-total="${roundProgress(log).total}">${currentLang === 'BM'
+      ? `${roundProgress(log).done} / ${roundProgress(log).total} pin sudah didaftar masuk. Satu jejak laluan untuk semua pin: hentikannya selepas pin terakhir.`
+      : `${roundProgress(log).done} / ${roundProgress(log).total} pins checked in. One road track for all the pins: stop it after the last one.`}</p>` : ''}
     <ul class="task-steps">
       <li class="task-step step-done">
         <img class="task-thumb task-thumb-small" alt="">
@@ -1791,16 +1795,38 @@ function updateRouteStats() {
 }
 
 // Road Track step inside the task sheet
+// ONE ROAD TRACK FOR THE WHOLE ROUND. A round is one location at one check-in time, and its pins
+// are walked one after another, so the track is started once, runs while every pin is checked in
+// and photographed, and is stopped after the last one. It belongs to the round's FIRST check-in
+// (the anchor), which stays in the To-Do List with the Stop button until the track is stopped;
+// the check-ins at the other pins go straight to History and start no track of their own.
+function roundAnchor(task, exceptId = '') {
+  if (!task) return null;
+  return getLogs().find(l => l.id && l.id !== exceptId && l.status !== 'missed'
+    && l.location === task.location && l.date === task.date && l.time === task.time
+    && (l.patrolOpen || l.routeId || l.hasRoute || (activeRoute && activeRoute.logId === l.id))) || null;
+}
+function roundProgress(log) {
+  const points = getTaskPoints(log.location);
+  if (points.length < 2) return null;
+  const logs = getLogs().filter(l => l.status !== 'missed' && l.location === log.location && l.date === log.date && l.time === log.time);
+  return { done: points.filter(point => logs.some(l => logCoversPoint(l, point))).length, total: points.length };
+}
+
 function renderSheetRoute() {
   if (!pendingTask) return;
   const recording = activeRoute && activeRoute.logId === pendingTask.logId;
-  const otherRecording = activeRoute && !recording;
+  const anchor = roundAnchor(pendingTask, pendingTask.logId);
+  // The round's track is already running from an earlier pin: it simply carries on through this one
+  const roundRecording = !!(activeRoute && anchor && activeRoute.logId === anchor.id);
+  const roundDone = !!(anchor && !anchor.patrolOpen && !roundRecording);
+  const otherRecording = activeRoute && !recording && !roundRecording;
   const toggle = document.getElementById('sheet-route-toggle');
   const state = document.getElementById('sheet-route-state');
   const status = document.getElementById('sheet-route-status');
   const slot = document.getElementById('sheet-route-slot');
 
-  toggle.hidden = !!pendingTask.route;
+  toggle.hidden = !!pendingTask.route || roundRecording || roundDone;
   toggle.disabled = !!otherRecording;
   toggle.classList.toggle('btn-stop', !!recording);
   toggle.classList.toggle('btn-secondary', !recording);
@@ -1818,6 +1844,16 @@ function renderSheetRoute() {
   } else if (pendingTask.route) {
     state.textContent = `✓ ${formatDistance(pendingTask.route.distance)} • ${formatElapsed(pendingTask.route.duration)}`;
     status.textContent = '';
+  } else if (roundRecording) {
+    if (slot.contains(liveRouteMapEl)) liveRouteMapEl.remove();
+    state.innerHTML = `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span> ${formatDistance(activeRoute.distance)} • ${formatElapsed(Date.now() - activeRoute.startedAt)}`;
+    status.textContent = currentLang === 'BM'
+      ? 'Jejak laluan rondaan ini masih merekod. Teruskan ke pin seterusnya dan hentikannya selepas pin terakhir.'
+      : 'The road track for this round is still recording. Carry on to the next pin and stop it after the last one.';
+  } else if (roundDone) {
+    if (slot.contains(liveRouteMapEl)) liveRouteMapEl.remove();
+    state.textContent = '✓';
+    status.textContent = currentLang === 'BM' ? 'Jejak laluan rondaan ini sudah direkod.' : 'The road track for this round is already recorded.';
   } else {
     if (slot.contains(liveRouteMapEl)) liveRouteMapEl.remove();
     state.textContent = '';
@@ -1833,8 +1869,10 @@ function renderSheetRoute() {
 
 function toggleSheetRoute() {
   if (!pendingTask || !can('gps')) return;
-  if (activeRoute && activeRoute.logId === pendingTask.logId) stopRouteTracking();
-  else startRouteTracking(pendingTask.logId);
+  if (activeRoute && activeRoute.logId === pendingTask.logId) { stopRouteTracking(); return; }
+  // A round already begun at another pin: the track joins that round, never a second one beside it
+  const anchor = roundAnchor(pendingTask, pendingTask.logId);
+  startRouteTracking(anchor && anchor.patrolOpen ? anchor.id : pendingTask.logId).then(renderSheetRoute);
 }
 
 function onRoutePosition(position) {

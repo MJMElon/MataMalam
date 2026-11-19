@@ -1626,3 +1626,9 @@ nav li[hidden] {
   font-weight: 600;
   vertical-align: middle;
 }
+
+.round-progress {
+  margin: 6px 0 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
