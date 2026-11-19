@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-19b';
+const APP_VERSION = '2026-11-19c';
 
 let activeStream = null;
 
@@ -385,10 +385,12 @@ function getLocationPins(location) {
   return Array.isArray(old) ? [{ name: `${location} pin`, location, lat: old[0], lng: old[1] }] : [];
 }
 
-// ONE PIN IS ONE PLACE TO CHECK IN, AND ONE PHOTO. The office pins as many places as a location
-// has (System Setting > Mata Malam > Map pins), and at every check-in time each of them is a task
-// of its own. A task's "point" is its pin's name. A location nobody has pinned has one task a
-// time, with no point, exactly as before.
+// ONE TASK A CHECK-IN TIME, AND ITS PINS ARE INSIDE IT. The office pins as many places as a
+// location has (System Setting > Mata Malam > Map pins). The To-Do List shows ONE task for the
+// location at each time; opening it shows a map with the boundary and every pin, and the guard
+// goes to each pin and takes one photo there. A check-in record still belongs to one pin (its
+// "point" is the pin's name), so the office sees which pins were visited. A location nobody has
+// pinned has one check-in a time, with no point, exactly as before.
 function getTaskPoints(location) {
   const names = [];
   getLocationPins(location).forEach(pin => {
@@ -1097,10 +1099,12 @@ function renderTodo(now = Date.now()) {
   const candidates = getShiftTasks(getShiftDate(new Date(now - DAY_MS))).concat(tasks);
   const due = candidates.filter(task => !task.log && task.opensAt <= now && now < task.closesAt);
   const next = candidates.find(task => !task.log && now < task.opensAt);
-  const completed = tasks.filter(task => task.log && task.log.status !== 'missed').length;
+  // Counted by task as the guard sees it: a location's pins at one time are ONE task, done when all are
+  const shiftRounds = groupRounds(tasks);
+  const completed = shiftRounds.filter(r => r.tasks.every(task => task.log && task.log.status !== 'missed')).length;
   const inProgress = getInProgressLogs();
 
-  document.getElementById('todo-meta').textContent = `${date} • ${completed} / ${tasks.length} ${currentLang === 'BM' ? 'selesai' : 'done'}`;
+  document.getElementById('todo-meta').textContent = `${date} • ${completed} / ${shiftRounds.length} ${currentLang === 'BM' ? 'selesai' : 'done'}`;
 
   todoPhotoUrls.forEach(url => URL.revokeObjectURL(url));
   todoPhotoUrls = [];
@@ -1118,7 +1122,15 @@ function renderTodo(now = Date.now()) {
   }
   inProgress.forEach(log => todoList.appendChild(buildInProgressTask(log)));
 
-  if (due.length === 0) {
+  // A pinned location's task stays while its road track is still recording, so Stop is always reachable
+  const dueRounds = groupRounds(due.filter(task => task.point));
+  if (activeRoute && activeRoute.round && !dueRounds.some(r => roundKey(r) === roundKey(activeRoute.round))) {
+    const r = activeRoute.round;
+    dueRounds.unshift({ location: r.location, date: r.date, time: r.time, tasks: [] });
+  }
+  const dueSingles = due.filter(task => !task.point);
+
+  if (dueRounds.length + dueSingles.length === 0) {
     let message;
     if (next) {
       message = currentLang === 'BM'
@@ -1130,16 +1142,45 @@ function renderTodo(now = Date.now()) {
     todoList.insertAdjacentHTML('beforeend', `<li class="task-empty">${message}</li>`);
   }
 
-  due.forEach((task, index) => {
+  dueRounds.forEach((round, index) => {
+    const all = roundTasks(round);
+    const done = all.filter(task => task.log && task.log.status !== 'missed').length;
+    const closesAt = all.length ? all[0].closesAt : now;
+    const minutesLeft = Math.max(1, Math.ceil((closesAt - now) / 60000));
+    const recording = roundRecording(round);
+    const li = document.createElement('li');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = index === 0 ? 'task-item task-next task-round' : 'task-item task-round';
+    btn.dataset.round = roundKey(round);
+    btn.onclick = () => openRoundSheet(round);
+    const pinsLine = currentLang === 'BM' ? `${done} / ${all.length} pin` : `${done} / ${all.length} pins`;
+    const deadline = now < closesAt
+      ? (currentLang === 'BM' ? `Hantar sebelum ${formatClock(closesAt)} • ${minutesLeft} min lagi` : `Submit by ${formatClock(closesAt)} • ${minutesLeft} min left`)
+      : (currentLang === 'BM' ? 'Jejak laluan masih merekod' : 'Road track still recording');
+    btn.innerHTML = `
+      <span class="task-time">${formatSlotTime(round.time)}</span>
+      <span class="task-location">${round.location} <span class="task-point">${pinsLine}</span>
+        <span class="task-deadline">${deadline}</span>
+      </span>
+      <span class="task-action task-start">${recording
+        ? `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span>`
+        : (done ? (currentLang === 'BM' ? 'Sambung' : 'Continue') : (currentLang === 'BM' ? 'Mula Tugasan' : 'Start Task'))}</span>
+    `;
+    li.appendChild(btn);
+    todoList.appendChild(li);
+  });
+
+  dueSingles.forEach((task, index) => {
     const minutesLeft = Math.max(1, Math.ceil((task.closesAt - now) / 60000));
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = index === 0 ? 'task-item task-next' : 'task-item';
+    btn.className = index === 0 && !dueRounds.length ? 'task-item task-next' : 'task-item';
     btn.onclick = () => startTask(task);
     btn.innerHTML = `
       <span class="task-time">${formatSlotTime(task.time)}</span>
-      <span class="task-location">${task.location}${pointSuffix(task.point)}
+      <span class="task-location">${task.location}
         <span class="task-deadline">${currentLang === 'BM' ? `Hantar sebelum ${formatClock(task.closesAt)} • ${minutesLeft} min lagi` : `Submit by ${formatClock(task.closesAt)} • ${minutesLeft} min left`}</span>
       </span>
       <span class="task-action task-start">${currentLang === 'BM' ? 'Mula Tugasan' : 'Start Task'}</span>
@@ -1289,7 +1330,8 @@ function startTask(task) {
   // shown, and Submit does not wait for a photo nobody is asked to take.
   const wantPhoto = can('photo');
   document.getElementById('sheet-step-photo').hidden = !wantPhoto;
-  document.getElementById('sheet-step-route').hidden = !can('gps');
+  // A pin's road track is the round's, started and stopped on the task's own screen
+  document.getElementById('sheet-step-route').hidden = !can('gps') || !!point;
   renderSheetRoute();
   if (wantPhoto) openTaskCamera();
   else {
@@ -1436,8 +1478,9 @@ async function submitTask() {
     rev: 1,
     ...(getSession() ? { workerId: getSession().worker.id, workerName: getSession().worker.name } : {}),
     // A task whose road track is not finished stays in the To-Do List until it is
-    // Only the round's first check-in waits in the To-Do List for the road track
-    patrolOpen: !pendingTask.route && can('gps') && !roundAnchor(pendingTask, pendingTask.logId),
+    // A pin's check-in never waits for a road track of its own: the task's one track covers its pins
+    patrolOpen: !pendingTask.route && can('gps') && !pendingTask.point,
+    ...(pendingTask.point ? takeRoundRoute(pendingTask) : {}),
     ...(pendingTask.route ? {
       routeId: pendingTask.route.id,
       routeDistance: Math.round(pendingTask.route.distance),
@@ -1473,6 +1516,8 @@ function closeSubmitSheet({ submitted = false } = {}) {
   pendingTask = null;
   pendingPhoto = null;
   pendingCoordinates = null;
+  // Back to the task's pins and map, which is where a pin's check-in was opened from
+  if (openRound) showRoundSheet();
 }
 
 document.addEventListener('keydown', (event) => {
@@ -1673,12 +1718,9 @@ function buildInProgressTask(log) {
   li.innerHTML = `
     <div class="task-active-head">
       <span class="task-time">${formatSlotTime(log.time)}</span>
-      <span class="task-location">${log.location}${roundProgress(log) ? '' : pointSuffix(log.point)}</span>
+      <span class="task-location">${log.location}${pointSuffix(log.point)}</span>
       ${tracking ? `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span>` : ''}
     </div>
-    ${roundProgress(log) ? `<p class="round-progress" data-done="${roundProgress(log).done}" data-total="${roundProgress(log).total}">${currentLang === 'BM'
-      ? `${roundProgress(log).done} / ${roundProgress(log).total} pin sudah didaftar masuk. Satu jejak laluan untuk semua pin: hentikannya selepas pin terakhir.`
-      : `${roundProgress(log).done} / ${roundProgress(log).total} pins checked in. One road track for all the pins: stop it after the last one.`}</p>` : ''}
     <ul class="task-steps">
       <li class="task-step step-done">
         <img class="task-thumb task-thumb-small" alt="">
@@ -1750,13 +1792,14 @@ function closeStalePatrols(now = Date.now()) {
   return changed;
 }
 
-async function startRouteTracking(logId) {
+async function startRouteTracking(logId, round = null) {
   if (activeRoute) return;
   if (!navigator.geolocation) {
     alert(currentLang === 'BM' ? 'Geolokasi tidak disokong pada peranti ini.' : 'Location is not supported on this device.');
     return;
   }
-  const route = { id: `route-${Date.now().toString(36)}`, logId, startedAt: Date.now(), endedAt: null, points: [], distance: 0 };
+  const route = { id: `route-${Date.now().toString(36)}`, logId, startedAt: Date.now(), endedAt: null, points: [], distance: 0,
+    ...(round ? { round: { location: round.location, date: round.date, time: round.time } } : {}) };
   try {
     await saveRoute(route);
   } catch (err) {
@@ -1792,41 +1835,255 @@ function updateRouteStats() {
   if (distance) distance.textContent = formatDistance(activeRoute.distance);
   if (duration) duration.textContent = formatElapsed(Date.now() - activeRoute.startedAt);
   renderSheetRoute();
+  renderRoundRoute();
 }
 
 // Road Track step inside the task sheet
-// ONE ROAD TRACK FOR THE WHOLE ROUND. A round is one location at one check-in time, and its pins
-// are walked one after another, so the track is started once, runs while every pin is checked in
-// and photographed, and is stopped after the last one. It belongs to the round's FIRST check-in
-// (the anchor), which stays in the To-Do List with the Stop button until the track is stopped;
-// the check-ins at the other pins go straight to History and start no track of their own.
-function roundAnchor(task, exceptId = '') {
-  if (!task) return null;
-  return getLogs().find(l => l.id && l.id !== exceptId && l.status !== 'missed'
-    && l.location === task.location && l.date === task.date && l.time === task.time
-    && (l.patrolOpen || l.routeId || l.hasRoute || (activeRoute && activeRoute.logId === l.id))) || null;
+// ── A PINNED TASK: one screen with the boundary, every pin, the road track and the pin list ──
+// A "round" is one location at one check-in time on one shift date.
+let openRound = null;
+let roundMap = null;
+let roundLayers = null;
+let roundWatchId = null;
+let roundHere = null;
+
+function roundKey(r) { return `round:${r.location}|${r.date}|${r.time}`; }
+function groupRounds(tasks) {
+  const rounds = [];
+  tasks.forEach(task => {
+    let round = rounds.find(r => r.location === task.location && r.date === task.date && r.time === task.time);
+    if (!round) rounds.push(round = { location: task.location, date: task.date, time: task.time, tasks: [] });
+    round.tasks.push(task);
+  });
+  return rounds;
 }
-function roundProgress(log) {
-  const points = getTaskPoints(log.location);
-  if (points.length < 2) return null;
-  const logs = getLogs().filter(l => l.status !== 'missed' && l.location === log.location && l.date === log.date && l.time === log.time);
-  return { done: points.filter(point => logs.some(l => logCoversPoint(l, point))).length, total: points.length };
+function roundTasks(r) {
+  return getShiftTasks(r.date).filter(task => task.location === r.location && task.time === r.time);
+}
+function roundRecording(r) {
+  return !!(activeRoute && activeRoute.round && roundKey(activeRoute.round) === roundKey(r));
+}
+function roundLogs(r) {
+  return getLogs().filter(l => l.id && l.status !== 'missed' && l.location === r.location && l.date === r.date && l.time === r.time)
+    .sort((a, b) => (a.submittedAt || '').localeCompare(b.submittedAt || ''));
+}
+// A track stopped before any pin was checked in waits here for the task's first check-in
+function getRoundRoutes() {
+  try { return JSON.parse(localStorage.getItem('mata_malam_round_routes')) || {}; } catch (err) { return {}; }
+}
+function roundRouteOf(r) {
+  const log = roundLogs(r).find(l => l.routeId || l.hasRoute);
+  if (log) return { routeDistance: log.routeDistance || 0, routeDuration: log.routeDuration || 0 };
+  return getRoundRoutes()[roundKey(r)] || null;
+}
+// The track is stored on the task's first check-in made on THIS phone (somebody else's record cannot be changed)
+function attachRoundRoute(r, done) {
+  const mine = roundLogs(r).find(l => !l.remote);
+  if (mine) { updateLog(mine.id, { patrolOpen: false, ...done }); return; }
+  const waiting = getRoundRoutes();
+  waiting[roundKey(r)] = done;
+  localStorage.setItem('mata_malam_round_routes', JSON.stringify(waiting));
+}
+function takeRoundRoute(task) {
+  const waiting = getRoundRoutes();
+  const done = waiting[roundKey(task)];
+  if (!done) return {};
+  delete waiting[roundKey(task)];
+  localStorage.setItem('mata_malam_round_routes', JSON.stringify(waiting));
+  return done;
+}
+
+function openRoundSheet(round) {
+  if (!can('home')) return;
+  openRound = { location: round.location, date: round.date, time: round.time };
+  showRoundSheet();
+}
+function showRoundSheet() {
+  if (!openRound) return;
+  document.getElementById('round-sheet').hidden = false;
+  document.querySelector('#round-sheet .sheet').scrollTop = 0;
+  drawRoundMap();
+  renderRoundSheet();
+  if (navigator.geolocation && roundWatchId === null) {
+    roundWatchId = navigator.geolocation.watchPosition(position => {
+      roundHere = [position.coords.latitude, position.coords.longitude];
+      if (roundLayers) {
+        if (!roundLayers.me) roundLayers.me = L.circleMarker(roundHere, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1 }).addTo(roundMap);
+        else roundLayers.me.setLatLng(roundHere);
+      }
+      renderRoundPins();
+    }, () => {}, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
+  }
+}
+function hideRoundSheet() {
+  document.getElementById('round-sheet').hidden = true;
+  if (roundWatchId !== null && navigator.geolocation) navigator.geolocation.clearWatch(roundWatchId);
+  roundWatchId = null;
+  if (roundMap) roundMap.remove();
+  roundMap = null;
+  roundLayers = null;
+}
+// Closing only leaves the screen: a road track that is recording carries on, and the task stays in the To-Do List
+function closeRoundSheet() {
+  hideRoundSheet();
+  openRound = null;
+  renderTasks();
+}
+
+function drawRoundMap() {
+  const el = document.getElementById('round-map');
+  if (roundMap) roundMap.remove();
+  roundMap = null;
+  roundLayers = null;
+  el.innerHTML = '';
+  if (typeof L === 'undefined') {
+    el.innerHTML = `<span class="route-map-offline">${currentLang === 'BM' ? 'Peta tidak dapat dimuatkan (tiada internet).' : 'Map could not be loaded (no internet).'}</span>`;
+    return;
+  }
+  const r = openRound;
+  // A view first: Leaflet cannot draw a shape on a map that has not been given one yet
+  roundMap = L.map(el).setView([3.139, 101.6869], 12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(roundMap);
+  let bounds = null;
+  const grow = b => { if (b && b.isValid()) bounds = bounds ? bounds.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast()); };
+  // The boundary of this location, drawn strongly; the others faintly, so the guard knows where the edge is
+  const saved = getSiteOutlines();
+  ((saved && saved.list) || []).forEach(row => {
+    if (!row || !row.geojson) return;
+    const mine = locationCode(row.nursery) === r.location;
+    try {
+      const layer = L.geoJSON(row.geojson, { interactive: false,
+        style: { color: mine ? '#2e7d32' : '#8a8a8a', weight: mine ? 3 : 1, opacity: mine ? 1 : 0.6, fillColor: mine ? '#2e7d32' : '#8a8a8a', fillOpacity: mine ? 0.12 : 0.03 } }).addTo(roundMap);
+      if (mine) grow(layer.getBounds());
+    } catch (err) {}
+  });
+  const pins = L.layerGroup().addTo(roundMap);
+  const line = L.polyline(roundRecording(r) ? activeRoute.points.map(p => [p[0], p[1]]) : [], { color: '#58a6ff', weight: 5 }).addTo(roundMap);
+  roundLayers = { pins, line, me: null };
+  getLocationPins(r.location).forEach(pin => grow(L.latLngBounds([pin.lat, pin.lng], [pin.lat, pin.lng])));
+  if (roundHere) roundLayers.me = L.circleMarker(roundHere, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1 }).addTo(roundMap);
+  if (bounds) roundMap.fitBounds(bounds, { padding: [28, 28], maxZoom: 18 });
+  setTimeout(() => { if (roundMap) { roundMap.invalidateSize(); if (bounds) roundMap.fitBounds(bounds, { padding: [28, 28], maxZoom: 18 }); } }, 60);
+}
+
+function renderRoundSheet() {
+  if (!openRound || document.getElementById('round-sheet').hidden) return;
+  const r = openRound;
+  const tasks = roundTasks(r);
+  const done = tasks.filter(task => task.log && task.log.status !== 'missed').length;
+  document.getElementById('round-title').textContent = `${formatSlotTime(r.time)} • ${r.location}`;
+  document.getElementById('round-progress').textContent = currentLang === 'BM'
+    ? `${done} / ${tasks.length} pin sudah didaftar masuk. Pergi ke setiap pin dan ambil satu gambar di sana.`
+    : `${done} / ${tasks.length} pins checked in. Go to each pin and take one photo there.`;
+  document.getElementById('round-lbl-route').textContent = currentLang === 'BM' ? 'Jejak Laluan' : 'Road Track';
+  document.getElementById('round-lbl-pins').textContent = currentLang === 'BM' ? 'Pin untuk dilawati' : 'Pins to visit';
+  document.getElementById('round-close').textContent = currentLang === 'BM' ? 'Tutup' : 'Close';
+  renderRoundRoute();
+  renderRoundPins();
+}
+
+function renderRoundRoute() {
+  if (!openRound || document.getElementById('round-sheet').hidden) return;
+  const r = openRound;
+  const step = document.getElementById('round-step-route');
+  step.hidden = !can('gps');
+  if (step.hidden) return;
+  const toggle = document.getElementById('round-route-toggle');
+  const state = document.getElementById('round-route-state');
+  const status = document.getElementById('round-route-status');
+  const recording = roundRecording(r);
+  const other = activeRoute && !recording;
+  const finished = !recording && roundRouteOf(r);
+  toggle.hidden = !!finished;
+  toggle.disabled = !!other;
+  toggle.classList.toggle('btn-stop', recording);
+  toggle.classList.toggle('btn-secondary', !recording);
+  toggle.textContent = recording
+    ? (currentLang === 'BM' ? 'Henti Jejak Laluan' : 'Stop Road Track')
+    : (currentLang === 'BM' ? 'Mula Jejak Laluan' : 'Start Road Track');
+  status.classList.toggle('route-status-warning', !!(recording && routeWarning));
+  if (recording) {
+    state.innerHTML = `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span> ${formatDistance(activeRoute.distance)} • ${formatElapsed(Date.now() - activeRoute.startedAt)}`;
+    status.textContent = routeWarning || (currentLang === 'BM'
+      ? 'Satu jejak laluan untuk semua pin. Biarkan ia merekod, dan hentikannya selepas pin terakhir.'
+      : 'One road track for all the pins. Leave it recording, and stop it after the last pin.');
+  } else if (finished) {
+    state.textContent = `✓ ${formatDistance(finished.routeDistance || 0)} • ${formatElapsed(finished.routeDuration || 0)}`;
+    status.textContent = '';
+  } else {
+    state.textContent = '';
+    status.textContent = other
+      ? (currentLang === 'BM' ? 'Jejak laluan lain masih merekod. Hentikannya dahulu.' : 'Another road track is still recording. Stop it first.')
+      : (currentLang === 'BM' ? 'Mula sebelum berjalan ke pin pertama, dan henti selepas pin terakhir.' : 'Start before walking to the first pin, and stop after the last one.');
+  }
+}
+
+function renderRoundPins() {
+  if (!openRound || document.getElementById('round-sheet').hidden) return;
+  const r = openRound;
+  const now = Date.now();
+  const tasks = roundTasks(r);
+  const pins = getLocationPins(r.location);
+  const list = document.getElementById('round-pins');
+  list.innerHTML = '';
+  if (roundLayers) roundLayers.pins.clearLayers();
+  tasks.forEach((task, index) => {
+    const pin = pins.find(p => p.name === task.point);
+    const visited = !!(task.log && task.log.status !== 'missed');
+    const open = !task.log && task.opensAt <= now && now < task.closesAt;
+    if (roundLayers && pin) {
+      L.marker([pin.lat, pin.lng], { keyboard: false,
+        icon: L.divIcon({ className: `round-pin${visited ? ' done' : ''}`, html: `<span>${visited ? '✓' : index + 1}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] }) })
+        .bindTooltip(task.point, { permanent: true, direction: 'top', offset: [0, -14], className: 'round-pin-name' }).addTo(roundLayers.pins);
+    }
+    const li = document.createElement('li');
+    li.className = visited ? 'round-pin-row done' : 'round-pin-row';
+    li.dataset.point = task.point;
+    const away = pin && roundHere ? formatDistance(distanceMeters(roundHere, [pin.lat, pin.lng])) : '';
+    let right;
+    if (visited) right = `<span class="task-submitted"><span class="task-check">✓</span> ${task.log.submittedAt ? formatClock(task.log.submittedAt) : ''}</span>`;
+    else if (open) right = `<button type="button" class="btn round-pin-go">${currentLang === 'BM' ? 'Daftar Masuk' : 'Check In'}</button>`;
+    else right = `<span class="task-remark-missed">${task.log ? (currentLang === 'BM' ? 'Tidak Disiapkan' : 'Not Completed') : (currentLang === 'BM' ? 'Belum dibuka' : 'Not open yet')}</span>`;
+    li.innerHTML = `<span class="round-pin-no">${visited ? '✓' : index + 1}</span>
+      <span class="round-pin-name-cell"><strong></strong><small></small></span>${right}`;
+    li.querySelector('strong').textContent = task.point;
+    li.querySelector('small').textContent = visited
+      ? (task.log.workerName || '')
+      : (away ? (currentLang === 'BM' ? `${away} dari sini` : `${away} from here`) : '');
+    const go = li.querySelector('.round-pin-go');
+    if (go) go.onclick = () => checkInPin(task.point);
+    list.appendChild(li);
+  });
+}
+
+// One pin: the photo sheet for that pin. The task's screen comes back when it is submitted or cancelled.
+function checkInPin(point) {
+  if (!openRound) return;
+  const task = roundTasks(openRound).find(t => t.point === point);
+  if (!task || task.log) { renderRoundPins(); return; }
+  hideRoundSheet();
+  startTask(task);
+  // startTask does nothing for a window that has just closed: come straight back
+  if (!pendingTask) showRoundSheet();
+}
+
+function toggleRoundRoute() {
+  if (!openRound || !can('gps')) return;
+  if (roundRecording(openRound)) { stopRouteTracking(); return; }
+  if (activeRoute) return;
+  startRouteTracking(roundKey(openRound), openRound).then(() => { renderRoundRoute(); renderTodo(); });
 }
 
 function renderSheetRoute() {
   if (!pendingTask) return;
   const recording = activeRoute && activeRoute.logId === pendingTask.logId;
-  const anchor = roundAnchor(pendingTask, pendingTask.logId);
-  // The round's track is already running from an earlier pin: it simply carries on through this one
-  const roundRecording = !!(activeRoute && anchor && activeRoute.logId === anchor.id);
-  const roundDone = !!(anchor && !anchor.patrolOpen && !roundRecording);
-  const otherRecording = activeRoute && !recording && !roundRecording;
+  const otherRecording = activeRoute && !recording;
   const toggle = document.getElementById('sheet-route-toggle');
   const state = document.getElementById('sheet-route-state');
   const status = document.getElementById('sheet-route-status');
   const slot = document.getElementById('sheet-route-slot');
 
-  toggle.hidden = !!pendingTask.route || roundRecording || roundDone;
+  toggle.hidden = !!pendingTask.route;
   toggle.disabled = !!otherRecording;
   toggle.classList.toggle('btn-stop', !!recording);
   toggle.classList.toggle('btn-secondary', !recording);
@@ -1844,21 +2101,12 @@ function renderSheetRoute() {
   } else if (pendingTask.route) {
     state.textContent = `✓ ${formatDistance(pendingTask.route.distance)} • ${formatElapsed(pendingTask.route.duration)}`;
     status.textContent = '';
-  } else if (roundRecording) {
-    if (slot.contains(liveRouteMapEl)) liveRouteMapEl.remove();
-    state.innerHTML = `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span> ${formatDistance(activeRoute.distance)} • ${formatElapsed(Date.now() - activeRoute.startedAt)}`;
-    status.textContent = currentLang === 'BM'
-      ? 'Jejak laluan rondaan ini masih merekod. Teruskan ke pin seterusnya dan hentikannya selepas pin terakhir.'
-      : 'The road track for this round is still recording. Carry on to the next pin and stop it after the last one.';
-  } else if (roundDone) {
-    if (slot.contains(liveRouteMapEl)) liveRouteMapEl.remove();
-    state.textContent = '✓';
-    status.textContent = currentLang === 'BM' ? 'Jejak laluan rondaan ini sudah direkod.' : 'The road track for this round is already recorded.';
   } else {
     if (slot.contains(liveRouteMapEl)) liveRouteMapEl.remove();
     state.textContent = '';
     const otherLog = otherRecording ? findLog(activeRoute.logId) : null;
-    const otherLabel = otherLog ? `${formatSlotTime(otherLog.time)} • ${otherLog.location}` : '';
+    const otherOf = otherLog || (otherRecording && activeRoute.round) || null;
+    const otherLabel = otherOf ? `${formatSlotTime(otherOf.time)} • ${otherOf.location}` : '';
     status.textContent = otherRecording
       ? (currentLang === 'BM'
         ? `Jejak laluan ${otherLabel} sedang direkod. Hentikannya dahulu dalam Senarai Tugasan.`
@@ -1868,11 +2116,9 @@ function renderSheetRoute() {
 }
 
 function toggleSheetRoute() {
-  if (!pendingTask || !can('gps')) return;
-  if (activeRoute && activeRoute.logId === pendingTask.logId) { stopRouteTracking(); return; }
-  // A round already begun at another pin: the track joins that round, never a second one beside it
-  const anchor = roundAnchor(pendingTask, pendingTask.logId);
-  startRouteTracking(anchor && anchor.patrolOpen ? anchor.id : pendingTask.logId).then(renderSheetRoute);
+  if (!pendingTask || !can('gps') || pendingTask.point) return;
+  if (activeRoute && activeRoute.logId === pendingTask.logId) stopRouteTracking();
+  else startRouteTracking(pendingTask.logId);
 }
 
 function onRoutePosition(position) {
@@ -1888,6 +2134,7 @@ function onRoutePosition(position) {
   }
   activeRoute.points.push(point);
   saveRoute(activeRoute).catch(() => {});
+  if (roundLayers && openRound && roundRecording(openRound)) roundLayers.line.addLatLng([latitude, longitude]);
 
   if (liveRouteMap) {
     const latLng = [latitude, longitude];
@@ -1915,6 +2162,7 @@ function onRoutePositionError(error) {
     : (currentLang === 'BM' ? 'Mencari isyarat GPS...' : 'Searching for GPS signal...');
   renderTodo();
   renderSheetRoute();
+  renderRoundRoute();
 }
 
 async function stopRouteTracking({ discard = false } = {}) {
@@ -1938,6 +2186,13 @@ async function stopRouteTracking({ discard = false } = {}) {
   }
   route.endedAt = Date.now();
   await saveRoute(route).catch(() => {});
+  // A pinned task's track belongs to the task, not to one pin's check-in
+  if (route.round) {
+    attachRoundRoute(route.round, { routeId: route.id, routeDistance: Math.round(route.distance), routeDuration: route.endedAt - route.startedAt });
+    renderTasks();
+    renderRoundSheet();
+    return;
+  }
   // Still in the task sheet (photo not submitted yet): keep it until Submit
   if (pendingTask && pendingTask.logId === route.logId && !findLog(route.logId)) {
     pendingTask.route = { id: route.id, distance: route.distance, duration: route.endedAt - route.startedAt };
@@ -1981,7 +2236,7 @@ async function resumeActiveRoute() {
   try {
     const route = await loadRoute(id);
     const log = route && findLog(route.logId);
-    if (!route || route.endedAt || !log) {
+    if (!route || route.endedAt || (!log && !route.round)) {
       // A route from a task sheet that was never submitted cannot be resumed
       if (route && !route.endedAt) deleteRoute(route.id).catch(() => {});
       localStorage.removeItem('mata_malam_active_route');
@@ -1993,17 +2248,14 @@ async function resumeActiveRoute() {
       route.endedAt = last ? last[2] : route.startedAt;
       await saveRoute(route);
       localStorage.removeItem('mata_malam_active_route');
-      updateLog(route.logId, {
-        patrolOpen: false,
-        routeId: route.id,
-        routeDistance: Math.round(route.distance),
-        routeDuration: route.endedAt - route.startedAt
-      });
+      const done = { routeId: route.id, routeDistance: Math.round(route.distance), routeDuration: route.endedAt - route.startedAt };
+      if (route.round) attachRoundRoute(route.round, done);
+      else updateLog(route.logId, { patrolOpen: false, ...done });
       renderTasks();
       return;
     }
     // Keep the task in the To-Do List so its Stop Road Track button is always reachable
-    if (!log.patrolOpen) updateLog(log.id, { patrolOpen: true });
+    if (log && !route.round && !log.patrolOpen) updateLog(log.id, { patrolOpen: true });
     activeRoute = route;
     beginRouteWatch();
   } catch (err) {}
@@ -2460,6 +2712,8 @@ function renderUser() {
 
 function enterApp() {
   const session = getSession();
+  // The boundaries are drawn on a pinned task's map; they change rarely, so once a day is enough
+  loadSiteOutlines();
   renderUser();
   renderTasks();
   renderSyncStatus();
