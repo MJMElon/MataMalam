@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-18h';
+const APP_VERSION = '2026-11-19a';
 
 let activeStream = null;
 
@@ -385,9 +385,35 @@ function getLocationPins(location) {
   return Array.isArray(old) ? [{ name: `${location} pin`, location, lat: old[0], lng: old[1] }] : [];
 }
 
-function describeCheckpointDistance(location, coordText) {
+// ONE PIN IS ONE PLACE TO CHECK IN, AND ONE PHOTO. The office pins as many places as a location
+// has (System Setting > Mata Malam > Map pins), and at every check-in time each of them is a task
+// of its own. A task's "point" is its pin's name. A location nobody has pinned has one task a
+// time, with no point, exactly as before.
+function getTaskPoints(location) {
+  const names = [];
+  getLocationPins(location).forEach(pin => {
+    const name = String(pin.name || '').trim();
+    if (name && !names.includes(name)) names.push(name);
+  });
+  return names.length ? names : [''];
+}
+// A record with no point is from before the pins were tasks (or a location with no pin): it stands
+// for the whole location at that time, so it answers every point and nothing is marked missed twice
+function logCoversPoint(log, point) {
+  return !log.point || !point || log.point === point;
+}
+function escapeText(text) {
+  return String(text == null ? '' : text).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function pointSuffix(point) {
+  return point ? ` <span class="task-point">${escapeText(point)}</span>` : '';
+}
+
+function describeCheckpointDistance(location, coordText, point = '') {
   const here = parseCoordinates(coordText);
-  const pins = getLocationPins(location);
+  let pins = getLocationPins(location);
+  // A task is for one pin, so the distance is to THAT pin and not to whichever is nearest
+  if (point && pins.some(pin => pin.name === point)) pins = pins.filter(pin => pin.name === point);
   if (!pins.length || !here) return '';
   let nearest = null;
   pins.forEach(pin => {
@@ -1008,19 +1034,21 @@ function getTrackingStart() {
 function recordMissedTasks(now = Date.now()) {
   const trackingStart = getTrackingStart();
   const settings = getTaskSettings();
-  const schedule = getActiveLocations().map(location => ({ location, times: getTaskTimes(location) }));
+  const schedule = getActiveLocations().map(location => ({ location, times: getTaskTimes(location), points: getTaskPoints(location) }));
   const logs = getLogs();
   let changed = false;
 
   for (let i = 31; i >= 0; i--) {
     const date = getShiftDate(new Date(now - i * DAY_MS));
-    schedule.forEach(({ location, times }) => {
+    schedule.forEach(({ location, times, points }) => {
       times.forEach(time => {
         const { closesAt } = getTaskWindow(date, time, settings);
         if (closesAt > now || closesAt <= trackingStart) return;
-        if (logs.some(l => l.date === date && l.time === time && l.location === location)) return;
-        logs.push({ location, date, time, coordinates: '-', status: 'missed', recordedAt: new Date(closesAt).toISOString() });
-        changed = true;
+        points.forEach(point => {
+          if (logs.some(l => l.date === date && l.time === time && l.location === location && logCoversPoint(l, point))) return;
+          logs.push({ location, ...(point ? { point } : {}), date, time, coordinates: '-', status: 'missed', recordedAt: new Date(closesAt).toISOString() });
+          changed = true;
+        });
       });
     });
   }
@@ -1043,13 +1071,16 @@ function getShiftTasks(date) {
   const settings = getTaskSettings();
   const tasks = [];
   getActiveLocations().forEach(location => {
+    const points = getTaskPoints(location);
     getTaskTimes(location).forEach(time => {
-      const log = logs.find(l => l.location === location && l.time === time);
-      tasks.push({ location, time, date, log, ...getTaskWindow(date, time, settings) });
+      points.forEach((point, order) => {
+        const log = logs.find(l => l.location === location && l.time === time && logCoversPoint(l, point));
+        tasks.push({ location, point, order, time, date, log, ...getTaskWindow(date, time, settings) });
+      });
     });
   });
-  // Each location has its own times, so put the whole shift in clock order
-  return tasks.sort((a, b) => a.scheduledAt - b.scheduledAt || locationOrder(a.location) - locationOrder(b.location));
+  // Each location has its own times, so put the whole shift in clock order, a location's pins together
+  return tasks.sort((a, b) => a.scheduledAt - b.scheduledAt || locationOrder(a.location) - locationOrder(b.location) || a.order - b.order);
 }
 
 function renderTasks() {
@@ -1108,7 +1139,7 @@ function renderTodo(now = Date.now()) {
     btn.onclick = () => startTask(task);
     btn.innerHTML = `
       <span class="task-time">${formatSlotTime(task.time)}</span>
-      <span class="task-location">${task.location}
+      <span class="task-location">${task.location}${pointSuffix(task.point)}
         <span class="task-deadline">${currentLang === 'BM' ? `Hantar sebelum ${formatClock(task.closesAt)} • ${minutesLeft} min lagi` : `Submit by ${formatClock(task.closesAt)} • ${minutesLeft} min left`}</span>
       </span>
       <span class="task-action task-start">${currentLang === 'BM' ? 'Mula Tugasan' : 'Start Task'}</span>
@@ -1163,7 +1194,7 @@ function renderHistory(now = Date.now()) {
     li.innerHTML = `
       ${missed ? '<span class="task-thumb task-thumb-missed" aria-hidden="true">✕</span>' : '<img class="task-thumb" alt="">'}
       <span class="task-time">${formatSlotTime(log.time)}</span>
-      <span class="task-location">${log.location}<span class="task-deadline task-by"></span></span>
+      <span class="task-location">${log.location}${pointSuffix(log.point)}<span class="task-deadline task-by"></span></span>
       <span class="task-action">${remark}</span>
     `;
     if (!missed && log.workerName) li.querySelector('.task-by').textContent = log.workerName;
@@ -1226,13 +1257,14 @@ function startTask(task) {
     return;
   }
   const { location, time, date, closesAt } = task;
+  const point = task.point || '';
   // The log id is chosen now so a road track recorded in the sheet can be linked to this task
   const logId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  pendingTask = { location, time, date, closesAt, logId, route: null };
+  pendingTask = { location, point, time, date, closesAt, logId, route: null };
   pendingPhoto = null;
   pendingCoordinates = fetchCoordinates();
 
-  document.getElementById('sheet-task-label').textContent = `${formatSlotTime(time)} • ${location}`;
+  document.getElementById('sheet-task-label').textContent = `${formatSlotTime(time)} • ${location}${point ? ` • ${point}` : ''}`;
   const coordEl = document.getElementById('sheet-coord');
   const locationState = document.getElementById('sheet-location-state');
   coordEl.textContent = currentLang === 'BM' ? 'Mengesan Lokasi...' : 'Detecting Location...';
@@ -1241,7 +1273,7 @@ function startTask(task) {
   pendingCoordinates.then(coord => {
     if (pendingTask !== current) return;
     coordEl.textContent = coord;
-    const distance = describeCheckpointDistance(location, coord);
+    const distance = describeCheckpointDistance(location, coord, point);
     if (distance) {
       const note = document.createElement('span');
       note.className = 'checkpoint-distance';
@@ -1395,6 +1427,7 @@ async function submitTask() {
   logs.push({
     id,
     location: pendingTask.location,
+    ...(pendingTask.point ? { point: pendingTask.point } : {}),
     date: pendingTask.date,
     time: pendingTask.time,
     coordinates,
@@ -1639,7 +1672,7 @@ function buildInProgressTask(log) {
   li.innerHTML = `
     <div class="task-active-head">
       <span class="task-time">${formatSlotTime(log.time)}</span>
-      <span class="task-location">${log.location}</span>
+      <span class="task-location">${log.location}${pointSuffix(log.point)}</span>
       ${tracking ? `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span>` : ''}
     </div>
     <ul class="task-steps">
@@ -2036,7 +2069,7 @@ function generateReport() {
   filteredLogs.forEach(log => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><strong>${log.location}</strong></td>
+      <td><strong>${log.location}</strong>${log.point ? `<br>${escapeText(log.point)}` : ''}</td>
       <td class="report-guard"></td>
       <td>${log.date}</td>
       <td>${formatSlotTime(log.time)}</td>
@@ -2435,7 +2468,8 @@ function settingsChanged() {
 // Takes the company's settings from the AI System onto this phone
 function applyRemoteSettings(settings, stamp) {
   if (!settings || typeof settings !== 'object') return;
-  const before = JSON.stringify(buildSettingsPayload());
+  const pointsNow = () => JSON.stringify(getLocations().map(({ code }) => [code, getTaskPoints(code)]));
+  const before = JSON.stringify(buildSettingsPayload()) + pointsNow();
   const next = {};
   Object.entries(settings.locations || {}).forEach(([code, value]) => {
     if (!value || typeof value !== 'object') return;
@@ -2468,7 +2502,7 @@ function applyRemoteSettings(settings, stamp) {
     localStorage.setItem('mata_malam_pins', JSON.stringify(pins));
   }
   localStorage.setItem('mata_malam_settings_at', stamp || '');
-  if (JSON.stringify(buildSettingsPayload()) !== before) {
+  if (JSON.stringify(buildSettingsPayload()) + pointsNow() !== before) {
     localStorage.setItem('mata_malam_tracking_start', String(Date.now()));
   }
 }
@@ -2511,7 +2545,7 @@ async function pushLog(session, log) {
   await rpc('mata_malam_submit', {
     p_token: session.token,
     p_log: {
-      id: log.id, location: log.location, date: log.date, time: log.time,
+      id: log.id, location: log.location, point: log.point || '', date: log.date, time: log.time,
       coordinates: log.coordinates, submittedAt: log.submittedAt, photoUrl,
       patrolOpen: !!log.patrolOpen, route,
       routeDistance: log.routeDistance == null ? null : log.routeDistance,
@@ -2536,7 +2570,8 @@ function mergeRemoteLogs(remoteLogs) {
     // A task this phone had written off as not done was done on another phone
     for (let i = logs.length - 1; i >= 0; i--) {
       const l = logs[i];
-      if (l.status === 'missed' && l.location === remote.location && l.date === remote.date && l.time === remote.time) logs.splice(i, 1);
+      if (l.status === 'missed' && l.location === remote.location && l.date === remote.date && l.time === remote.time
+        && (!remote.point || !l.point || l.point === remote.point)) logs.splice(i, 1);
     }
     logs.push({ ...remote, patrolOpen: false, remote: true, rev: 0, syncedRev: 0 });
     changed = true;
