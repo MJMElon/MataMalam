@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20c';
+const APP_VERSION = '2026-11-20d';
 
 let activeStream = null;
 
@@ -2355,7 +2355,8 @@ function populateReportYearDropdown() {
   const years = new Set(getLogs().map(log => String(log.date || '').split('-')[0]).filter(Boolean));
   years.add(today.slice(0, 4));
   yearSelect.innerHTML = `<option value="" id="opt-all-years">${currentLang === 'BM' ? 'Semua Tahun' : 'All Years'}</option>`;
-  [...years].sort().forEach(year => {
+  // Newest year first, so the latest is what the list opens on
+  [...years].sort().reverse().forEach(year => {
     const opt = document.createElement('option');
     opt.value = year;
     opt.textContent = year;
@@ -2455,7 +2456,8 @@ function generateReport() {
   if (selectedYear && selectedMonth) first = first > `${selectedYear}-${selectedMonth}-01` ? first : `${selectedYear}-${selectedMonth}-01`;
   const locations = selectedModule === 'ALL' ? getActiveLocations() : [selectedModule];
   const rows = [];
-  for (let date = first; date <= today; date = addDays(date, 1)) {
+  // Newest day first: the report opens on what happened last
+  for (let date = today; date >= first; date = addDays(date, -1)) {
     const [year, month] = date.split('-');
     if (selectedYear && year !== selectedYear) continue;
     if (selectedMonth && month !== selectedMonth) continue;
@@ -2562,8 +2564,7 @@ function toggleLanguage() {
     document.getElementById('update-banner-btn').textContent = 'Kemas Kini';
     
     // Report text translation
-    document.getElementById('report-title').textContent = 'Laporan Kerja Harian';
-    document.getElementById('report-desc').textContent = 'Sehari lengkap apabila setiap masa daftar masuk yang ditetapkan di System Setting telah dibuat di lokasi itu, termasuk setiap pin.';
+    document.getElementById('report-title').textContent = 'Laporan';
     document.getElementById('btn-print').textContent = 'Cetak Laporan';
     document.getElementById('label-report-month').textContent = 'Pilih Bulan';
     document.getElementById('label-report-year').textContent = 'Pilih Tahun';
@@ -2620,8 +2621,7 @@ function toggleLanguage() {
     document.getElementById('update-banner-btn').textContent = 'Update';
 
     // Report text translation
-    document.getElementById('report-title').textContent = 'Daily Work Report';
-    document.getElementById('report-desc').textContent = 'A day is complete when every check-in time set in System Setting was done at that location, every pin included.';
+    document.getElementById('report-title').textContent = 'Report';
     document.getElementById('btn-print').textContent = 'Print Report';
     document.getElementById('label-report-month').textContent = 'Select Month';
     document.getElementById('label-report-year').textContent = 'Select Year';
