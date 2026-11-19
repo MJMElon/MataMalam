@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Mata Malam: the moon, the same mark as the Mata Malam button on the 555 Worker Portal -->
+  <rect width="64" height="64" rx="14" fill="#4f46e5"/>
+  <g transform="translate(11.6 11.6) scale(1.7)" fill="#ffffff" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>
+  </g>
+</svg>
