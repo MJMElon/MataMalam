@@ -1706,7 +1706,26 @@ nav li[hidden] {
 .round-pin { background: none; border: 0; }
 .round-pin-name-cell { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .round-pin-name-cell small { color: var(--text-muted); }
-.round-pin-go { flex: 0 0 auto; }
+.round-pin-go {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--accent-color); color: #fff;
+}
+.round-pin-row.open { cursor: pointer; border-color: var(--accent-color); transition: background-color 0.15s ease; }
+.round-pin-row.open:hover, .round-pin-row.open:active { background: rgba(88, 166, 255, 0.10); }
+.round-pin-row.open:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+
+/* To-Do card: the arrow and the progress bar fill the room the Start Task button left */
+.task-go {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(88, 166, 255, 0.14); color: var(--accent-color);
+}
+button.task-item:hover .task-go, .task-item.task-next .task-go { background: var(--accent-color); color: #fff; }
+.task-location .task-deadline .icon { width: 14px; height: 14px; vertical-align: -2px; margin-right: 2px; }
+.task-bar { display: block; height: 6px; margin-top: 8px; border-radius: 999px; background: var(--border-color); overflow: hidden; max-width: 220px; }
+.task-bar > span { display: block; height: 100%; background: #3fb950; border-radius: 999px; }
+.task-rec { display: inline-block; margin-top: 6px; font-size: 0.8rem; }
 .round-pin-name { font-weight: 700; }
 .sheet-backdrop .round-map .leaflet-container { height: 100%; }
 
