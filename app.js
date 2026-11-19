@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20d';
+const APP_VERSION = '2026-11-20e';
 
 let activeStream = null;
 
@@ -1156,17 +1156,16 @@ function renderTodo(now = Date.now()) {
     btn.onclick = () => openRoundSheet(round);
     // The same in both languages: a pin mark and the count, on one line, so the badge is one shape
     const pinsLine = `📍 ${done}/${all.length}`;
+    // Few words: the whole card is the button, so it says only how long is left
     const deadline = now < closesAt
-      ? (currentLang === 'BM' ? `Hantar sebelum ${formatClock(closesAt)} • ${minutesLeft} min lagi` : `Submit by ${formatClock(closesAt)} • ${minutesLeft} min left`)
+      ? (currentLang === 'BM' ? `${minutesLeft} min lagi` : `${minutesLeft} min left`)
       : (currentLang === 'BM' ? 'Jejak laluan masih merekod' : 'Road track still recording');
     btn.innerHTML = `
       <span class="task-time">${formatSlotTime(round.time)}</span>
       <span class="task-location">${round.location} <span class="task-point">${pinsLine}</span>
         <span class="task-deadline">${deadline}</span>
       </span>
-      <span class="task-action task-start">${recording
-        ? `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span>`
-        : (done ? (currentLang === 'BM' ? 'Sambung' : 'Continue') : (currentLang === 'BM' ? 'Mula Tugasan' : 'Start Task'))}</span>
+      ${recording ? `<span class="task-action"><span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span></span>` : ''}
     `;
     li.appendChild(btn);
     todoList.appendChild(li);
@@ -1182,9 +1181,8 @@ function renderTodo(now = Date.now()) {
     btn.innerHTML = `
       <span class="task-time">${formatSlotTime(task.time)}</span>
       <span class="task-location">${task.location}
-        <span class="task-deadline">${currentLang === 'BM' ? `Hantar sebelum ${formatClock(task.closesAt)} • ${minutesLeft} min lagi` : `Submit by ${formatClock(task.closesAt)} • ${minutesLeft} min left`}</span>
+        <span class="task-deadline">${currentLang === 'BM' ? `${minutesLeft} min lagi` : `${minutesLeft} min left`}</span>
       </span>
-      <span class="task-action task-start">${currentLang === 'BM' ? 'Mula Tugasan' : 'Start Task'}</span>
     `;
     li.appendChild(btn);
     todoList.appendChild(li);
@@ -2008,8 +2006,8 @@ function renderRoundSheet() {
   const done = tasks.filter(task => task.log && task.log.status !== 'missed').length;
   document.getElementById('round-title').textContent = `${formatSlotTime(r.time)} • ${r.location}`;
   document.getElementById('round-progress').textContent = currentLang === 'BM'
-    ? `${done} / ${tasks.length} pin sudah didaftar masuk. Pergi ke setiap pin dan ambil satu gambar di sana.`
-    : `${done} / ${tasks.length} pins checked in. Go to each pin and take one photo there.`;
+    ? `${done} / ${tasks.length} pin`
+    : `${done} / ${tasks.length} pins`;
   document.getElementById('round-lbl-route').textContent = currentLang === 'BM' ? 'Jejak Laluan' : 'Road Track';
   document.getElementById('round-lbl-pins').textContent = currentLang === 'BM' ? 'Pin untuk dilawati' : 'Pins to visit';
   document.getElementById('round-close').textContent = currentLang === 'BM' ? 'Hantar' : 'Submit';
@@ -2039,9 +2037,7 @@ function renderRoundRoute() {
   status.classList.toggle('route-status-warning', !!(recording && routeWarning));
   if (recording) {
     state.innerHTML = `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span> ${formatDistance(activeRoute.distance)} • ${formatElapsed(Date.now() - activeRoute.startedAt)}`;
-    status.textContent = routeWarning || (currentLang === 'BM'
-      ? 'Satu jejak laluan untuk semua pin. Biarkan ia merekod, dan hentikannya selepas pin terakhir.'
-      : 'One road track for all the pins. Leave it recording, and stop it after the last pin.');
+    status.textContent = routeWarning || '';
   } else if (finished) {
     state.textContent = `✓ ${formatDistance(finished.routeDistance || 0)} • ${formatElapsed(finished.routeDuration || 0)}`;
     status.textContent = currentLang === 'BM'
@@ -2052,7 +2048,7 @@ function renderRoundRoute() {
     state.textContent = '';
     status.textContent = other
       ? (currentLang === 'BM' ? 'Jejak laluan lain masih merekod. Hentikannya dahulu.' : 'Another road track is still recording. Stop it first.')
-      : (currentLang === 'BM' ? 'Mula sebelum berjalan ke pin pertama, dan henti selepas pin terakhir.' : 'Start before walking to the first pin, and stop after the last one.');
+      : '';
   }
 }
 
