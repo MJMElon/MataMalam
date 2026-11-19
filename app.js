@@ -1,11 +1,10 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20f';
+const APP_VERSION = '2026-11-20g';
 
 let activeStream = null;
 
 // Inline icons (emoji are missing from some phone/PC fonts)
 const ICONS = {
-  chevron: '<svg class="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>',
   camera: '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
   pin: '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
   clock: '<svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
@@ -1161,15 +1160,11 @@ function renderTodo(now = Date.now()) {
     const deadline = now < closesAt
       ? (currentLang === 'BM' ? `${minutesLeft} min lagi` : `${minutesLeft} min left`)
       : (currentLang === 'BM' ? 'Jejak laluan masih merekod' : 'Road track still recording');
-    // The whole card is the button: the arrow on the right says so, the bar says how far through the pins it is
+    // The whole card is the button. One line: the place, its pins, and how long is left beside them
     btn.innerHTML = `
       <span class="task-time">${formatSlotTime(round.time)}</span>
-      <span class="task-location">${round.location} <span class="task-point">${pinsLine}</span>
-        <span class="task-deadline">${ICONS.clock} ${deadline}</span>
-        <span class="task-bar"><span style="width:${Math.round(100 * done / Math.max(1, all.length))}%"></span></span>
-        ${recording ? `<span class="route-recording task-rec">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span>` : ''}
-      </span>
-      <span class="task-go">${ICONS.chevron}</span>
+      <span class="task-location task-oneline">${round.location} <span class="task-point">${pinsLine}</span> <span class="task-left">${deadline}</span></span>
+      ${recording ? `<span class="task-action"><span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span></span>` : ''}
     `;
     li.appendChild(btn);
     todoList.appendChild(li);
@@ -1185,9 +1180,8 @@ function renderTodo(now = Date.now()) {
     btn.innerHTML = `
       <span class="task-time">${formatSlotTime(task.time)}</span>
       <span class="task-location">${task.location}
-        <span class="task-deadline">${ICONS.clock} ${currentLang === 'BM' ? `${minutesLeft} min lagi` : `${minutesLeft} min left`}</span>
+        <span class="task-left">${currentLang === 'BM' ? `${minutesLeft} min lagi` : `${minutesLeft} min left`}</span>
       </span>
-      <span class="task-go">${ICONS.chevron}</span>
     `;
     li.appendChild(btn);
     todoList.appendChild(li);
