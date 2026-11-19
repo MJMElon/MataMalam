@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-19c';
+const APP_VERSION = '2026-11-19d';
 
 let activeStream = null;
 
@@ -1154,7 +1154,8 @@ function renderTodo(now = Date.now()) {
     btn.className = index === 0 ? 'task-item task-next task-round' : 'task-item task-round';
     btn.dataset.round = roundKey(round);
     btn.onclick = () => openRoundSheet(round);
-    const pinsLine = currentLang === 'BM' ? `${done} / ${all.length} pin` : `${done} / ${all.length} pins`;
+    // The same in both languages: a pin mark and the count, on one line, so the badge is one shape
+    const pinsLine = `📍 ${done}/${all.length}`;
     const deadline = now < closesAt
       ? (currentLang === 'BM' ? `Hantar sebelum ${formatClock(closesAt)} • ${minutesLeft} min lagi` : `Submit by ${formatClock(closesAt)} • ${minutesLeft} min left`)
       : (currentLang === 'BM' ? 'Jejak laluan masih merekod' : 'Road track still recording');

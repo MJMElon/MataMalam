@@ -1617,6 +1617,7 @@ nav li[hidden] {
 /* The pin a task is for, beside its location */
 .task-point {
   display: inline-block;
+  white-space: nowrap;
   margin-left: 6px;
   padding: 1px 8px;
   border-radius: 999px;
