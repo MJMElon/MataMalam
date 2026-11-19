@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20b';
+const APP_VERSION = '2026-11-20c';
 
 let activeStream = null;
 
@@ -1948,6 +1948,10 @@ function hideRoundSheet() {
 }
 // Closing only leaves the screen: a road track that is recording carries on, and the task stays in the To-Do List
 function closeRoundSheet() {
+  // Submit: every pin checked in and the road track still running means the walk is over, so it is stopped and kept
+  if (openRound && roundRecording(openRound) && roundTasks(openRound).every(task => task.log && task.log.status !== 'missed')) {
+    stopRouteTracking();
+  }
   hideRoundSheet();
   openRound = null;
   renderTasks();
@@ -2008,7 +2012,7 @@ function renderRoundSheet() {
     : `${done} / ${tasks.length} pins checked in. Go to each pin and take one photo there.`;
   document.getElementById('round-lbl-route').textContent = currentLang === 'BM' ? 'Jejak Laluan' : 'Road Track';
   document.getElementById('round-lbl-pins').textContent = currentLang === 'BM' ? 'Pin untuk dilawati' : 'Pins to visit';
-  document.getElementById('round-close').textContent = currentLang === 'BM' ? 'Tutup' : 'Close';
+  document.getElementById('round-close').textContent = currentLang === 'BM' ? 'Hantar' : 'Submit';
   renderRoundRoute();
   renderRoundPins();
 }
@@ -2059,7 +2063,11 @@ function renderRoundPins() {
   const tasks = roundTasks(r);
   const pins = getLocationPins(r.location);
   const list = document.getElementById('round-pins');
-  list.innerHTML = '';
+  // The rows are built OFF the page and swapped in at once. Emptying the list first let the map
+  // (redrawn on every GPS fix) measure a short sheet, and the sheet jumped back to the top.
+  const sheet = document.querySelector('#round-sheet .sheet');
+  const keepScroll = sheet ? sheet.scrollTop : 0;
+  const rows = document.createDocumentFragment();
   if (roundLayers) roundLayers.pins.clearLayers();
   tasks.forEach((task, index) => {
     const pin = pins.find(p => p.name === task.point);
@@ -2086,8 +2094,10 @@ function renderRoundPins() {
       : (away ? (currentLang === 'BM' ? `${away} dari sini` : `${away} from here`) : '');
     const go = li.querySelector('.round-pin-go');
     if (go) go.onclick = () => checkInPin(task.point);
-    list.appendChild(li);
+    rows.appendChild(li);
   });
+  list.replaceChildren(rows);
+  if (sheet && sheet.scrollTop !== keepScroll) sheet.scrollTop = keepScroll;
 }
 
 // One pin: the photo sheet for that pin. The task's screen comes back when it is submitted or cancelled.
