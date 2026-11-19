@@ -226,6 +226,32 @@ button.task-item:hover {
   text-align: center;
 }
 
+/* The button never runs past the card: the middle column gives way first, and a long
+   label (Mula Tugasan, Sambung) breaks onto two lines rather than out of the box */
+.task-item > .task-location { flex: 1 1 auto; min-width: 0; }
+.task-item > .task-time { flex-shrink: 0; }
+.task-item > .task-action.task-start {
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 7.5rem;
+  white-space: normal;
+  line-height: 1.25;
+}
+
+/* The smallest phones: tighter spacing so the place and its time keep room to be read */
+@media (max-width: 360px) {
+  .task-item { gap: 0.5rem; padding: 0.75rem 0.7rem; }
+  .task-item > .task-location { min-width: 4.5rem; }
+  .task-item > .task-action.task-start { max-width: 5.5rem; padding: 0.45rem 0.55rem; }
+}
+
+/* Narrower still, there is no room for three columns: the button goes under, full width */
+@media (max-width: 340px) {
+  .task-item { flex-wrap: wrap; }
+  .task-item > .task-location { flex: 1 1 0; }
+  .task-item > .task-action.task-start { flex: 1 0 100%; max-width: none; }
+}
+
 .task-location .task-deadline {
   display: block;
   font-size: 0.8rem;
