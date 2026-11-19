@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20g';
+const APP_VERSION = '2026-11-20h';
 
 let activeStream = null;
 
@@ -2523,7 +2523,6 @@ function toggleLanguage() {
   langBtn.textContent = `Language (${currentLang})`;
 
   if (currentLang === 'BM') {
-    document.getElementById('nav-signout').textContent = 'Log Keluar';
     document.getElementById('signin-title').textContent = 'Log Masuk';
     document.getElementById('signin-hint').textContent = 'Masukkan PIN anda (sama seperti 555 Worker Portal).';
     document.getElementById('signin-btn').textContent = 'Masuk';
@@ -2580,7 +2579,6 @@ function toggleLanguage() {
     document.getElementById('th-coordinates').textContent = 'Selesai';
     document.getElementById('th-status').textContent = 'Kerja Harian';
   } else {
-    document.getElementById('nav-signout').textContent = 'Sign Out';
     document.getElementById('signin-title').textContent = 'Sign In';
     document.getElementById('signin-hint').textContent = 'Enter your PIN (the same one as the 555 Worker Portal).';
     document.getElementById('signin-btn').textContent = 'Enter';
@@ -2835,7 +2833,6 @@ async function startSession() {
 function renderUser() {
   const session = getSession();
   document.getElementById('nav-user').textContent = session ? session.worker.name : '';
-  document.getElementById('nav-signout').hidden = !session || !!session.fromPortal;
   // Settings is only for the people who may change it; everybody else has nothing to do there
   const settingsLink = document.getElementById('nav-settings');
   (settingsLink.closest('li') || settingsLink).hidden = !canEditSettings();
