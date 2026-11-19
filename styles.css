@@ -1711,6 +1711,9 @@ nav li[hidden] {
   width: 40px; height: 40px; border-radius: 50%;
   background: var(--accent-color); color: #fff;
 }
+.round-pin-row.far { opacity: 0.6; }
+.round-pin-row.far small { color: #d29922; }
+.round-pin-go.round-pin-far { background: var(--border-color); color: var(--text-muted); }
 .round-pin-row.open { cursor: pointer; border-color: var(--accent-color); transition: background-color 0.15s ease; }
 .round-pin-row.open:hover, .round-pin-row.open:active { background: rgba(88, 166, 255, 0.10); }
 .round-pin-row.open:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }

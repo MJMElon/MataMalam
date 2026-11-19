@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20h';
+const APP_VERSION = '2026-11-20i';
 
 let activeStream = null;
 
@@ -1844,6 +1844,17 @@ let roundMap = null;
 let roundLayers = null;
 let roundWatchId = null;
 let roundHere = null;
+let roundHereAt = 0;
+// A pin opens only for somebody standing within this distance of it (3 km). Far away, or with no
+// GPS fix yet, the row is shown and cannot be pressed. Asked again when the row is pressed.
+const PIN_RANGE_M = 3000;
+function pinInRange(location, point) {
+  const pin = getLocationPins(location).find(p => p.name === point);
+  if (!pin) return true;                 // a pin the map cannot place is not held back by the map
+  // A position more than two minutes old says nothing about where the guard is now
+  if (!roundHere || Date.now() - roundHereAt > 2 * 60 * 1000) return false;
+  return distanceMeters(roundHere, [pin.lat, pin.lng]) <= PIN_RANGE_M;
+}
 
 function roundKey(r) { return `round:${r.location}|${r.date}|${r.time}`; }
 function groupRounds(tasks) {
@@ -1927,6 +1938,7 @@ function showRoundSheet() {
   if (navigator.geolocation && roundWatchId === null) {
     roundWatchId = navigator.geolocation.watchPosition(position => {
       roundHere = [position.coords.latitude, position.coords.longitude];
+      roundHereAt = Date.now();
       if (roundLayers) {
         if (!roundLayers.me) roundLayers.me = L.circleMarker(roundHere, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1 }).addTo(roundMap);
         else roundLayers.me.setLatLng(roundHere);
@@ -2068,6 +2080,7 @@ function renderRoundPins() {
     const pin = pins.find(p => p.name === task.point);
     const visited = !!(task.log && task.log.status !== 'missed');
     const open = !task.log && task.opensAt <= now && now < task.closesAt;
+    const near = pinInRange(r.location, task.point);
     if (roundLayers && pin) {
       L.marker([pin.lat, pin.lng], { keyboard: false,
         icon: L.divIcon({ className: `round-pin${visited ? ' done' : ''}`, html: `<span>${visited ? '✓' : index + 1}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] }) })
@@ -2079,16 +2092,22 @@ function renderRoundPins() {
     const away = pin && roundHere ? formatDistance(distanceMeters(roundHere, [pin.lat, pin.lng])) : '';
     let right;
     if (visited) right = `<span class="task-submitted"><span class="task-check">✓</span> ${task.log.submittedAt ? formatClock(task.log.submittedAt) : ''}</span>`;
-    else if (open) right = `<span class="round-pin-go" aria-hidden="true">${ICONS.camera}</span>`;
+    else if (open && near) right = `<span class="round-pin-go" aria-hidden="true">${ICONS.camera}</span>`;
+    else if (open) right = `<span class="round-pin-go round-pin-far" aria-hidden="true">${ICONS.camera}</span>`;
     else right = `<span class="task-remark-missed">${task.log ? (currentLang === 'BM' ? 'Tidak Disiapkan' : 'Not Completed') : (currentLang === 'BM' ? 'Belum dibuka' : 'Not open yet')}</span>`;
     li.innerHTML = `<span class="round-pin-no">${visited ? '✓' : index + 1}</span>
       <span class="round-pin-name-cell"><strong></strong><small></small></span>${right}`;
     li.querySelector('strong').textContent = task.point;
     li.querySelector('small').textContent = visited
       ? (task.log.workerName || '')
-      : (away ? (currentLang === 'BM' ? `${away} dari sini` : `${away} from here`) : '');
+      : (open && !near && pin
+        ? (!roundHere || Date.now() - roundHereAt > 2 * 60 * 1000
+          ? (currentLang === 'BM' ? 'Menunggu GPS…' : 'Waiting for GPS…')
+          : (currentLang === 'BM' ? `${away} dari sini • mesti dalam 3 km` : `${away} from here • must be within 3 km`))
+        : (away ? (currentLang === 'BM' ? `${away} dari sini` : `${away} from here`) : ''));
+    if (open && !near) li.classList.add('far');
     // The whole row opens the camera for that pin; no Check In word to aim at
-    if (open) {
+    if (open && near) {
       li.classList.add('open');
       li.setAttribute('role', 'button');
       li.tabIndex = 0;
@@ -2107,6 +2126,7 @@ function checkInPin(point) {
   if (!openRound) return;
   const task = roundTasks(openRound).find(t => t.point === point);
   if (!task || task.log) { renderRoundPins(); return; }
+  if (!pinInRange(openRound.location, point)) { renderRoundPins(); return; }
   hideRoundSheet();
   startTask(task);
   // startTask does nothing for a window that has just closed: come straight back
