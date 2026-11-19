@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-19d';
+const APP_VERSION = '2026-11-19e';
 
 let activeStream = null;
 
@@ -1874,8 +1874,30 @@ function getRoundRoutes() {
 }
 function roundRouteOf(r) {
   const log = roundLogs(r).find(l => l.routeId || l.hasRoute);
-  if (log) return { routeDistance: log.routeDistance || 0, routeDuration: log.routeDuration || 0 };
+  if (log) return { routeDistance: log.routeDistance || 0, routeDuration: log.routeDuration || 0, routeId: log.routeId || null, log };
   return getRoundRoutes()[roundKey(r)] || null;
+}
+
+// A track that has been STOPPED stays on the task's map, so the guard can see where they walked.
+// From this phone when it was recorded here, else from the AI System (a track somebody else walked).
+let roundTrackShown = null;
+async function showRoundTrack(r, finished) {
+  const key = roundKey(r) + '|' + (finished.routeId || (finished.log && finished.log.id) || '');
+  if (roundTrackShown === key) return;
+  roundTrackShown = key;
+  let route = null;
+  try {
+    if (finished.routeId) route = await loadRoute(finished.routeId).catch(() => null);
+    if (!route && finished.log) route = await loadLogRoute(finished.log);
+  } catch (err) { route = null; }
+  if (roundTrackShown !== key || !roundLayers || !openRound || roundKey(openRound) !== roundKey(r)) return;
+  const points = ((route && route.points) || []).map(p => [p[0], p[1]]);
+  if (!points.length) { roundTrackShown = null; return; }
+  roundLayers.line.setLatLngs(points);
+  // Frame the walk together with the boundary and the pins, so all of it is on screen
+  const frame = roundLayers.line.getBounds();
+  if (roundLayers.bounds) frame.extend(roundLayers.bounds);
+  if (roundMap) roundMap.fitBounds(frame, { padding: [28, 28], maxZoom: 18 });
 }
 // The track is stored on the task's first check-in made on THIS phone (somebody else's record cannot be changed)
 function attachRoundRoute(r, done) {
@@ -1936,6 +1958,7 @@ function drawRoundMap() {
   if (roundMap) roundMap.remove();
   roundMap = null;
   roundLayers = null;
+  roundTrackShown = null;
   el.innerHTML = '';
   if (typeof L === 'undefined') {
     el.innerHTML = `<span class="route-map-offline">${currentLang === 'BM' ? 'Peta tidak dapat dimuatkan (tiada internet).' : 'Map could not be loaded (no internet).'}</span>`;
@@ -1963,8 +1986,15 @@ function drawRoundMap() {
   roundLayers = { pins, line, me: null };
   getLocationPins(r.location).forEach(pin => grow(L.latLngBounds([pin.lat, pin.lng], [pin.lat, pin.lng])));
   if (roundHere) roundLayers.me = L.circleMarker(roundHere, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1 }).addTo(roundMap);
+  roundLayers.bounds = bounds;
   if (bounds) roundMap.fitBounds(bounds, { padding: [28, 28], maxZoom: 18 });
-  setTimeout(() => { if (roundMap) { roundMap.invalidateSize(); if (bounds) roundMap.fitBounds(bounds, { padding: [28, 28], maxZoom: 18 }); } }, 60);
+  setTimeout(() => {
+    if (!roundMap || !roundLayers) return;
+    roundMap.invalidateSize();
+    const frame = roundLayers.line.getLatLngs().length ? roundLayers.line.getBounds() : null;
+    if (frame && bounds) frame.extend(bounds);
+    if (frame || bounds) roundMap.fitBounds(frame || bounds, { padding: [28, 28], maxZoom: 18 });
+  }, 60);
 }
 
 function renderRoundSheet() {
@@ -2010,7 +2040,10 @@ function renderRoundRoute() {
       : 'One road track for all the pins. Leave it recording, and stop it after the last pin.');
   } else if (finished) {
     state.textContent = `✓ ${formatDistance(finished.routeDistance || 0)} • ${formatElapsed(finished.routeDuration || 0)}`;
-    status.textContent = '';
+    status.textContent = currentLang === 'BM'
+      ? 'Jejak laluan sudah dihentikan dan disimpan. Garisan biru di peta ialah laluan yang anda jalani.'
+      : 'Road track stopped and saved. The blue line on the map is the way you walked.';
+    showRoundTrack(r, finished);
   } else {
     state.textContent = '';
     status.textContent = other
