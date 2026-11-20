@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20r';
+const APP_VERSION = '2026-11-20s';
 
 let activeStream = null;
 
@@ -1191,10 +1191,43 @@ function renderTodo(now = Date.now()) {
 function renderHistory(now = Date.now()) {
   const dates = [];
   for (let i = 0; i < HISTORY_SHIFTS; i++) dates.push(getShiftDate(new Date(now - i * DAY_MS)));
-  const entries = getLogs()
+  const all = getLogs()
     .filter(log => dates.includes(log.date) && !log.patrolOpen && !Number.isNaN(parseSlotLabel(log.time)))
     .map(log => ({ log, ...getTaskWindow(log.date, log.time) }))
     .sort((a, b) => b.scheduledAt - a.scheduledAt || locationOrder(a.log.location) - locationOrder(b.log.location));
+
+  // Date, time and location filters. Each list is what the history holds, and a choice that has gone
+  // (an old day dropping off the end) falls back to All rather than to an empty list.
+  const bm = currentLang === 'BM';
+  const fill = (id, allLabel, values, label = v => v) => {
+    const select = document.getElementById(id);
+    const chosen = select.value;
+    select.innerHTML = '';
+    const first = document.createElement('option');
+    first.value = '';
+    first.textContent = allLabel;
+    select.appendChild(first);
+    values.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = label(v);
+      select.appendChild(opt);
+    });
+    select.value = values.includes(chosen) ? chosen : '';
+    return select.value;
+  };
+  const uniq = list => [...new Set(list)];
+  const wantDate = fill('history-date', bm ? 'Tarikh' : 'Date', uniq(all.map(e => e.log.date)), d => {
+    // Short, so it fits a third of a phone: 12 Nov
+    const [y, m, day] = d.split('-').map(Number);
+    return `${day} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m - 1]}`;
+  });
+  const times = uniq(all.map(e => e.log.time)).sort((a, b) => parseSlotLabel(a) - parseSlotLabel(b));
+  const wantTime = fill('history-time', bm ? 'Masa' : 'Time', times, formatSlotTime);
+  const places = uniq(all.map(e => e.log.location)).sort((a, b) => locationOrder(a) - locationOrder(b));
+  const wantPlace = fill('history-location', bm ? 'Lokasi' : 'Location', places);
+  const entries = all.filter(({ log }) => (!wantDate || log.date === wantDate)
+    && (!wantTime || log.time === wantTime) && (!wantPlace || log.location === wantPlace));
 
   photoUrls.forEach(url => URL.revokeObjectURL(url));
   photoUrls = [];
@@ -1210,7 +1243,9 @@ function renderHistory(now = Date.now()) {
   const doneList = document.getElementById('done-list');
   doneList.innerHTML = '';
   if (entries.length === 0) {
-    doneList.innerHTML = `<li class="task-empty">${currentLang === 'BM' ? 'Tiada sejarah tugasan lagi.' : 'No task history yet.'}</li>`;
+    doneList.innerHTML = `<li class="task-empty">${all.length
+      ? (currentLang === 'BM' ? 'Tiada rekod untuk pilihan ini.' : 'Nothing matches these filters.')
+      : (currentLang === 'BM' ? 'Tiada sejarah tugasan lagi.' : 'No task history yet.')}</li>`;
     return;
   }
 

@@ -1780,3 +1780,7 @@ nav li[hidden] {
 .round-route-state { margin: 0; text-align: center; font-weight: 600; color: #3fb950; font-size: 0.9rem; }
 .round-route-state:empty { display: none; }
 .round-route-box .route-status { text-align: center; }
+
+/* History filters: date, time, location side by side */
+.history-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 0.5rem; margin-bottom: 1rem; }
+.history-filters .select-input { width: 100%; min-width: 0; padding: 0.55rem 0.4rem; font-size: 0.9rem; text-overflow: ellipsis; }
