@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-20p">
+  <link rel="stylesheet" href="styles.css?v=2026-11-20q">
 </head>
 <body>
 
@@ -91,7 +91,7 @@
       <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="round-title">
         <button type="button" class="btn round-back" onclick="backRoundSheet()" id="round-back">← Back</button>
         <h3 id="round-title"></h3>
-        <p class="round-progress" id="round-progress" aria-live="polite"></p>
+        <p class="round-progress" id="round-progress" aria-live="polite" hidden></p>
         <!-- One box: the button IS the road track. While it records, or once it has stopped, the line under it says how far -->
         <section class="sheet-step round-route-box" id="round-step-route">
           <button type="button" class="btn sheet-route-toggle" onclick="toggleRoundRoute()" id="round-route-toggle">Start Road Track</button>
@@ -339,6 +339,6 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-20p"></script>
+  <script src="app.js?v=2026-11-20q"></script>
 </body>
 </html>
