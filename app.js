@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20l';
+const APP_VERSION = '2026-11-20m';
 
 let activeStream = null;
 
@@ -1955,6 +1955,12 @@ function hideRoundSheet() {
   roundMap = null;
   roundLayers = null;
 }
+// Back: leaves the screen and changes nothing, a road track that is recording carries on
+function backRoundSheet() {
+  hideRoundSheet();
+  openRound = null;
+  renderTasks();
+}
 // Closing only leaves the screen: a road track that is recording carries on, and the task stays in the To-Do List
 function closeRoundSheet() {
   // Submit: every pin checked in and the road track still running means the walk is over, so it is stopped and kept
@@ -2022,6 +2028,7 @@ function renderRoundSheet() {
   document.getElementById('round-lbl-route').textContent = currentLang === 'BM' ? 'Jejak Laluan' : 'Road Track';
   document.getElementById('round-lbl-pins').textContent = currentLang === 'BM' ? 'Pin untuk dilawati' : 'Pins to visit';
   document.getElementById('round-close').textContent = currentLang === 'BM' ? 'Hantar' : 'Submit';
+  document.getElementById('round-back').textContent = currentLang === 'BM' ? '← Kembali' : '← Back';
   renderRoundRoute();
   renderRoundPins();
 }

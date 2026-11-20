@@ -1769,3 +1769,6 @@ nav li[hidden] {
 .portal-back { margin-bottom: 1rem; }
 .portal-back[hidden] { display: none; }
 .portal-back .btn { display: inline-block; text-decoration: none; width: auto; }
+
+/* Back out of a task without submitting it */
+.round-back { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.45rem 0.9rem; margin-bottom: 0.9rem; width: auto !important; display: inline-block; align-self: flex-start; }
