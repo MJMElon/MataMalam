@@ -1772,3 +1772,8 @@ nav li[hidden] {
 
 /* Back out of a task without submitting it */
 .round-back { background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.45rem 0.9rem; margin-bottom: 0.9rem; width: auto !important; display: inline-block; align-self: flex-start; }
+
+/* Road track on the task screen: one box, the button first, how far under it */
+.round-route-state { margin: 0; text-align: center; font-weight: 600; color: #3fb950; font-size: 0.9rem; }
+.round-route-state:empty { display: none; }
+.round-route-box .route-status { text-align: center; }

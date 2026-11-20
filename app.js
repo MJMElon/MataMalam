@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20o';
+const APP_VERSION = '2026-11-20p';
 
 let activeStream = null;
 
@@ -2037,7 +2037,6 @@ function renderRoundSheet() {
   document.getElementById('round-progress').textContent = currentLang === 'BM'
     ? `${done} / ${tasks.length} pin`
     : `${done} / ${tasks.length} pins`;
-  document.getElementById('round-lbl-route').textContent = currentLang === 'BM' ? 'Jejak Laluan' : 'Road Track';
   document.getElementById('round-lbl-pins').textContent = currentLang === 'BM' ? 'Pin untuk dilawati' : 'Pins to visit';
   document.getElementById('round-close').textContent = currentLang === 'BM' ? 'Hantar' : 'Submit';
   document.getElementById('round-back').textContent = currentLang === 'BM' ? '← Kembali' : '← Back';
@@ -2060,7 +2059,8 @@ function renderRoundRoute() {
   toggle.hidden = !!finished;
   toggle.disabled = !!other;
   toggle.classList.toggle('btn-stop', recording);
-  toggle.classList.toggle('btn-secondary', !recording);
+  // Start is the one thing to press on this box, so it is the blue button; Stop is red while recording
+  toggle.classList.remove('btn-secondary');
   toggle.textContent = recording
     ? (currentLang === 'BM' ? 'Henti Jejak Laluan' : 'Stop Road Track')
     : (currentLang === 'BM' ? 'Mula Jejak Laluan' : 'Start Road Track');
