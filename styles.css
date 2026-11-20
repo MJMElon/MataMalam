@@ -488,7 +488,8 @@ button.task-item:hover {
   height: 32px;
 }
 
-.task-item.task-has-route {
+.task-item.task-has-route,
+.task-item.task-has-pins {
   display: grid;
   grid-template-columns: auto auto 1fr auto;
   column-gap: 1rem;
@@ -1784,3 +1785,18 @@ nav li[hidden] {
 /* History filters: date, time, location side by side */
 .history-filters { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); gap: 0.5rem; margin-bottom: 1rem; }
 .history-filters .select-input { width: 100%; min-width: 0; padding: 0.55rem 0.4rem; font-size: 0.9rem; text-overflow: ellipsis; }
+
+/* History: one card per time at a location, its pins listed inside it */
+.task-item.task-part { border-color: rgba(210, 153, 34, 0.6); }
+.task-remark-part { color: #d29922; font-weight: 600; font-size: 0.85rem; }
+.history-pins { grid-column: 1 / -1; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.history-pin { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); }
+.history-pin-thumb { width: 36px; height: 36px; border-radius: 4px; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border-color); }
+span.history-pin-thumb.missed { display: inline-flex; align-items: center; justify-content: center; color: #e5534b; font-weight: 700; }
+.history-pin-name { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; font-size: 0.9rem; }
+.history-pin-name small { color: var(--text-muted); }
+.history-pin-when { white-space: nowrap; font-size: 0.85rem; color: var(--text-muted); }
+/* A pinned card has no head photo: time, place, answer */
+.task-item.task-has-pins { grid-template-columns: auto minmax(0, 1fr) auto; }
+.task-item.task-has-pins .task-location { min-width: 0; }
+.task-item.task-has-pins .task-action { white-space: nowrap; text-align: right; }

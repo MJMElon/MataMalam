@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20s';
+const APP_VERSION = '2026-11-20t';
 
 let activeStream = null;
 
@@ -1234,49 +1234,88 @@ function renderHistory(now = Date.now()) {
   historyRouteMaps.forEach(layers => layers.map.remove());
   historyRouteMaps = [];
 
-  const missedCount = entries.filter(e => e.log.status === 'missed').length;
-  const completedCount = entries.length - missedCount;
+  // ONE CARD PER TIME AT A LOCATION. The pins are inside it, the same way the task was walked:
+  // one road track, several check-ins. A card is complete when every pin is, not done when none is.
+  const groups = [];
+  entries.forEach(entry => {
+    const { log } = entry;
+    const key = `${log.date}|${log.location}|${log.time}`;
+    let g = groups.find(x => x.key === key);
+    if (!g) { g = { key, date: log.date, location: log.location, time: log.time, logs: [] }; groups.push(g); }
+    g.logs.push(log);
+  });
+  groups.forEach(g => {
+    g.logs.sort((x, y) => String(x.point || '').localeCompare(String(y.point || ''), undefined, { numeric: true }));
+    g.done = g.logs.filter(l => l.status !== 'missed');
+    g.state = g.done.length === g.logs.length ? 'ok' : (g.done.length ? 'part' : 'no');
+  });
+
+  const okCount = groups.filter(g => g.state === 'ok').length;
+  const notCount = groups.length - okCount;
   document.getElementById('done-meta').textContent = currentLang === 'BM'
-    ? `${completedCount} selesai • ${missedCount} tidak selesai`
-    : `${completedCount} completed • ${missedCount} not completed`;
+    ? `${okCount} selesai • ${notCount} tidak selesai`
+    : `${okCount} completed • ${notCount} not completed`;
 
   const doneList = document.getElementById('done-list');
   doneList.innerHTML = '';
-  if (entries.length === 0) {
+  if (groups.length === 0) {
     doneList.innerHTML = `<li class="task-empty">${all.length
       ? (currentLang === 'BM' ? 'Tiada rekod untuk pilihan ini.' : 'Nothing matches these filters.')
       : (currentLang === 'BM' ? 'Tiada sejarah tugasan lagi.' : 'No task history yet.')}</li>`;
     return;
   }
 
+  // A photo from this phone, or from the AI System when it was taken on another one
+  const showPhoto = (img, log) => {
+    img.alt = `${log.location} ${formatSlotTime(log.time)}${log.point ? ' ' + log.point : ''}`;
+    loadPhoto(log.id).then(blob => {
+      if (!blob) {
+        if (log.photoUrl) img.src = log.photoUrl;
+        else noPhotoThumb(img);
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      photoUrls.push(url);
+      img.src = url;
+    }).catch(() => { if (log.photoUrl) img.src = log.photoUrl; else noPhotoThumb(img); });
+  };
+
   let currentDate = null;
-  entries.forEach(({ log }) => {
-    if (log.date !== currentDate) {
-      currentDate = log.date;
+  groups.forEach(g => {
+    if (g.date !== currentDate) {
+      currentDate = g.date;
       const heading = document.createElement('li');
       heading.className = 'task-date-heading';
-      heading.textContent = log.date;
+      heading.textContent = g.date;
       doneList.appendChild(heading);
     }
-
+    const pinned = g.logs.some(l => l.point);
+    const first = g.done[0];
+    const last = g.done.map(l => l.submittedAt).filter(Boolean).sort().pop();
     const li = document.createElement('li');
-    const missed = log.status === 'missed';
-    li.className = missed ? 'task-item task-done task-missed' : 'task-item task-done';
-    const remark = missed
+    li.className = 'task-item task-done' + (g.state === 'no' ? ' task-missed' : '') + (g.state === 'part' ? ' task-part' : '');
+    const remark = g.state === 'no'
       ? `<span class="task-remark-missed">${currentLang === 'BM' ? 'Kerja Tidak Disiapkan' : 'Work Not Completed'}</span>`
-      : `<span class="task-submitted"><span class="task-check">✓</span> ${log.submittedAt ? formatClock(log.submittedAt) : ''}</span>`;
+      : (g.state === 'part'
+        ? `<span class="task-remark-part">${currentLang === 'BM' ? 'Tidak Lengkap' : 'Not Completed'}</span>`
+        : `<span class="task-submitted"><span class="task-check">✓</span> ${last ? formatClock(last) : ''}</span>`);
     li.innerHTML = `
-      ${missed ? '<span class="task-thumb task-thumb-missed" aria-hidden="true">✕</span>' : '<img class="task-thumb" alt="">'}
-      <span class="task-time">${formatSlotTime(log.time)}</span>
-      <span class="task-location">${log.location}${pointSuffix(log.point)}<span class="task-deadline task-by"></span></span>
+      ${pinned ? '' : (first ? '<img class="task-thumb" alt="">' : '<span class="task-thumb task-thumb-missed" aria-hidden="true">✕</span>')}
+      <span class="task-time">${formatSlotTime(g.time)}</span>
+      <span class="task-location">${g.location}${pinned ? ` <span class="task-point">📍 ${g.done.length}/${g.logs.length}</span>` : ''}<span class="task-deadline task-by"></span></span>
       <span class="task-action">${remark}</span>
     `;
-    if (!missed && log.workerName) li.querySelector('.task-by').textContent = log.workerName;
-    if (!missed && (log.routeId || log.hasRoute)) {
+    li.querySelector('.task-by').textContent = [...new Set(g.done.map(l => l.workerName).filter(Boolean))].join(', ');
+    // A pinned card shows each pin's own photo below, so the head carries none
+    if (first && !pinned) showPhoto(li.querySelector('img'), first);
+
+    // The task's one road track
+    const routed = g.done.find(l => l.routeId || l.hasRoute);
+    if (routed) {
       li.classList.add('task-has-route');
       li.insertAdjacentHTML('beforeend', `
         <div class="history-route">
-          <span class="icon-text">${ICONS.route} ${formatDistance(log.routeDistance || 0)} • ${formatElapsed(log.routeDuration || 0)}</span>
+          <span class="icon-text">${ICONS.route} ${formatDistance(routed.routeDistance || 0)} • ${formatElapsed(routed.routeDuration || 0)}</span>
           <button type="button" class="btn btn-secondary history-route-btn">${currentLang === 'BM' ? 'Peta' : 'Map'}</button>
         </div>
         <div class="history-route-map" hidden>
@@ -1284,22 +1323,30 @@ function renderHistory(now = Date.now()) {
           <a class="btn btn-secondary history-route-gmaps" target="_blank" rel="noopener">${currentLang === 'BM' ? 'Buka di Google Maps' : 'Open in Google Maps'}</a>
         </div>
       `);
-      li.querySelector('.history-route-btn').onclick = (event) => toggleHistoryRoute(event.currentTarget, log);
+      li.querySelector('.history-route-btn').onclick = (event) => toggleHistoryRoute(event.currentTarget, routed);
     }
-    const img = li.querySelector('img');
-    if (img && log.id) {
-      img.alt = `${log.location} ${formatSlotTime(log.time)}`;
-      loadPhoto(log.id).then(blob => {
-        if (!blob) {
-          // Taken on another phone: shown from the AI System
-          if (log.photoUrl) img.src = log.photoUrl;
-          else noPhotoThumb(img);
-          return;
-        }
-        const url = URL.createObjectURL(blob);
-        photoUrls.push(url);
-        img.src = url;
-      }).catch(() => { if (log.photoUrl) img.src = log.photoUrl; else noPhotoThumb(img); });
+
+    // Each pin of it: its photo, who, when, or that it was not done
+    if (pinned) {
+      li.classList.add('task-has-pins');
+      const list = document.createElement('ul');
+      list.className = 'history-pins';
+      g.logs.forEach(log => {
+        const missed = log.status === 'missed';
+        const row = document.createElement('li');
+        row.className = 'history-pin' + (missed ? ' missed' : '');
+        row.innerHTML = `${missed ? '<span class="history-pin-thumb missed" aria-hidden="true">✕</span>' : '<img class="history-pin-thumb" alt="">'}
+          <span class="history-pin-name"><strong></strong><small></small></span>
+          <span class="history-pin-when">${missed
+            ? `<span class="task-remark-missed">${currentLang === 'BM' ? 'Tidak dibuat' : 'Not done'}</span>`
+            : `<span class="task-check">✓</span> ${log.submittedAt ? formatClock(log.submittedAt) : ''}`}</span>`;
+        row.querySelector('strong').textContent = log.point || log.location;
+        row.querySelector('small').textContent = missed ? '' : (log.workerName || '');
+        const img = row.querySelector('img');
+        if (img) showPhoto(img, log);
+        list.appendChild(row);
+      });
+      li.appendChild(list);
     }
     doneList.appendChild(li);
   });
