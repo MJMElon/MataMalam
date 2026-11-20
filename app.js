@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20t';
+const APP_VERSION = '2026-11-20u';
 
 let activeStream = null;
 
@@ -1059,6 +1059,31 @@ function recordMissedTasks(now = Date.now()) {
   return changed;
 }
 
+// History: a check-in photo, full screen. A tap anywhere, the cross or Esc closes it.
+function openPhotoViewer(src, alt) {
+  let box = document.getElementById('photo-viewer');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'photo-viewer';
+    box.className = 'photo-viewer';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.innerHTML = '<button type="button" class="photo-viewer-close" aria-label="Close">✕</button><img alt="">';
+    box.onclick = closePhotoViewer;
+    document.body.appendChild(box);
+  }
+  const img = box.querySelector('img');
+  img.src = src;
+  img.alt = alt || '';
+  box.hidden = false;
+  box.querySelector('.photo-viewer-close').focus();
+}
+
+function closePhotoViewer() {
+  const box = document.getElementById('photo-viewer');
+  if (box) box.hidden = true;
+}
+
 // A check-in made while Capture photo was off has no picture: a tick, never a broken image
 function noPhotoThumb(img) {
   const mark = document.createElement('span');
@@ -1267,6 +1292,12 @@ function renderHistory(now = Date.now()) {
 
   // A photo from this phone, or from the AI System when it was taken on another one
   const showPhoto = (img, log) => {
+    // A photo opens big on a tap; a check-in with no photo never gets this far (noPhotoThumb replaces it)
+    img.classList.add('photo-open');
+    img.setAttribute('role', 'button');
+    img.tabIndex = 0;
+    img.onclick = (event) => { event.stopPropagation(); if (img.src) openPhotoViewer(img.src, img.alt); };
+    img.onkeydown = (event) => { if ((event.key === 'Enter' || event.key === ' ') && img.src) { event.preventDefault(); openPhotoViewer(img.src, img.alt); } };
     img.alt = `${log.location} ${formatSlotTime(log.time)}${log.point ? ' ' + log.point : ''}`;
     loadPhoto(log.id).then(blob => {
       if (!blob) {
@@ -1320,7 +1351,6 @@ function renderHistory(now = Date.now()) {
         </div>
         <div class="history-route-map" hidden>
           <div class="route-map"></div>
-          <a class="btn btn-secondary history-route-gmaps" target="_blank" rel="noopener">${currentLang === 'BM' ? 'Buka di Google Maps' : 'Open in Google Maps'}</a>
         </div>
       `);
       li.querySelector('.history-route-btn').onclick = (event) => toggleHistoryRoute(event.currentTarget, routed);
@@ -1613,6 +1643,11 @@ function closeSubmitSheet({ submitted = false } = {}) {
 }
 
 document.addEventListener('keydown', (event) => {
+  const viewer = document.getElementById('photo-viewer');
+  if (event.key === 'Escape' && viewer && !viewer.hidden) {
+    closePhotoViewer();
+    return;
+  }
   if (event.key === 'Escape' && !document.getElementById('submit-sheet').hidden) {
     cancelSubmitSheet();
   }
@@ -1691,27 +1726,6 @@ function formatElapsed(ms) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes} min`;
-}
-
-// Opens the route in Google Maps as walking directions through sampled points of the recorded path
-function getGoogleMapsUrl(points) {
-  if (points.length === 0) return null;
-  const fmt = p => `${p[0].toFixed(6)},${p[1].toFixed(6)}`;
-  if (points.length === 1) return `https://www.google.com/maps/search/?api=1&query=${fmt(points[0])}`;
-  const waypoints = [];
-  const maxWaypoints = 8;
-  for (let i = 1; i <= maxWaypoints; i++) {
-    const index = Math.round((i * (points.length - 1)) / (maxWaypoints + 1));
-    if (index > 0 && index < points.length - 1 && !waypoints.includes(index)) waypoints.push(index);
-  }
-  const params = new URLSearchParams({
-    api: '1',
-    origin: fmt(points[0]),
-    destination: fmt(points[points.length - 1]),
-    travelmode: 'walking'
-  });
-  if (waypoints.length) params.set('waypoints', waypoints.map(i => fmt(points[i])).join('|'));
-  return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
 
 async function saveRoute(route) {
@@ -2440,7 +2454,7 @@ async function loadLogRoute(log) {
   return Array.isArray(points) && points.length ? { points } : null;
 }
 
-// History: shows a task's recorded route with a map and a Google Maps link
+// History: shows a task's recorded route on a map (the line is on it, so no link out)
 function toggleHistoryRoute(button, log) {
   const panel = button.closest('li').querySelector('.history-route-map');
   if (!panel.hidden) {
@@ -2455,10 +2469,6 @@ function toggleHistoryRoute(button, log) {
     const mapEl = panel.querySelector('.route-map');
     const layers = drawRouteMap(mapEl, route.points, parseCoordinates(log.coordinates));
     if (layers) historyRouteMaps.push(layers);
-    const url = getGoogleMapsUrl(route.points);
-    const link = panel.querySelector('.history-route-gmaps');
-    if (url) link.href = url;
-    else link.hidden = true;
   }).catch(() => {});
 }
 
