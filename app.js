@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20i';
+const APP_VERSION = '2026-11-20j';
 
 let activeStream = null;
 
@@ -2853,6 +2853,8 @@ async function startSession() {
 function renderUser() {
   const session = getSession();
   document.getElementById('nav-user').textContent = session ? session.worker.name : '';
+  // A guard who came in from the Worker Portal has a way back to it (same tab: the portal keeps its own sign in)
+  document.getElementById('nav-portal').closest('li').hidden = !(session && session.fromPortal);
   // Settings is only for the people who may change it; everybody else has nothing to do there
   const settingsLink = document.getElementById('nav-settings');
   (settingsLink.closest('li') || settingsLink).hidden = !canEditSettings();
