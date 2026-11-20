@@ -549,7 +549,10 @@ button.task-item:hover {
   padding: 1.5rem;
   width: 100%;
   max-width: 520px;
+  /* The screen the guard can SEE, not 100vh: on a phone 100vh is taller than the window while the
+     address bar shows, so the top of the sheet (the Back button) sat above the screen and out of reach */
   max-height: 100vh;
+  max-height: 100%;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
