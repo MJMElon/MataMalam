@@ -1807,7 +1807,3 @@ img.photo-open { cursor: zoom-in; }
 .photo-viewer[hidden] { display: none; }
 .photo-viewer img { width: 100%; height: 100%; object-fit: contain; border-radius: 8px; }
 .photo-viewer-close { position: absolute; top: 12px; right: 12px; width: 44px; height: 44px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, 0.15); color: #fff; font-size: 20px; cursor: pointer; }
-
-/* History map: each pin named where it was checked in */
-.leaflet-tooltip.pin-label { background: #1f2937; color: #fff; border: 0; border-radius: 6px; padding: 2px 7px; font-size: 12px; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
-.leaflet-tooltip.pin-label::before { border-top-color: #1f2937; }

@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20v';
+const APP_VERSION = '2026-11-20w';
 
 let activeStream = null;
 
@@ -1353,7 +1353,7 @@ function renderHistory(now = Date.now()) {
           <div class="route-map"></div>
         </div>
       `);
-      li.querySelector('.history-route-btn').onclick = (event) => toggleHistoryRoute(event.currentTarget, routed, g.done);
+      li.querySelector('.history-route-btn').onclick = (event) => toggleHistoryRoute(event.currentTarget, routed);
     }
 
     // Each pin of it: its photo, who, when, or that it was not done
@@ -1762,37 +1762,18 @@ function routeMarker(latLng, color) {
 }
 
 // Draws a route on a Leaflet map (OpenStreetMap tiles); returns null if the map library is unavailable
-// History asks for { pins }: each check-in of the task drawn where it was made and named, on a quiet map
-// with no shops or icons on it, and no start and end dots (the pins are what the line is checked against).
-function drawRouteMap(container, points, photoLatLng = null, opts = {}) {
+function drawRouteMap(container, points, photoLatLng = null) {
   if (typeof L === 'undefined') {
     container.innerHTML = `<span class="route-map-offline">${currentLang === 'BM' ? 'Peta tidak dapat dimuatkan (tiada internet).' : 'Map could not be loaded (no internet).'}</span>`;
     return null;
   }
   const map = L.map(container);
-  if (opts.pins) {
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19,
-      subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
-    }).addTo(map);
-  } else {
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
-  }
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
   const latLngs = points.map(p => [p[0], p[1]]);
   const layers = { map, line: L.polyline(latLngs, { color: '#58a6ff', weight: 5 }).addTo(map), start: null, end: null };
-  if (opts.pins) {
-    const marks = opts.pins.map(pin => routeMarker(pin.latLng, '#d29922')
-      .bindTooltip(pin.label, { permanent: true, direction: 'top', offset: [0, -8], className: 'pin-label' })
-      .addTo(map));
-    const all = L.featureGroup([layers.line, ...marks]);
-    if (latLngs.length || marks.length) map.fitBounds(all.getBounds(), { padding: [32, 32], maxZoom: 18 });
-    else map.setView([3.139, 101.6869], 12);
-    return layers;
-  }
   if (photoLatLng) routeMarker(photoLatLng, '#d29922').bindTooltip(currentLang === 'BM' ? 'Gambar' : 'Photo').addTo(map);
   if (latLngs.length) {
     layers.start = routeMarker(latLngs[0], '#3fb950').addTo(map);
@@ -2474,7 +2455,7 @@ async function loadLogRoute(log) {
 }
 
 // History: shows a task's recorded route on a map (the line is on it, so no link out)
-function toggleHistoryRoute(button, log, done = [log]) {
+function toggleHistoryRoute(button, log) {
   const panel = button.closest('li').querySelector('.history-route-map');
   if (!panel.hidden) {
     panel.hidden = true;
@@ -2486,9 +2467,7 @@ function toggleHistoryRoute(button, log, done = [log]) {
   loadLogRoute(log).then(route => {
     if (!route) return;
     const mapEl = panel.querySelector('.route-map');
-    const pins = done.map(l => ({ latLng: parseCoordinates(l.coordinates), label: l.point || l.location }))
-      .filter(pin => pin.latLng);
-    const layers = drawRouteMap(mapEl, route.points, null, { pins });
+    const layers = drawRouteMap(mapEl, route.points, parseCoordinates(log.coordinates));
     if (layers) historyRouteMaps.push(layers);
   }).catch(() => {});
 }
