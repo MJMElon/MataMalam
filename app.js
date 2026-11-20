@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20j';
+const APP_VERSION = '2026-11-20k';
 
 let activeStream = null;
 
@@ -2543,9 +2543,8 @@ function toggleLanguage() {
   langBtn.textContent = `Language (${currentLang})`;
 
   if (currentLang === 'BM') {
-    document.getElementById('signin-title').textContent = 'Log Masuk';
-    document.getElementById('signin-hint').textContent = 'Masukkan PIN anda (sama seperti 555 Worker Portal).';
-    document.getElementById('signin-btn').textContent = 'Masuk';
+    document.getElementById('signin-hint').textContent = 'Buka Mata Malam dari 555 Worker Portal.';
+    document.getElementById('signin-btn').textContent = 'Pergi ke Worker Portal';
     document.getElementById('signin-lang').textContent = 'English';
     document.getElementById('th-guard').textContent = 'Pengawal';
     document.getElementById('todo-title').textContent = 'Senarai Tugasan';
@@ -2599,9 +2598,8 @@ function toggleLanguage() {
     document.getElementById('th-coordinates').textContent = 'Selesai';
     document.getElementById('th-status').textContent = 'Kerja Harian';
   } else {
-    document.getElementById('signin-title').textContent = 'Sign In';
-    document.getElementById('signin-hint').textContent = 'Enter your PIN (the same one as the 555 Worker Portal).';
-    document.getElementById('signin-btn').textContent = 'Enter';
+    document.getElementById('signin-hint').textContent = 'Open Mata Malam from the 555 Worker Portal.';
+    document.getElementById('signin-btn').textContent = 'Go to Worker Portal';
     document.getElementById('signin-lang').textContent = 'Bahasa Melayu';
     document.getElementById('th-guard').textContent = 'Guards';
     document.getElementById('todo-title').textContent = 'To-Do List';
@@ -2751,45 +2749,6 @@ function showSignIn(message = '') {
   document.body.classList.add('signed-out');
   document.getElementById('signin-page').hidden = false;
   document.getElementById('signin-message').textContent = message;
-  document.getElementById('signin-pin').value = '';
-}
-
-async function signIn(event) {
-  event.preventDefault();
-  const message = document.getElementById('signin-message');
-  const button = document.getElementById('signin-btn');
-  const pin = document.getElementById('signin-pin').value.trim();
-  const bm = currentLang === 'BM';
-  if (!pin) {
-    message.textContent = bm ? 'Masukkan PIN anda.' : 'Enter your PIN.';
-    return;
-  }
-  button.disabled = true;
-  message.textContent = bm ? 'Menyemak…' : 'Checking…';
-  try {
-    const who = await rpc('worker_signin', { p_pin: pin });
-    if (!who || !who.token || !who.worker || !who.worker.name) throw new Error(bm ? 'Jawapan tidak sah. Cuba lagi.' : 'The answer was not a sign-in. Try again.');
-    localStorage.setItem('mata_malam_session', JSON.stringify({
-      token: who.token,
-      worker: { id: who.worker.id, name: who.worker.name, role: who.worker.role || '' },
-      canEdit: false
-    }));
-    document.getElementById('signin-page').hidden = true;
-    document.body.classList.remove('signed-out');
-    enterApp();
-  } catch (err) {
-    if (err.refused) {
-      message.textContent = /PIN not recognised/i.test(err.message)
-        ? (bm ? 'PIN tidak dikenali.' : 'PIN not recognised.')
-        : err.message;
-    } else {
-      message.textContent = bm
-        ? 'Tidak dapat menghubungi AI System. Log masuk kali pertama memerlukan isyarat.'
-        : 'Could not reach the AI System. Signing in for the first time needs a signal.';
-    }
-  } finally {
-    button.disabled = false;
-  }
 }
 
 function signOut() {
@@ -2840,6 +2799,10 @@ async function startSession() {
       // No signal: carry on with whoever was already signed in on this phone, if anybody
     }
   }
+  // Mata Malam is entered from the Worker Portal only. A session from the days a PIN was typed here is let go
+  // (its check-ins stay on the phone and are sent once somebody comes in from the portal).
+  const kept = getSession();
+  if (kept && !kept.fromPortal) localStorage.removeItem('mata_malam_session');
   if (!getSession()) {
     showSignIn();
     return;
@@ -2854,7 +2817,7 @@ function renderUser() {
   const session = getSession();
   document.getElementById('nav-user').textContent = session ? session.worker.name : '';
   // A guard who came in from the Worker Portal has a way back to it (same tab: the portal keeps its own sign in)
-  document.getElementById('nav-portal').closest('li').hidden = !(session && session.fromPortal);
+  document.getElementById('nav-portal').closest('li').hidden = !session;
   // Settings is only for the people who may change it; everybody else has nothing to do there
   const settingsLink = document.getElementById('nav-settings');
   (settingsLink.closest('li') || settingsLink).hidden = !canEditSettings();
@@ -3110,7 +3073,7 @@ async function syncNow({ manual = false } = {}) {
 
   if (signedOut) {
     localStorage.removeItem('mata_malam_session');
-    showSignIn(currentLang === 'BM' ? 'Sesi anda telah tamat. Sila log masuk semula.' : 'Your session has ended. Please sign in again.');
+    showSignIn(currentLang === 'BM' ? 'Sesi anda telah tamat. Buka semula dari Worker Portal.' : 'Your session has ended. Open it again from the Worker Portal.');
     return;
   }
   renderUser();

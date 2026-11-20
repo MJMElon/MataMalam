@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-20j">
+  <link rel="stylesheet" href="styles.css?v=2026-11-20k">
 </head>
 <body>
 
@@ -32,16 +32,15 @@
     <button type="button" class="btn" onclick="applyUpdate()" id="update-banner-btn">Update</button>
   </div>
 
-  <!-- Sign in: the PIN on the guard's row of the payroll register, the same one as the 555 Worker Portal -->
+  <!-- There is no sign in here: Mata Malam is entered from the 555 Worker Portal, which hands its session over -->
   <div id="signin-page" class="signin-page" hidden>
-    <form class="signin-card" onsubmit="signIn(event)">
-      <h1 id="signin-title">Sign In</h1>
-      <p id="signin-hint">Enter your PIN (the same one as the 555 Worker Portal).</p>
-      <input type="password" inputmode="text" autocomplete="off" autocapitalize="characters" id="signin-pin" class="signin-pin" aria-labelledby="signin-title" maxlength="12">
-      <button type="submit" class="btn" id="signin-btn">Enter</button>
+    <div class="signin-card">
+      <h1 id="signin-title">Mata Malam</h1>
+      <p id="signin-hint">Open Mata Malam from the 555 Worker Portal.</p>
       <div id="signin-message" class="settings-message" aria-live="polite"></div>
+      <a class="btn" href="https://scan.mjmnursery.com/#/worker" id="signin-btn">Go to Worker Portal</a>
       <button type="button" class="nav-btn" onclick="toggleLanguage()" id="signin-lang">Bahasa Melayu</button>
-    </form>
+    </div>
   </div>
 
   <main>
@@ -335,6 +334,6 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-20j"></script>
+  <script src="app.js?v=2026-11-20k"></script>
 </body>
 </html>
