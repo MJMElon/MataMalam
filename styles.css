@@ -1764,3 +1764,8 @@ nav li[hidden] {
     content: attr(data-label) ": "; color: var(--text-muted); font-size: 0.8rem;
   }
 }
+
+/* The way back to the Worker Portal, above the To-Do List */
+.portal-back { margin-bottom: 1rem; }
+.portal-back[hidden] { display: none; }
+.portal-back .btn { display: inline-block; text-decoration: none; width: auto; }
