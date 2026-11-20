@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20n';
+const APP_VERSION = '2026-11-20o';
 
 let activeStream = null;
 
@@ -1301,7 +1301,11 @@ function startTask(task) {
   const logId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   pendingTask = { location, point, time, date, closesAt, logId, route: null };
   pendingPhoto = null;
-  pendingCoordinates = fetchCoordinates();
+  // A pin was only opened because the guard is near it, so the position the task screen already has is
+  // where the check-in was made: no second GPS wait on the photo screen. Anything else asks the GPS.
+  pendingCoordinates = point && roundHere && Date.now() - roundHereAt < 2 * 60 * 1000
+    ? Promise.resolve(`${roundHere[0].toFixed(6)}, ${roundHere[1].toFixed(6)}`)
+    : fetchCoordinates();
 
   document.getElementById('sheet-task-label').textContent = `${formatSlotTime(time)} • ${location}${point ? ` • ${point}` : ''}`;
   const coordEl = document.getElementById('sheet-coord');
@@ -1853,9 +1857,9 @@ let roundLayers = null;
 let roundWatchId = null;
 let roundHere = null;
 let roundHereAt = 0;
-// A pin opens only for somebody standing within this distance of it (5 km). Far away, or with no
+// A pin opens only for somebody standing within this distance of it (3 km). Far away, or with no
 // GPS fix yet, the row is shown and cannot be pressed. Asked again when the row is pressed.
-const PIN_RANGE_M = 5000;
+const PIN_RANGE_M = 3000;
 function pinInRange(location, point) {
   const pin = getLocationPins(location).find(p => p.name === point);
   if (!pin) return true;                 // a pin the map cannot place is not held back by the map
@@ -2118,7 +2122,7 @@ function renderRoundPins() {
       : (open && !near && pin
         ? (!roundHere || Date.now() - roundHereAt > 2 * 60 * 1000
           ? (currentLang === 'BM' ? 'Menunggu GPS…' : 'Waiting for GPS…')
-          : (currentLang === 'BM' ? `${away} dari sini • mesti dalam 5 km` : `${away} from here • must be within 5 km`))
+          : (currentLang === 'BM' ? `${away} dari sini • mesti dalam 3 km` : `${away} from here • must be within 3 km`))
         : (away ? (currentLang === 'BM' ? `${away} dari sini` : `${away} from here`) : ''));
     if (open && !near) li.classList.add('far');
     // The whole row opens the camera for that pin; no Check In word to aim at

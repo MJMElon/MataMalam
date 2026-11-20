@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-20n">
+  <link rel="stylesheet" href="styles.css?v=2026-11-20o">
 </head>
 <body>
 
@@ -92,16 +92,16 @@
         <button type="button" class="btn round-back" onclick="backRoundSheet()" id="round-back">← Back</button>
         <h3 id="round-title"></h3>
         <p class="round-progress" id="round-progress" aria-live="polite"></p>
-        <section class="sheet-step">
-          <div class="sheet-step-head"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span id="round-lbl-pins">Pins to visit</span></div>
-          <ul class="round-pins" id="round-pins"></ul>
-        </section>
-        <div class="round-map" id="round-map"></div>
         <section class="sheet-step" id="round-step-route">
           <div class="sheet-step-head"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg><span id="round-lbl-route">Road Track</span><span class="sheet-step-state" id="round-route-state"></span></div>
           <p class="route-status" id="round-route-status" aria-live="polite"></p>
           <button type="button" class="btn btn-secondary sheet-route-toggle" onclick="toggleRoundRoute()" id="round-route-toggle">Start Road Track</button>
         </section>
+        <section class="sheet-step">
+          <div class="sheet-step-head"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span id="round-lbl-pins">Pins to visit</span></div>
+          <ul class="round-pins" id="round-pins"></ul>
+        </section>
+        <div class="round-map" id="round-map"></div>
         <div class="sheet-actions">
           <button type="button" class="btn btn-secondary" onclick="closeRoundSheet()" id="round-close">Submit</button>
         </div>
@@ -338,6 +338,6 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-20n"></script>
+  <script src="app.js?v=2026-11-20o"></script>
 </body>
 </html>
