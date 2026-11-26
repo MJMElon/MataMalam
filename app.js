@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26o';
+const APP_VERSION = '2026-11-26p';
 
 let activeStream = null;
 
@@ -2462,11 +2462,118 @@ function toggleRoundRoute() {
       return;
     }
     if (routeNotWalked()) { sayRouteNotWalked(); return; }
-    stopRouteTracking();
+    // Every pin captured (not just the time running out): fireworks once the track is saved
+    const finished = { ...openRound };
+    const allCaptured = roundTasks(finished).every(task => task.log && task.log.status !== 'missed');
+    Promise.resolve(stopRouteTracking()).then(() => { if (allCaptured) celebrateTask(finished); });
     return;
   }
   if (activeRoute) return;
   startRouteTracking(roundKey(openRound), openRound).then(() => { renderRoundRoute(); renderRoundPins(); renderTodo(); });
+}
+
+// Fireworks over the screen and a "Task complete" card, for a patrol with every pin captured.
+// Tap anywhere to close; it closes by itself after a few seconds. Calm (no fireworks) for a phone
+// set to reduce motion.
+function celebrateTask(r) {
+  const old = document.getElementById('celebrate');
+  if (old) old.remove();
+  const bm = currentLang === 'BM';
+  const pins = roundTasks(r).length;
+  const box = document.createElement('div');
+  box.id = 'celebrate';
+  box.className = 'celebrate';
+  box.setAttribute('role', 'alert');
+  box.innerHTML = `<canvas class="celebrate-sky" aria-hidden="true"></canvas>
+    <div class="celebrate-card">
+      <div class="celebrate-emoji" aria-hidden="true">🎉</div>
+      <h3></h3>
+      <p></p>
+    </div>`;
+  box.querySelector('h3').textContent = bm ? 'Tugasan Selesai!' : 'Task Complete!';
+  box.querySelector('p').textContent = bm
+    ? `${formatSlotTime(r.time)} • ${r.location} — ${pins} pin diambil gambar dan jejak laluan disimpan.`
+    : `${formatSlotTime(r.time)} • ${r.location} — ${pins} pin${pins > 1 ? 's' : ''} captured and road track saved.`;
+  document.body.appendChild(box);
+
+  let running = true;
+  const close = () => {
+    if (!running) return;
+    running = false;
+    box.classList.add('celebrate-out');
+    setTimeout(() => box.remove(), 400);
+  };
+  box.onclick = close;
+  setTimeout(close, 4500);
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const canvas = box.querySelector('canvas');
+  const ctx = canvas.getContext('2d');
+  const scale = window.devicePixelRatio || 1;
+  const resize = () => {
+    canvas.width = innerWidth * scale;
+    canvas.height = innerHeight * scale;
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  };
+  resize();
+  const colors = ['#ffd866', '#ff6b6b', '#58a6ff', '#3fb950', '#c9b8ff', '#ff9f43', '#ffffff'];
+  const rockets = [];
+  const sparks = [];
+  let launched = 0;
+  const launch = () => {
+    rockets.push({
+      x: innerWidth * (0.15 + Math.random() * 0.7),
+      y: innerHeight,
+      vy: -(innerHeight / 55) * (0.85 + Math.random() * 0.3),
+      top: innerHeight * (0.15 + Math.random() * 0.3),
+      color: colors[Math.floor(Math.random() * colors.length)]
+    });
+    launched++;
+  };
+  const burst = (x, y, color) => {
+    const count = 60 + Math.floor(Math.random() * 30);
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const speed = 2 + Math.random() * 4.5;
+      sparks.push({ x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 1, color: Math.random() < 0.25 ? '#ffffff' : color });
+    }
+  };
+  let last = 0;
+  const frame = time => {
+    if (!running || !box.isConnected) return;
+    if (time - last > 260 && launched < 9) { launch(); last = time; }
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+    ctx.fillRect(0, 0, innerWidth, innerHeight);
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = rockets.length - 1; i >= 0; i--) {
+      const rk = rockets[i];
+      rk.y += rk.vy;
+      rk.vy *= 0.985;
+      ctx.fillStyle = rk.color;
+      ctx.beginPath();
+      ctx.arc(rk.x, rk.y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+      if (rk.y <= rk.top || rk.vy > -1.5) { burst(rk.x, rk.y, rk.color); rockets.splice(i, 1); }
+    }
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const sp = sparks[i];
+      sp.x += sp.vx;
+      sp.y += sp.vy;
+      sp.vx *= 0.97;
+      sp.vy = sp.vy * 0.97 + 0.06;
+      sp.life -= 0.012;
+      if (sp.life <= 0) { sparks.splice(i, 1); continue; }
+      ctx.globalAlpha = sp.life;
+      ctx.fillStyle = sp.color;
+      ctx.beginPath();
+      ctx.arc(sp.x, sp.y, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
 }
 
 function renderSheetRoute() {
