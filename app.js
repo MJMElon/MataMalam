@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26p';
+const APP_VERSION = '2026-11-26q';
 
 let activeStream = null;
 
@@ -2037,6 +2037,13 @@ let roundLayers = null;
 let roundWatchId = null;
 let roundHere = null;
 let roundHereAt = 0;
+let roundHereAccuracy = Infinity;
+let roundGpsError = null;
+// Start Road Track needs the phone's GPS: a fix from the last two minutes, good enough for the road
+// track to use (the track ignores fixes worse than ROUTE_MAX_ACCURACY_M)
+function roundGpsReady() {
+  return !!roundHere && Date.now() - roundHereAt <= 2 * 60 * 1000 && roundHereAccuracy <= ROUTE_MAX_ACCURACY_M;
+}
 // A pin opens only for somebody standing within this distance of it (3 m). Far away, or with no
 // GPS fix yet, the row is shown and cannot be pressed. Asked again when the row is pressed.
 const PIN_RANGE_M = 3;
@@ -2134,13 +2141,19 @@ function showRoundSheet() {
     roundWatchId = navigator.geolocation.watchPosition(position => {
       roundHere = [position.coords.latitude, position.coords.longitude];
       roundHereAt = Date.now();
+      roundHereAccuracy = Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : Infinity;
+      roundGpsError = null;
       if (roundLayers) {
         if (!roundLayers.me) roundLayers.me = L.circleMarker(roundHere, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1 }).addTo(roundMap);
         else roundLayers.me.setLatLng(roundHere);
         roundLayers.me.bringToFront();   // the guard's dot stays on top of the walked line
       }
       renderRoundPins();
-    }, () => {}, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
+      renderRoundRoute();
+    }, error => {
+      roundGpsError = error && error.code === error.PERMISSION_DENIED ? 'denied' : 'searching';
+      renderRoundRoute();
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
   }
 }
 function hideRoundSheet() {
@@ -2236,7 +2249,9 @@ function renderRoundRoute() {
   const other = activeRoute && !recording;
   const finished = !recording && roundRouteOf(r);
   toggle.hidden = !!finished;
-  toggle.disabled = !!other;
+  // No GPS, no start: the button waits, and says so, until the phone has found where it is
+  const noGps = !recording && !other && !finished && !roundGpsReady();
+  toggle.disabled = !!other || noGps;
   toggle.classList.toggle('btn-stop', recording);
   toggle.classList.remove('btn-locked');
   // Start is the one thing to press on this box, so it is the blue button; Stop is red while recording
@@ -2262,9 +2277,18 @@ function renderRoundRoute() {
     showRoundTrack(r, finished);
   } else {
     state.textContent = '';
+    const bm = currentLang === 'BM';
+    if (noGps) toggle.textContent = bm ? 'Menunggu GPS…' : 'Waiting for GPS…';
+    status.classList.toggle('route-status-warning', noGps);
     status.textContent = other
-      ? (currentLang === 'BM' ? 'Jejak laluan lain masih merekod. Hentikannya dahulu.' : 'Another road track is still recording. Stop it first.')
-      : '';
+      ? (bm ? 'Jejak laluan lain masih merekod. Hentikannya dahulu.' : 'Another road track is still recording. Stop it first.')
+      : !noGps ? ''
+      : !navigator.geolocation ? (bm ? 'Telefon ini tidak mempunyai GPS.' : 'This phone has no GPS.')
+      : roundGpsError === 'denied'
+        ? (bm ? 'Lokasi ditutup. Hidupkan Lokasi (GPS) dan benarkan untuk pelayar ini, kemudian buka semula tugasan.' : 'Location is off. Turn on Location (GPS) and allow it for this browser, then open the task again.')
+        : (roundHere && Date.now() - roundHereAt <= 2 * 60 * 1000
+          ? (bm ? `Isyarat GPS lemah (±${Math.round(roundHereAccuracy)} m). Pergi ke kawasan terbuka.` : `GPS signal is weak (±${Math.round(roundHereAccuracy)} m). Move to an open area.`)
+          : (bm ? 'Mencari GPS… Mula Jejak Laluan dibuka sebaik sahaja GPS dikesan.' : 'Finding GPS… Start Road Track opens as soon as GPS is found.'));
   }
 }
 
@@ -2469,6 +2493,7 @@ function toggleRoundRoute() {
     return;
   }
   if (activeRoute) return;
+  if (!roundGpsReady()) { renderRoundRoute(); return; }
   startRouteTracking(roundKey(openRound), openRound).then(() => { renderRoundRoute(); renderRoundPins(); renderTodo(); });
 }
 
