@@ -2270,3 +2270,8 @@ main > .header-row2 nav ul {
 main > .header-row2 {
   justify-content: space-between;
 }
+
+/* Stop Road Track while pins are still to capture: shown, but faded (pressing it says why) */
+.btn.btn-locked {
+  opacity: 0.55;
+}

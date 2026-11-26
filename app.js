@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26n';
+const APP_VERSION = '2026-11-26o';
 
 let activeStream = null;
 
@@ -2238,6 +2238,7 @@ function renderRoundRoute() {
   toggle.hidden = !!finished;
   toggle.disabled = !!other;
   toggle.classList.toggle('btn-stop', recording);
+  toggle.classList.remove('btn-locked');
   // Start is the one thing to press on this box, so it is the blue button; Stop is red while recording
   toggle.classList.remove('btn-secondary');
   toggle.textContent = recording
@@ -2248,9 +2249,11 @@ function renderRoundRoute() {
     state.innerHTML = `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span> ${formatDistance(activeRoute.distance)} • ${formatElapsed(Date.now() - activeRoute.startedAt)}`;
     // Every pin checked in: the one thing left is to stop the track, and the task is done
     const allIn = roundTasks(r).every(task => task.log && task.log.status !== 'missed');
-    status.textContent = routeWarning || (allIn
+    const left = roundPinsLeft(r);
+    status.textContent = routeWarning || (allIn || !left
       ? (currentLang === 'BM' ? 'Semua pin sudah didaftar masuk. Tekan Henti Jejak Laluan untuk selesai.' : 'All pins checked in. Press Stop Road Track to finish.')
-      : '');
+      : (currentLang === 'BM' ? `${left} pin lagi. Henti Jejak Laluan dibuka selepas semua pin diambil gambar.` : `${left} pin${left > 1 ? 's' : ''} to go. Stop Road Track opens once every pin is captured.`));
+    toggle.classList.toggle('btn-locked', left > 0);
   } else if (finished) {
     state.textContent = `✓ ${formatDistance(finished.routeDistance || 0)} • ${formatElapsed(finished.routeDuration || 0)}`;
     status.textContent = currentLang === 'BM'
@@ -2295,6 +2298,29 @@ function bearingDegrees([lat1, lng1], [lat2, lng2]) {
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 }
 
+// A patrol goes pin 1, pin 2, … to the last pin, in order, with the road track recording:
+// only the NEXT pin can be captured, and only once Start Road Track is pressed (when the road track
+// is switched on for this person). Stop is allowed once every pin is captured, or once the time is up.
+function roundNextTask(r) {
+  const now = Date.now();
+  return roundTasks(r).find(task => !task.log && task.opensAt <= now && now < task.closesAt) || null;
+}
+function roundCanCapture(r) {
+  return roundRecording(r) || !can('gps');
+}
+function roundPinsLeft(r) {
+  const now = Date.now();
+  return roundTasks(r).filter(task => !task.log && task.opensAt <= now && now < task.closesAt).length;
+}
+let roundNotice = '';
+let roundNoticeAt = 0;
+function sayRoundNotice(text) {
+  roundNotice = text;
+  roundNoticeAt = Date.now();
+  renderRoundPins();
+  setTimeout(() => { if (Date.now() - roundNoticeAt >= 3900) renderRoundPins(); }, 4000);
+}
+
 // The pins live on the map only: red with a number to visit, blue for the one the arrow points to,
 // green with a camera once the guard is within 3 m (pressing it opens the camera), green ✓ when done
 function renderRoundPins() {
@@ -2312,16 +2338,18 @@ function renderRoundPins() {
     const away = pin && here ? distanceMeters(here, [pin.lat, pin.lng]) : null;
     return { task, index, pin, visited, open, near, away };
   });
-  const waiting = rows.filter(x => x.open && x.pin);
-  if (roundTarget && !waiting.some(x => x.task.point === roundTarget)) roundTarget = null;
-  const target = waiting.find(x => x.task.point === roundTarget) || waiting[0] || null;
-  const ready = target && target.near ? target : (rows.find(x => x.near) || null);
+  // In order: the next pin is the first one not yet captured; it is the only one that can be captured
+  const next = roundNextTask(r);
+  const nextRow = next ? rows.find(x => x.task.point === next.point) : null;
+  const target = nextRow && nextRow.pin ? nextRow : null;
+  const canCapture = roundCanCapture(r);
+  const ready = nextRow && nextRow.near && canCapture ? nextRow : null;
 
   if (roundLayers) {
     const markers = roundLayers.markers || (roundLayers.markers = {});
     rows.forEach(x => {
       if (!x.pin) return;
-      const state = x.visited ? 'done' : x.near ? 'ready' : x.open ? 'open' : 'closed';
+      const state = x.visited ? 'done' : (x === ready ? 'ready' : x.open ? 'open' : 'closed');
       let marker = markers[x.task.point];
       if (!marker) {
         const point = x.task.point;
@@ -2349,14 +2377,15 @@ function renderRoundPins() {
     capture.hidden = true;
   }
 
-  // The arrow shows once the road track has started (or a pin was pressed): it points from the guard to the pin
-  const guiding = roundRecording(r) || !can('gps') || !!roundTarget;
+  // The arrow always points to the next pin; before Start it says to press Start first
+  const guiding = !!target;
   const guide = document.getElementById('round-guide');
   if (roundLayers && roundMap) {
     if (!roundLayers.guide) roundLayers.guide = L.polyline([], { color: '#ffd866', weight: 3, dashArray: '6 8', interactive: false }).addTo(roundMap);
     roundLayers.guide.setLatLngs(guiding && here && target && !ready ? [here, [target.pin.lat, target.pin.lng]] : []);
   }
-  if (!guiding || !target || ready) {
+  const notice = roundNotice && Date.now() - roundNoticeAt < 4000 ? roundNotice : '';
+  if (!guiding || ready) {
     guide.hidden = true;
   } else {
     guide.hidden = false;
@@ -2365,9 +2394,9 @@ function renderRoundPins() {
     } else {
       const deg = bearingDegrees(here, [target.pin.lat, target.pin.lng]);
       guide.innerHTML = `<span class="guide-arrow" style="transform: rotate(${deg.toFixed(0)}deg)">${GUIDE_ARROW_SVG}</span><span class="guide-text"><strong>${pinBadge(target.index)}<span class="guide-away">${formatDistance(target.away)}</span></strong><small></small></span>`;
-      guide.querySelector('small').textContent = bm
-        ? `Pada ${PIN_RANGE_M} m, Ambil Gambar dibuka.`
-        : `At ${PIN_RANGE_M} m, Capture opens.`;
+      guide.querySelector('small').textContent = notice || (!canCapture
+        ? (bm ? 'Tekan Mula Jejak Laluan dahulu, kemudian mula dari pin ini.' : 'Press Start Road Track first, then begin at this pin.')
+        : (bm ? `Pada ${PIN_RANGE_M} m, Ambil Gambar dibuka.` : `At ${PIN_RANGE_M} m, Capture opens.`));
     }
   }
 
@@ -2391,9 +2420,19 @@ function tapRoundPin(point) {
   if (!task || task.log) return;
   const now = Date.now();
   if (!(task.opensAt <= now && now < task.closesAt)) return;
+  const bm = currentLang === 'BM';
+  const next = roundNextTask(openRound);
+  const nextNo = next ? roundTasks(openRound).findIndex(t => t.point === next.point) + 1 : 0;
+  if (next && next.point !== point) {
+    sayRoundNotice(bm ? `Ikut turutan: pergi ke pin ${nextNo} dahulu.` : `In order: go to pin ${nextNo} first.`);
+    return;
+  }
+  if (!roundCanCapture(openRound)) {
+    sayRoundNotice(bm ? 'Tekan Mula Jejak Laluan dahulu.' : 'Press Start Road Track first.');
+    return;
+  }
   if (pinInRange(openRound.location, point)) { checkInPin(point); return; }
-  roundTarget = point;
-  renderRoundPins();
+  sayRoundNotice(bm ? `Dekati pin ini sehingga ${PIN_RANGE_M} m untuk Ambil Gambar.` : `Come within ${PIN_RANGE_M} m of this pin to Capture.`);
 }
 
 // One pin: the photo sheet for that pin. The task's screen comes back when it is submitted or cancelled.
@@ -2401,6 +2440,9 @@ function checkInPin(point) {
   if (!openRound) return;
   const task = roundTasks(openRound).find(t => t.point === point);
   if (!task || task.log) { renderRoundPins(); return; }
+  // Only the next pin, in order, and only with the road track recording
+  const next = roundNextTask(openRound);
+  if (!next || next.point !== task.point || !roundCanCapture(openRound)) { renderRoundPins(); return; }
   if (!pinInRange(openRound.location, point)) { renderRoundPins(); return; }
   hideRoundSheet();
   startTask(task);
@@ -2411,6 +2453,14 @@ function checkInPin(point) {
 function toggleRoundRoute() {
   if (!openRound || !can('gps')) return;
   if (roundRecording(openRound)) {
+    // Every pin captured first (once the time is up there is nothing left to capture, and Stop is allowed)
+    const left = roundPinsLeft(openRound);
+    if (left > 0) {
+      alert(currentLang === 'BM'
+        ? `Masih ada ${left} pin belum diambil gambar. Ambil gambar di setiap pin dahulu, kemudian tekan Henti Jejak Laluan. Jika mahu membatalkan rondaan, tekan Batal Jejak Laluan.`
+        : `${left} pin${left > 1 ? 's' : ''} still to capture. Capture every pin first, then press Stop Road Track. To give up this patrol, press Cancel Road Track.`);
+      return;
+    }
     if (routeNotWalked()) { sayRouteNotWalked(); return; }
     stopRouteTracking();
     return;
