@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26m';
+const APP_VERSION = '2026-11-26n';
 
 let activeStream = null;
 
@@ -21,6 +21,7 @@ function showHomePage() {
     page.style.display = 'none';
   });
   document.getElementById('home-page').style.display = 'block';
+  document.getElementById('nav-home').hidden = true;
   renderTasks();
   window.scrollTo(0, 0);
 }
@@ -32,6 +33,7 @@ function showDonePage() {
     page.style.display = 'none';
   });
   document.getElementById('done-module-page').style.display = 'block';
+  document.getElementById('nav-home').hidden = false;
   renderTasks();
   window.scrollTo(0, 0);
 }
@@ -47,6 +49,7 @@ function showSettingsPage() {
     page.style.display = 'none';
   });
   document.getElementById('settings-module-page').style.display = 'block';
+  document.getElementById('nav-home').hidden = false;
   loadTaskSettingsForm();
   renderLocationSettings();
   loadTaskSlotsForm();
@@ -76,6 +79,7 @@ function showReportPage() {
     page.style.display = 'none';
   });
   document.getElementById('report-module-page').style.display = 'block';
+  document.getElementById('nav-home').hidden = false;
   populateReportYearDropdown();
   populateReportLocations();
   generateReport();
@@ -2826,6 +2830,7 @@ function toggleLanguage() {
   document.getElementById('nav-lang-code').textContent = currentLang === 'EN' ? 'BM' : 'EN';
   setIconLabel('nav-lang', currentLang === 'EN' ? 'Tukar ke Bahasa Melayu' : 'Switch to English');
   setIconLabel('nav-portal', currentLang === 'BM' ? 'Kembali ke Worker Portal' : 'Back to Worker Portal');
+  setIconLabel('nav-home', currentLang === 'BM' ? 'Laman Utama' : 'Home');
 
   if (currentLang === 'BM') {
     document.getElementById('signin-hint').textContent = 'Buka Mata Malam dari 555 Worker Portal.';
@@ -2835,7 +2840,6 @@ function toggleLanguage() {
     document.getElementById('todo-title').textContent = 'Senarai Tugasan';
     document.getElementById('done-title').textContent = 'Sejarah';
     setIconLabel('nav-done', 'Sejarah');
-    document.getElementById('back-home-done').textContent = '← Kembali ke Senarai Tugasan';
     document.getElementById('sheet-cancel').textContent = 'Batal';
     document.getElementById('sheet-retake').textContent = 'Ambil Semula';
     document.getElementById('sheet-capture').textContent = 'Ambil Gambar';
@@ -2845,7 +2849,6 @@ function toggleLanguage() {
     document.getElementById('sheet-submit').textContent = 'Hantar';
     setIconLabel('nav-about', 'Laporan');
     setIconLabel('nav-settings', 'Tetapan');
-    document.getElementById('back-home-settings').textContent = '← Kembali ke Senarai Tugasan';
     document.getElementById('settings-title').textContent = 'Tetapan';
     document.getElementById('tab-btn-task-timing').textContent = 'Masa Tugasan';
     document.getElementById('tab-btn-location').textContent = 'Lokasi & Masa';
@@ -2890,7 +2893,6 @@ function toggleLanguage() {
     document.getElementById('todo-title').textContent = 'To-Do List';
     document.getElementById('done-title').textContent = 'History';
     setIconLabel('nav-done', 'History');
-    document.getElementById('back-home-done').textContent = '← Back to To-Do List';
     document.getElementById('sheet-cancel').textContent = 'Cancel';
     document.getElementById('sheet-retake').textContent = 'Retake';
     document.getElementById('sheet-capture').textContent = 'Capture';
@@ -2900,7 +2902,6 @@ function toggleLanguage() {
     document.getElementById('sheet-submit').textContent = 'Submit';
     setIconLabel('nav-about', 'Report');
     setIconLabel('nav-settings', 'Settings');
-    document.getElementById('back-home-settings').textContent = '← Back to To-Do List';
     document.getElementById('settings-title').textContent = 'Settings';
     document.getElementById('tab-btn-task-timing').textContent = 'Task Timing';
     document.getElementById('tab-btn-location').textContent = 'Location & Time';

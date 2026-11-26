@@ -2265,3 +2265,8 @@ main > .header-row2 nav ul {
   margin-left: 0;
   margin-right: 0;
 }
+
+/* The pages row under the header: only History and Report now, on the right */
+main > .header-row2 {
+  justify-content: space-between;
+}

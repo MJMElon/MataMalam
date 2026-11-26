@@ -7,14 +7,15 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-26m">
+  <link rel="stylesheet" href="styles.css?v=2026-11-26n">
 </head>
 <body>
 
   <header>
-    <!-- Icon bar: Synchronize on the left, the title, the language on the right -->
+    <!-- Icon bar: back to the Worker Portal and Synchronize on the left, the title, the language on the right -->
     <div class="header-bar">
       <div class="header-side">
+        <a class="icon-btn" href="https://scan.mjmnursery.com/#/worker" id="nav-portal" aria-label="Back to Worker Portal" title="Back to Worker Portal" hidden><svg class="icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
         <button type="button" class="icon-btn icon-btn-accent" onclick="handleClick()" id="hero-btn" aria-label="Synchronize Data" title="Synchronize Data"><svg class="icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg><span class="sync-dot" id="sync-dot" hidden></span></button>
       </div>
       <div class="brand" onclick="showHomePage()">
@@ -44,9 +45,9 @@
   </div>
 
   <main>
-    <!-- Under the header line: back to the Worker Portal on the left, the pages on the right -->
+    <!-- Under the header line: Home on the left (on the other pages only), the pages on the right -->
     <div class="header-row2">
-      <a class="icon-btn" href="https://scan.mjmnursery.com/#/worker" id="nav-portal" aria-label="Back to Worker Portal" title="Back to Worker Portal" hidden><svg class="icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></a>
+      <a class="icon-btn" role="button" tabindex="0" onclick="showHomePage()" id="nav-home" aria-label="Home" title="Home" hidden><svg class="icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg></a>
       <nav>
       <ul>
         <li><a class="icon-btn" role="button" tabindex="0" onclick="showDonePage()" id="nav-done" aria-label="History" title="History"><svg class="icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><polyline points="12 7 12 12 15 15"/></svg></a></li>
@@ -73,11 +74,6 @@
 
     <!-- Page View 2: Standalone History Page -->
     <div id="done-module-page" class="page-view module-page">
-      <div style="margin-bottom: 1.5rem;" class="no-print">
-        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-done">
-          ← Back to To-Do List
-        </button>
-      </div>
 
       <section class="task-section">
         <div class="task-section-header">
@@ -164,11 +160,6 @@
 
     <!-- Page View 3: Standalone Report Page -->
     <div id="report-module-page" class="page-view module-page">
-      <div style="margin-bottom: 1.5rem;" class="no-print">
-        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-report">
-          ← Back to Home
-        </button>
-      </div>
 
       <div class="module-page-card">
         <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
@@ -240,11 +231,6 @@
 
     <!-- Page View 4: Standalone Settings Page -->
     <div id="settings-module-page" class="page-view module-page">
-      <div style="margin-bottom: 1.5rem;" class="no-print">
-        <button class="btn" onclick="showHomePage()" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 0.5rem 1rem;" id="back-home-settings">
-          ← Back to To-Do List
-        </button>
-      </div>
 
       <div class="module-page-card">
         <h1 style="color: var(--accent-color); font-size: 2rem; margin-bottom: 1rem;" id="settings-title">Settings</h1>
@@ -353,6 +339,6 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-26m"></script>
+  <script src="app.js?v=2026-11-26n"></script>
 </body>
 </html>
