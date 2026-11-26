@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26b';
+const APP_VERSION = '2026-11-26c';
 
 let activeStream = null;
 
