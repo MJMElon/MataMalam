@@ -1943,3 +1943,91 @@ nav a.icon-btn:hover {
 body.signed-out .header-side {
   visibility: hidden;
 }
+
+/* Header, second row: the way back to the Worker Portal on the left, the pages on the right */
+.header-row2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.header-row2 nav {
+  margin-left: auto;
+}
+
+body.signed-out .header-row2 {
+  visibility: hidden;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* To-Do: no title, no outer box. The tasks are the cards, straight on the page */
+.todo-plain {
+  margin-bottom: 1.5rem;
+}
+
+.todo-strip {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+  margin: 0 0.25rem 0.9rem;
+  font-size: 0.9rem;
+}
+
+.todo-strip strong:empty {
+  display: none;
+}
+
+#todo-list {
+  gap: 0.75rem;
+}
+
+#todo-list .task-item {
+  background-color: var(--card-bg);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+#todo-list .task-empty {
+  background-color: var(--card-bg);
+  border: 1px dashed var(--border-color);
+  border-radius: 14px;
+  padding: 1.25rem 1rem;
+}
+
+/* The picture beside a task time */
+.task-time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.time-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border-radius: 12px;
+}
+
+.time-chip.time-moon { background-color: rgba(137, 117, 255, 0.2); }
+.time-chip.time-sun { background-color: rgba(255, 200, 61, 0.16); }
+.time-chip.time-sunrise { background-color: rgba(255, 179, 71, 0.16); }
+.time-chip.time-sunset { background-color: rgba(255, 138, 92, 0.18); }
+
+@media (max-width: 380px) {
+  .time-chip { width: 36px; height: 36px; border-radius: 10px; }
+  .task-time { gap: 0.45rem; }
+}

@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26g';
+const APP_VERSION = '2026-11-26h';
 
 let activeStream = null;
 
@@ -1128,6 +1128,31 @@ function renderTasks() {
   renderHistory();
 }
 
+// A small picture beside every task time, so the list is not a column of bare numbers:
+// sunrise 05:00-06:59, sun 07:00-17:59, sunset 18:00-19:59, moon and stars for the night
+const TIME_ICONS = {
+  sunrise: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 17a7 7 0 0 1 14 0z" fill="#ffb347"/><g stroke="#ffb347" stroke-width="2" stroke-linecap="round"><path d="M12 4v3M4.6 8.6l2 2M19.4 8.6l-2 2"/></g><path d="M2 20h20" stroke="#ff8a5c" stroke-width="2" stroke-linecap="round"/></svg>',
+  sun: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="5" fill="#ffc83d"/><g stroke="#ffc83d" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></g></svg>',
+  sunset: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M5 16a7 7 0 0 1 14 0z" fill="#ff8a5c"/><path d="M2 16h20" stroke="#ff8a5c" stroke-width="2" stroke-linecap="round"/><path d="M6 20h12" stroke="#ffb38a" stroke-width="2" stroke-linecap="round"/><g stroke="#ff8a5c" stroke-width="2" stroke-linecap="round"><path d="M12 3.5v3M5 7.5l2 2M19 7.5l-2 2"/></g></svg>',
+  moon: '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M19 14.5A8 8 0 0 1 9.5 5a7.5 7.5 0 1 0 9.5 9.5z" fill="#ffd866"/><path d="M17 3l.7 1.8L19.5 5.5l-1.8.7L17 8l-.7-1.8-1.8-.7 1.8-.7z" fill="#c9b8ff"/><circle cx="21" cy="10" r="1" fill="#c9b8ff"/></svg>'
+};
+
+function timePeriod(label) {
+  const offset = parseSlotLabel(label);
+  if (Number.isNaN(offset)) return 'moon';
+  const hour = Math.floor(offset / 60) % 24;
+  if (hour >= 5 && hour < 7) return 'sunrise';
+  if (hour >= 7 && hour < 18) return 'sun';
+  if (hour >= 18 && hour < 20) return 'sunset';
+  return 'moon';
+}
+
+// The picture and the time together, for inside a .task-time
+function timeBadge(label) {
+  const period = timePeriod(label);
+  return `<span class="time-chip time-${period}">${TIME_ICONS[period]}</span>${formatSlotTime(label)}`;
+}
+
 function renderTodo(now = Date.now()) {
   const date = getShiftDate(new Date(now));
   const tasks = getShiftTasks(date);
@@ -1198,7 +1223,7 @@ function renderTodo(now = Date.now()) {
       : (currentLang === 'BM' ? 'Jejak laluan masih merekod' : 'Road track still recording');
     // The whole card is the button. One line: the place, its pins, and how long is left beside them
     btn.innerHTML = `
-      <span class="task-time">${formatSlotTime(round.time)}</span>
+      <span class="task-time">${timeBadge(round.time)}</span>
       <span class="task-location task-oneline">${round.location} <span class="task-point">${pinsLine}</span> <span class="task-left">${deadline}</span></span>
       ${recording ? `<span class="task-action"><span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span></span>` : ''}
     `;
@@ -1214,7 +1239,7 @@ function renderTodo(now = Date.now()) {
     btn.className = index === 0 && !dueRounds.length ? 'task-item task-next' : 'task-item';
     btn.onclick = () => startTask(task);
     btn.innerHTML = `
-      <span class="task-time">${formatSlotTime(task.time)}</span>
+      <span class="task-time">${timeBadge(task.time)}</span>
       <span class="task-location">${task.location}
         <span class="task-left">${currentLang === 'BM' ? `${minutesLeft} min lagi` : `${minutesLeft} min left`}</span>
       </span>
@@ -1868,7 +1893,7 @@ function buildInProgressTask(log) {
   li.className = tracking ? 'task-item task-active task-tracking' : 'task-item task-active';
   li.innerHTML = `
     <div class="task-active-head">
-      <span class="task-time">${formatSlotTime(log.time)}</span>
+      <span class="task-time">${timeBadge(log.time)}</span>
       <span class="task-location">${log.location}${pointSuffix(log.point)}</span>
       ${tracking ? `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span>` : ''}
     </div>
