@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26a';
+const APP_VERSION = '2026-11-26b';
 
 let activeStream = null;
 
@@ -1449,10 +1449,14 @@ function startTask(task) {
   document.getElementById('sheet-step-location').hidden = wantPhoto;
   // A pin's road track is the round's, started and stopped on the task's own screen
   document.getElementById('sheet-step-route').hidden = !can('gps') || !!point;
+  // A pin check-in has no Cancel: the row only opens within range of the pin, and the screen is Capture,
+  // then Retake and Submit once a photo has really been taken
+  document.getElementById('sheet-cancel').hidden = !!point;
   renderSheetRoute();
   if (wantPhoto) openTaskCamera();
   else {
     stopActiveCamera();
+    document.getElementById('sheet-submit').hidden = false;
     document.getElementById('sheet-submit').disabled = false;
   }
 }
@@ -1506,6 +1510,8 @@ function setSheetMode(mode) {
   document.getElementById('sheet-photo-state').textContent = capturing ? '' : '✓';
   // Submit needs a photo; the road track can be recorded before or after submitting
   document.getElementById('sheet-submit').disabled = capturing;
+  // Submit is not on screen until a photo has been captured: first Capture, then Retake and Submit
+  document.getElementById('sheet-submit').hidden = capturing;
 }
 
 function fetchCoordinates() {
@@ -1987,9 +1993,9 @@ let roundLayers = null;
 let roundWatchId = null;
 let roundHere = null;
 let roundHereAt = 0;
-// A pin opens only for somebody standing within this distance of it (3 km). Far away, or with no
+// A pin opens only for somebody standing within this distance of it (3 m). Far away, or with no
 // GPS fix yet, the row is shown and cannot be pressed. Asked again when the row is pressed.
-const PIN_RANGE_M = 3000;
+const PIN_RANGE_M = 3;
 function pinInRange(location, point) {
   const pin = getLocationPins(location).find(p => p.name === point);
   if (!pin) return true;                 // a pin the map cannot place is not held back by the map
@@ -2256,7 +2262,7 @@ function renderRoundPins() {
       : (open && !near && pin
         ? (!roundHere || Date.now() - roundHereAt > 2 * 60 * 1000
           ? (currentLang === 'BM' ? 'Menunggu GPS…' : 'Waiting for GPS…')
-          : (currentLang === 'BM' ? `${away} dari sini • mesti dalam 3 km` : `${away} from here • must be within 3 km`))
+          : (currentLang === 'BM' ? `${away} dari sini • mesti dalam ${PIN_RANGE_M} m` : `${away} from here • must be within ${PIN_RANGE_M} m`))
         : (away ? (currentLang === 'BM' ? `${away} dari sini` : `${away} from here`) : ''));
     if (open && !near) li.classList.add('far');
     // The whole row opens the camera for that pin; no Check In word to aim at
