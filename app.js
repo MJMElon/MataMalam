@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26i';
+const APP_VERSION = '2026-11-26j';
 
 let activeStream = null;
 
@@ -2111,6 +2111,8 @@ function takeRoundRoute(task) {
 function openRoundSheet(round) {
   if (!can('home')) return;
   openRound = { location: round.location, date: round.date, time: round.time };
+  roundTarget = null;
+  roundUserMovedAt = 0;
   showRoundSheet();
 }
 function showRoundSheet() {
@@ -2126,6 +2128,7 @@ function showRoundSheet() {
       if (roundLayers) {
         if (!roundLayers.me) roundLayers.me = L.circleMarker(roundHere, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1 }).addTo(roundMap);
         else roundLayers.me.setLatLng(roundHere);
+        roundLayers.me.bringToFront();   // the guard's dot stays on top of the walked line
       }
       renderRoundPins();
     }, () => {}, { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 });
@@ -2159,6 +2162,12 @@ function drawRoundMap() {
   const r = openRound;
   // A view first: Leaflet cannot draw a shape on a map that has not been given one yet
   roundMap = L.map(el).setView([3.139, 101.6869], 12);
+  // Moved by hand: stop following the guard for a while
+  roundMap.on('dragstart', () => { roundUserMovedAt = Date.now(); });
+  // + / − sit at the bottom right: the top of the map is where the arrow to the next pin shows
+  roundMap.zoomControl.setPosition('bottomright');
+  el.onwheel = () => { roundUserMovedAt = Date.now(); };
+  el.ontouchstart = event => { if (event.touches.length > 1) roundUserMovedAt = Date.now(); };
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(roundMap);
   let bounds = null;
   const grow = b => { if (b && b.isValid()) bounds = bounds ? bounds.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast()); };
@@ -2194,12 +2203,11 @@ function renderRoundSheet() {
   const r = openRound;
   const tasks = roundTasks(r);
   const done = tasks.filter(task => task.log && task.log.status !== 'missed').length;
-  document.getElementById('round-title').textContent = `${formatSlotTime(r.time)} • ${r.location}`;
-  document.getElementById('round-progress').textContent = currentLang === 'BM'
-    ? `${done} / ${tasks.length} pin`
-    : `${done} / ${tasks.length} pins`;
-  document.getElementById('round-lbl-pins').textContent = currentLang === 'BM' ? 'Pin untuk dilawati' : 'Pins to visit';
-  document.getElementById('round-back').textContent = currentLang === 'BM' ? '← Kembali' : '← Back';
+  const title = document.getElementById('round-title');
+  title.innerHTML = `<span class="task-time">${timeBadge(r.time)}</span>`;
+  title.appendChild(document.createTextNode(` • ${r.location}`));
+  document.getElementById('round-progress').innerHTML = `${ICONS.pin}<span>${done}/${tasks.length}</span>`;
+  setIconLabel('round-back', currentLang === 'BM' ? 'Kembali' : 'Back');
   renderRoundRoute();
   renderRoundPins();
 }
@@ -2249,62 +2257,124 @@ function renderRoundRoute() {
   }
 }
 
+// The pin the arrow points to: the first pin still to visit, or the one the guard pressed on the map
+let roundTarget = null;
+// When the guard last moved the map by hand: the map stops following them for a while after that
+let roundUserMovedAt = 0;
+const GUIDE_ARROW_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2l7 19-7-4-7 4z" fill="#ffffff"/></svg>';
+
+function roundFix() {
+  return roundHere && Date.now() - roundHereAt <= 2 * 60 * 1000 ? roundHere : null;
+}
+
+// Compass direction from one point to another, 0 = north (the map is drawn north up)
+function bearingDegrees([lat1, lng1], [lat2, lng2]) {
+  const rad = deg => deg * Math.PI / 180;
+  const y = Math.sin(rad(lng2 - lng1)) * Math.cos(rad(lat2));
+  const x = Math.cos(rad(lat1)) * Math.sin(rad(lat2)) - Math.sin(rad(lat1)) * Math.cos(rad(lat2)) * Math.cos(rad(lng2 - lng1));
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+// The pins live on the map only: red with a number to visit, blue for the one the arrow points to,
+// green with a camera once the guard is within 3 m (pressing it opens the camera), green ✓ when done
 function renderRoundPins() {
   if (!openRound || document.getElementById('round-sheet').hidden) return;
   const r = openRound;
   const now = Date.now();
-  const tasks = roundTasks(r);
+  const bm = currentLang === 'BM';
   const pins = getLocationPins(r.location);
-  const list = document.getElementById('round-pins');
-  // The rows are built OFF the page and swapped in at once. Emptying the list first let the map
-  // (redrawn on every GPS fix) measure a short sheet, and the sheet jumped back to the top.
-  const sheet = document.querySelector('#round-sheet .sheet');
-  const keepScroll = sheet ? sheet.scrollTop : 0;
-  const rows = document.createDocumentFragment();
-  if (roundLayers) roundLayers.pins.clearLayers();
-  tasks.forEach((task, index) => {
+  const here = roundFix();
+  const rows = roundTasks(r).map((task, index) => {
     const pin = pins.find(p => p.name === task.point);
     const visited = !!(task.log && task.log.status !== 'missed');
     const open = !task.log && task.opensAt <= now && now < task.closesAt;
-    const near = pinInRange(r.location, task.point);
-    if (roundLayers && pin) {
-      L.marker([pin.lat, pin.lng], { keyboard: false,
-        icon: L.divIcon({ className: `round-pin${visited ? ' done' : ''}`, html: `<span>${visited ? '✓' : index + 1}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] }) })
-        .bindTooltip(task.point, { permanent: true, direction: 'top', offset: [0, -14], className: 'round-pin-name' }).addTo(roundLayers.pins);
-    }
-    const li = document.createElement('li');
-    li.className = visited ? 'round-pin-row done' : 'round-pin-row';
-    li.dataset.point = task.point;
-    const away = pin && roundHere ? formatDistance(distanceMeters(roundHere, [pin.lat, pin.lng])) : '';
-    let right;
-    if (visited) right = `<span class="task-submitted"><span class="task-check">✓</span> ${task.log.submittedAt ? formatClock(task.log.submittedAt) : ''}</span>`;
-    else if (open && near) right = `<span class="round-pin-go" aria-hidden="true">${ICONS.camera}</span>`;
-    else if (open) right = `<span class="round-pin-go round-pin-far" aria-hidden="true">${ICONS.camera}</span>`;
-    else right = `<span class="task-remark-missed">${task.log ? (currentLang === 'BM' ? 'Tidak Disiapkan' : 'Not Completed') : (currentLang === 'BM' ? 'Belum dibuka' : 'Not open yet')}</span>`;
-    li.innerHTML = `<span class="round-pin-no">${visited ? '✓' : index + 1}</span>
-      <span class="round-pin-name-cell"><strong></strong><small></small></span>${right}`;
-    li.querySelector('strong').textContent = task.point;
-    li.querySelector('small').textContent = visited
-      ? (task.log.workerName || '')
-      : (open && !near && pin
-        ? (!roundHere || Date.now() - roundHereAt > 2 * 60 * 1000
-          ? (currentLang === 'BM' ? 'Menunggu GPS…' : 'Waiting for GPS…')
-          : (currentLang === 'BM' ? `${away} dari sini • mesti dalam ${PIN_RANGE_M} m` : `${away} from here • must be within ${PIN_RANGE_M} m`))
-        : (away ? (currentLang === 'BM' ? `${away} dari sini` : `${away} from here`) : ''));
-    if (open && !near) li.classList.add('far');
-    // The whole row opens the camera for that pin; no Check In word to aim at
-    if (open && near) {
-      li.classList.add('open');
-      li.setAttribute('role', 'button');
-      li.tabIndex = 0;
-      li.setAttribute('aria-label', `${currentLang === 'BM' ? 'Daftar masuk' : 'Check in'}: ${task.point}`);
-      li.onclick = () => checkInPin(task.point);
-      li.onkeydown = event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); checkInPin(task.point); } };
-    }
-    rows.appendChild(li);
+    const near = open && pinInRange(r.location, task.point);
+    const away = pin && here ? distanceMeters(here, [pin.lat, pin.lng]) : null;
+    return { task, index, pin, visited, open, near, away };
   });
-  list.replaceChildren(rows);
-  if (sheet && sheet.scrollTop !== keepScroll) sheet.scrollTop = keepScroll;
+  const waiting = rows.filter(x => x.open && x.pin);
+  if (roundTarget && !waiting.some(x => x.task.point === roundTarget)) roundTarget = null;
+  const target = waiting.find(x => x.task.point === roundTarget) || waiting[0] || null;
+  const ready = target && target.near ? target : (rows.find(x => x.near) || null);
+
+  if (roundLayers) {
+    const markers = roundLayers.markers || (roundLayers.markers = {});
+    rows.forEach(x => {
+      if (!x.pin) return;
+      const state = x.visited ? 'done' : x.near ? 'ready' : x.open ? (x === target ? 'target' : 'open') : 'closed';
+      let marker = markers[x.task.point];
+      if (!marker) {
+        const point = x.task.point;
+        marker = markers[point] = L.marker([x.pin.lat, x.pin.lng], { keyboard: false })
+          .bindTooltip(point, { permanent: true, direction: 'top', offset: [0, -20], className: 'round-pin-name' })
+          .addTo(roundLayers.pins);
+        marker.on('click', () => tapRoundPin(point));
+      }
+      // The icon is swapped only when the pin's state changes, so a press is never lost to a redraw
+      if (marker.pinState !== state) {
+        marker.pinState = state;
+        const label = state === 'done' ? '✓' : state === 'ready' ? ICONS.camera : String(x.index + 1);
+        marker.setIcon(L.divIcon({ className: `round-pin2 ${state}`, html: `<span>${label}</span>`, iconSize: [36, 36], iconAnchor: [18, 18] }));
+        marker.setZIndexOffset(state === 'ready' || state === 'target' ? 1000 : 0);
+      }
+    });
+  }
+
+  // Within 3 m of a pin: one big Capture button on the map
+  const capture = document.getElementById('round-capture');
+  if (ready) {
+    capture.hidden = false;
+    capture.innerHTML = `${ICONS.camera}<span></span>`;
+    capture.querySelector('span').textContent = `${bm ? 'Ambil Gambar' : 'Capture'} • ${ready.task.point}`;
+    capture.onclick = () => checkInPin(ready.task.point);
+  } else {
+    capture.hidden = true;
+  }
+
+  // The arrow shows once the road track has started (or a pin was pressed): it points from the guard to the pin
+  const guiding = roundRecording(r) || !can('gps') || !!roundTarget;
+  const guide = document.getElementById('round-guide');
+  if (roundLayers && roundMap) {
+    if (!roundLayers.guide) roundLayers.guide = L.polyline([], { color: '#ffd866', weight: 3, dashArray: '6 8', interactive: false }).addTo(roundMap);
+    roundLayers.guide.setLatLngs(guiding && here && target && !ready ? [here, [target.pin.lat, target.pin.lng]] : []);
+  }
+  if (!guiding || !target || ready) {
+    guide.hidden = true;
+  } else {
+    guide.hidden = false;
+    if (!here) {
+      guide.innerHTML = `<span class="guide-text"><strong>${bm ? 'Menunggu GPS…' : 'Waiting for GPS…'}</strong></span>`;
+    } else {
+      const deg = bearingDegrees(here, [target.pin.lat, target.pin.lng]);
+      guide.innerHTML = `<span class="guide-arrow" style="transform: rotate(${deg.toFixed(0)}deg)">${GUIDE_ARROW_SVG}</span><span class="guide-text"><strong></strong><small></small></span>`;
+      guide.querySelector('strong').textContent = `${target.task.point} • ${formatDistance(target.away)}`;
+      guide.querySelector('small').textContent = bm
+        ? `Jalan ke pin ini. Dalam ${PIN_RANGE_M} m anda boleh ambil gambar.`
+        : `Walk to this pin. Within ${PIN_RANGE_M} m you can take the photo.`;
+    }
+  }
+
+  // While guiding, the map keeps the guard and the pin on screen (unless the guard is moving the map)
+  if (guiding && here && roundMap && now - roundUserMovedAt > 20000) {
+    const view = roundMap.getBounds();
+    const goal = target ? [target.pin.lat, target.pin.lng] : null;
+    if (!view.pad(-0.15).contains(here) || (goal && !view.contains(goal))) {
+      roundMap.fitBounds(L.latLngBounds(goal ? [here, goal] : [here, here]), { padding: [70, 70], maxZoom: 19 });
+    }
+  }
+}
+
+// A pin pressed on the map: within 3 m it opens the camera; further away the arrow points to it
+function tapRoundPin(point) {
+  if (!openRound) return;
+  const task = roundTasks(openRound).find(t => t.point === point);
+  if (!task || task.log) return;
+  const now = Date.now();
+  if (!(task.opensAt <= now && now < task.closesAt)) return;
+  if (pinInRange(openRound.location, point)) { checkInPin(point); return; }
+  roundTarget = point;
+  roundUserMovedAt = 0;
+  renderRoundPins();
 }
 
 // One pin: the photo sheet for that pin. The task's screen comes back when it is submitted or cancelled.
