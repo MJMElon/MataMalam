@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26d';
+const APP_VERSION = '2026-11-26e';
 
 let activeStream = null;
 
@@ -2175,11 +2175,12 @@ function renderRoundRoute() {
   step.hidden = !can('gps');
   if (step.hidden) return;
   const toggle = document.getElementById('round-route-toggle');
-  const cancelBtn = document.getElementById('round-route-cancel');
-  if (cancelBtn) { cancelBtn.hidden = !recording; cancelBtn.textContent = cancelRoadTrackLabel(); }
   const state = document.getElementById('round-route-state');
   const status = document.getElementById('round-route-status');
   const recording = roundRecording(r);
+  // Asked AFTER recording is known: read before it, the whole render threw and the pin list was never drawn
+  const cancelBtn = document.getElementById('round-route-cancel');
+  if (cancelBtn) { cancelBtn.hidden = !recording; cancelBtn.textContent = cancelRoadTrackLabel(); }
   const other = activeRoute && !recording;
   const finished = !recording && roundRouteOf(r);
   toggle.hidden = !!finished;
