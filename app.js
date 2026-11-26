@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26j';
+const APP_VERSION = '2026-11-26k';
 
 let activeStream = null;
 
@@ -1741,11 +1741,15 @@ async function loadPhoto(id) {
 // can record the route; stopping the route (or tapping Finish) moves the task to History.
 const ROUTE_MIN_STEP_M = 10;        // ignore GPS jitter smaller than this
 const ROUTE_MAX_ACCURACY_M = 50;    // ignore fixes less accurate than this
-// A road track that has not moved is not a patrol: it cannot be stopped and saved, and the task
-// cannot be submitted over it. The guard walks first, or cancels the track and starts again.
-const ROUTE_MIN_WALK_M = 20;
+// The shortest road track that may be stopped and saved, set by the office (timing.minTrackMeters in
+// System Setting > Mata Malam). Not set, or 0: no minimum, a track can be stopped at any time.
+function getMinTrackMeters() {
+  const value = Number(getTaskSettings().minTrackMeters);
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+}
 function routeNotWalked() {
-  return !!activeRoute && (activeRoute.distance || 0) < ROUTE_MIN_WALK_M;
+  const min = getMinTrackMeters();
+  return !!activeRoute && min > 0 && (activeRoute.distance || 0) < min;
 }
 // Cancel Road Track: throws the recording away without saving it. The task itself is untouched
 // (a submitted one stays in the To-Do List with Start Road Track and Finish), and a new track can be started.
@@ -1764,8 +1768,8 @@ function cancelRoadTrackLabel() {
 }
 function sayRouteNotWalked() {
   alert(currentLang === 'BM'
-    ? `Jejak laluan belum bergerak (kurang daripada ${ROUTE_MIN_WALK_M} m). Sila buat rondaan dahulu, kemudian hantar. Jika tidak mahu merekod laluan, tekan Batal Jejak Laluan.`
-    : `The road track has not moved yet (under ${ROUTE_MIN_WALK_M} m). Please walk the patrol first, then submit. If you do not want to record a route, press Cancel Road Track.`);
+    ? `Jejak laluan belum bergerak (kurang daripada ${getMinTrackMeters()} m). Sila buat rondaan dahulu, kemudian hantar. Jika tidak mahu merekod laluan, tekan Batal Jejak Laluan.`
+    : `The road track has not moved yet (under ${getMinTrackMeters()} m). Please walk the patrol first, then submit. If you do not want to record a route, press Cancel Road Track.`);
 }
 
 let activeRoute = null;
@@ -3160,7 +3164,15 @@ function applyRemoteSettings(settings, stamp) {
   // Settle what was missed under the old times before they change, then count misses from now
   recordMissedTasks();
   localStorage.setItem('mata_malam_location_settings', JSON.stringify(next));
-  if (timingOk) localStorage.setItem('mata_malam_task_settings', JSON.stringify({ opensBeforeMinutes: timing.opensBeforeMinutes, windowMinutes: timing.windowMinutes }));
+  if (timingOk) {
+    // The shortest road track is optional: kept only when the office has set a number (0 = no minimum)
+    const min = Number(timing.minTrackMeters);
+    localStorage.setItem('mata_malam_task_settings', JSON.stringify({
+      opensBeforeMinutes: timing.opensBeforeMinutes,
+      windowMinutes: timing.windowMinutes,
+      ...(Number.isFinite(min) && min >= 0 ? { minTrackMeters: Math.round(min) } : {})
+    }));
+  }
   // Where each location's pins are, set on the office map: a list, any number per location.
   // The one-pin-per-location shape it had for a day ({ BNN: [lat, lng] }) is still read.
   if (settings.pins && typeof settings.pins === 'object') {
