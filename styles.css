@@ -2210,3 +2210,27 @@ main > .header-row2 nav ul {
 #round-sheet .round-route-box .route-status:empty {
   display: none;
 }
+
+/* A pin named by its number: a small pin mark and the number on a white badge */
+.pin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.05rem 0.45rem 0.05rem 0.3rem;
+  border-radius: 999px;
+  background-color: #ffffff;
+  color: #d93025;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.round-capture .pin-badge {
+  color: #2ea043;
+}
+
+.guide-text strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}

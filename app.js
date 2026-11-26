@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26k';
+const APP_VERSION = '2026-11-26l';
 
 let activeStream = null;
 
@@ -2041,7 +2041,7 @@ function pinInRange(location, point) {
   if (!pin) return true;                 // a pin the map cannot place is not held back by the map
   // A position more than two minutes old says nothing about where the guard is now
   if (!roundHere || Date.now() - roundHereAt > 2 * 60 * 1000) return false;
-  return distanceMeters(roundHere, [pin.lat, pin.lng]) <= PIN_RANGE_M;
+  return Math.round(distanceMeters(roundHere, [pin.lat, pin.lng])) <= PIN_RANGE_M;
 }
 
 function roundKey(r) { return `round:${r.location}|${r.date}|${r.time}`; }
@@ -2093,7 +2093,7 @@ async function showRoundTrack(r, finished) {
   // Frame the walk together with the boundary and the pins, so all of it is on screen
   const frame = roundLayers.line.getBounds();
   if (roundLayers.bounds) frame.extend(roundLayers.bounds);
-  if (roundMap) roundMap.fitBounds(frame, { padding: [28, 28], maxZoom: 18 });
+  if (roundMap && Date.now() - roundUserMovedAt > 60000) roundMapMove(() => roundMap.fitBounds(frame, { padding: [28, 28], maxZoom: 18 }));
 }
 // The track is stored on the task's first check-in made on THIS phone (somebody else's record cannot be changed)
 function attachRoundRoute(r, done) {
@@ -2117,6 +2117,7 @@ function openRoundSheet(round) {
   openRound = { location: round.location, date: round.date, time: round.time };
   roundTarget = null;
   roundUserMovedAt = 0;
+  roundFollowKey = null;
   showRoundSheet();
 }
 function showRoundSheet() {
@@ -2165,14 +2166,13 @@ function drawRoundMap() {
   }
   const r = openRound;
   // A view first: Leaflet cannot draw a shape on a map that has not been given one yet
-  roundMap = L.map(el).setView([3.139, 101.6869], 12);
-  // Moved by hand: stop following the guard for a while
-  roundMap.on('dragstart', () => { roundUserMovedAt = Date.now(); });
+  roundMap = L.map(el, { maxZoom: 21 }).setView([3.139, 101.6869], 12);
+  // Moved or zoomed by hand (drag, pinch, + / −): the app stops moving the map for a while.
+  // Its own moves are marked (roundAutoMove) so they are not taken for the guard's.
+  roundMap.on('dragstart zoomstart', () => { if (!roundAutoMove) roundUserMovedAt = Date.now(); });
   // + / − sit at the bottom right: the top of the map is where the arrow to the next pin shows
   roundMap.zoomControl.setPosition('bottomright');
-  el.onwheel = () => { roundUserMovedAt = Date.now(); };
-  el.ontouchstart = event => { if (event.touches.length > 1) roundUserMovedAt = Date.now(); };
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(roundMap);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 21, maxNativeZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(roundMap);
   let bounds = null;
   const grow = b => { if (b && b.isValid()) bounds = bounds ? bounds.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast()); };
   // The boundary of this location, drawn strongly; the others faintly, so the guard knows where the edge is
@@ -2192,13 +2192,13 @@ function drawRoundMap() {
   getLocationPins(r.location).forEach(pin => grow(L.latLngBounds([pin.lat, pin.lng], [pin.lat, pin.lng])));
   if (roundHere) roundLayers.me = L.circleMarker(roundHere, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#1a73e8', fillOpacity: 1 }).addTo(roundMap);
   roundLayers.bounds = bounds;
-  if (bounds) roundMap.fitBounds(bounds, { padding: [28, 28], maxZoom: 18 });
+  if (bounds) roundMapMove(() => roundMap.fitBounds(bounds, { padding: [28, 28], maxZoom: 18 }));
   setTimeout(() => {
     if (!roundMap || !roundLayers) return;
     roundMap.invalidateSize();
     const frame = roundLayers.line.getLatLngs().length ? roundLayers.line.getBounds() : null;
     if (frame && bounds) frame.extend(bounds);
-    if (frame || bounds) roundMap.fitBounds(frame || bounds, { padding: [28, 28], maxZoom: 18 });
+    if (frame || bounds) roundMapMove(() => roundMap.fitBounds(frame || bounds, { padding: [28, 28], maxZoom: 18 }));
   }, 60);
 }
 
@@ -2265,6 +2265,18 @@ function renderRoundRoute() {
 let roundTarget = null;
 // When the guard last moved the map by hand: the map stops following them for a while after that
 let roundUserMovedAt = 0;
+let roundAutoMove = false;
+let roundFollowKey = null;
+// The app moving the map itself (framing the guard and the pin)
+function roundMapMove(move) {
+  roundAutoMove = true;
+  try { move(); } finally { setTimeout(() => { roundAutoMove = false; }, 400); }
+}
+const PIN_SVG_SMALL = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>';
+// A pin is named by its number on a small badge, not its long name
+function pinBadge(index) {
+  return `<span class="pin-badge">${PIN_SVG_SMALL}${index + 1}</span>`;
+}
 const GUIDE_ARROW_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 2l7 19-7-4-7 4z" fill="#ffffff"/></svg>';
 
 function roundFix() {
@@ -2305,13 +2317,11 @@ function renderRoundPins() {
     const markers = roundLayers.markers || (roundLayers.markers = {});
     rows.forEach(x => {
       if (!x.pin) return;
-      const state = x.visited ? 'done' : x.near ? 'ready' : x.open ? (x === target ? 'target' : 'open') : 'closed';
+      const state = x.visited ? 'done' : x.near ? 'ready' : x.open ? 'open' : 'closed';
       let marker = markers[x.task.point];
       if (!marker) {
         const point = x.task.point;
-        marker = markers[point] = L.marker([x.pin.lat, x.pin.lng], { keyboard: false })
-          .bindTooltip(point, { permanent: true, direction: 'top', offset: [0, -20], className: 'round-pin-name' })
-          .addTo(roundLayers.pins);
+        marker = markers[point] = L.marker([x.pin.lat, x.pin.lng], { keyboard: false, title: point }).addTo(roundLayers.pins);
         marker.on('click', () => tapRoundPin(point));
       }
       // The icon is swapped only when the pin's state changes, so a press is never lost to a redraw
@@ -2319,7 +2329,7 @@ function renderRoundPins() {
         marker.pinState = state;
         const label = state === 'done' ? '✓' : state === 'ready' ? ICONS.camera : String(x.index + 1);
         marker.setIcon(L.divIcon({ className: `round-pin2 ${state}`, html: `<span>${label}</span>`, iconSize: [36, 36], iconAnchor: [18, 18] }));
-        marker.setZIndexOffset(state === 'ready' || state === 'target' ? 1000 : 0);
+        marker.setZIndexOffset(state === 'ready' ? 1000 : 0);
       }
     });
   }
@@ -2328,8 +2338,8 @@ function renderRoundPins() {
   const capture = document.getElementById('round-capture');
   if (ready) {
     capture.hidden = false;
-    capture.innerHTML = `${ICONS.camera}<span></span>`;
-    capture.querySelector('span').textContent = `${bm ? 'Ambil Gambar' : 'Capture'} • ${ready.task.point}`;
+    capture.innerHTML = `${ICONS.camera}<span>${bm ? 'Ambil Gambar' : 'Capture'}</span>${pinBadge(ready.index)}`;
+    capture.setAttribute('aria-label', `${bm ? 'Ambil Gambar' : 'Capture'}: ${ready.task.point}`);
     capture.onclick = () => checkInPin(ready.task.point);
   } else {
     capture.hidden = true;
@@ -2350,21 +2360,23 @@ function renderRoundPins() {
       guide.innerHTML = `<span class="guide-text"><strong>${bm ? 'Menunggu GPS…' : 'Waiting for GPS…'}</strong></span>`;
     } else {
       const deg = bearingDegrees(here, [target.pin.lat, target.pin.lng]);
-      guide.innerHTML = `<span class="guide-arrow" style="transform: rotate(${deg.toFixed(0)}deg)">${GUIDE_ARROW_SVG}</span><span class="guide-text"><strong></strong><small></small></span>`;
-      guide.querySelector('strong').textContent = `${target.task.point} • ${formatDistance(target.away)}`;
+      guide.innerHTML = `<span class="guide-arrow" style="transform: rotate(${deg.toFixed(0)}deg)">${GUIDE_ARROW_SVG}</span><span class="guide-text"><strong>${pinBadge(target.index)}<span class="guide-away">${formatDistance(target.away)}</span></strong><small></small></span>`;
       guide.querySelector('small').textContent = bm
-        ? `Jalan ke pin ini. Dalam ${PIN_RANGE_M} m anda boleh ambil gambar.`
-        : `Walk to this pin. Within ${PIN_RANGE_M} m you can take the photo.`;
+        ? `Pada ${PIN_RANGE_M} m, Ambil Gambar dibuka.`
+        : `At ${PIN_RANGE_M} m, Capture opens.`;
     }
   }
 
-  // While guiding, the map keeps the guard and the pin on screen (unless the guard is moving the map)
-  if (guiding && here && roundMap && now - roundUserMovedAt > 20000) {
-    const view = roundMap.getBounds();
-    const goal = target ? [target.pin.lat, target.pin.lng] : null;
-    if (!view.pad(-0.15).contains(here) || (goal && !view.contains(goal))) {
-      roundMap.fitBounds(L.latLngBounds(goal ? [here, goal] : [here, here]), { padding: [70, 70], maxZoom: 19 });
-    }
+  // While the road track records, the map keeps the guard on screen. When the arrow moves to a new pin
+  // it frames the guard and that pin once; after that it only slides along at the zoom the guard chose.
+  // A drag, pinch or + / − by hand: hands off for a minute.
+  const following = roundRecording(r) && here && roundMap && now - roundUserMovedAt > 60000;
+  const followKey = target ? target.task.point : '';
+  if (following && followKey !== roundFollowKey && target) {
+    roundFollowKey = followKey;
+    roundMapMove(() => roundMap.fitBounds(L.latLngBounds([here, [target.pin.lat, target.pin.lng]]), { padding: [70, 70], maxZoom: 19 }));
+  } else if (following && !roundMap.getBounds().pad(-0.15).contains(here)) {
+    roundMapMove(() => roundMap.panTo(here));
   }
 }
 
@@ -2377,7 +2389,6 @@ function tapRoundPin(point) {
   if (!(task.opensAt <= now && now < task.closesAt)) return;
   if (pinInRange(openRound.location, point)) { checkInPin(point); return; }
   roundTarget = point;
-  roundUserMovedAt = 0;
   renderRoundPins();
 }
 
@@ -2401,7 +2412,7 @@ function toggleRoundRoute() {
     return;
   }
   if (activeRoute) return;
-  startRouteTracking(roundKey(openRound), openRound).then(() => { renderRoundRoute(); renderTodo(); });
+  startRouteTracking(roundKey(openRound), openRound).then(() => { renderRoundRoute(); renderRoundPins(); renderTodo(); });
 }
 
 function renderSheetRoute() {
