@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26q';
+const APP_VERSION = '2026-11-26r';
 
 let activeStream = null;
 
@@ -1743,7 +1743,14 @@ async function loadPhoto(id) {
 // Road Tracking: each task has three steps — photo, auto-detected location and the patrol route.
 // After the photo is submitted the task stays in the To-Do List (log.patrolOpen) so the watchman
 // can record the route; stopping the route (or tapping Finish) moves the task to History.
-const ROUTE_MIN_STEP_M = 10;        // ignore GPS jitter smaller than this
+// Every place walked is kept, wrong turns included: a new point is taken as soon as the guard is
+// 3 m from the last one. Only when GPS is unsure (a wide accuracy circle) is a bigger step needed,
+// so a phone standing still does not draw a scribble: half the accuracy, never more than 8 m.
+const ROUTE_MIN_STEP_M = 3;
+const ROUTE_MAX_STEP_M = 8;
+function routeMinStep(accuracy) {
+  return Math.min(ROUTE_MAX_STEP_M, Math.max(ROUTE_MIN_STEP_M, (accuracy || 0) / 2));
+}
 const ROUTE_MAX_ACCURACY_M = 50;    // ignore fixes less accurate than this
 // The shortest road track that may be stopped and saved, set by the office (timing.minTrackMeters in
 // System Setting > Mata Malam). Not set, or 0: no minimum, a track can be stopped at any time.
@@ -2660,7 +2667,7 @@ function onRoutePosition(position) {
   const last = activeRoute.points[activeRoute.points.length - 1];
   if (last) {
     const step = distanceMeters(last, point);
-    if (step < ROUTE_MIN_STEP_M) return;
+    if (step < routeMinStep(accuracy)) return;
     activeRoute.distance += step;
   }
   activeRoute.points.push(point);
@@ -2756,8 +2763,19 @@ function releaseRouteWakeLock() {
   routeWakeLock = null;
 }
 
+let routeHiddenAt = 0;
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && activeRoute) requestRouteWakeLock();
+  if (document.hidden) { if (activeRoute) routeHiddenAt = Date.now(); return; }
+  if (!activeRoute) return;
+  requestRouteWakeLock();
+  // The browser stops GPS while the screen is off or another app is in front: that stretch is missing
+  if (routeHiddenAt && Date.now() - routeHiddenAt > 20000) {
+    const minutes = Math.max(1, Math.round((Date.now() - routeHiddenAt) / 60000));
+    alert(currentLang === 'BM'
+      ? `Skrin ditutup atau aplikasi lain dibuka selama kira-kira ${minutes} min. Telefon tidak merekod laluan dalam masa itu. Biarkan Mata Malam terbuka di skrin semasa berjalan.`
+      : `The screen was off or another app was open for about ${minutes} min. The phone does not record the route during that time. Keep Mata Malam open on the screen while walking.`);
+  }
+  routeHiddenAt = 0;
 });
 
 // Resumes a route that was still recording when the app was closed or reloaded
