@@ -2234,3 +2234,34 @@ main > .header-row2 nav ul {
   align-items: center;
   gap: 0.5rem;
 }
+
+/* To-Do card: the same shape for every task. Picture, time, then the place and its pins on one line
+   and how long is left under it, always, so every card lines up whatever the name's length */
+#todo-list .task-item {
+  gap: 0.85rem;
+}
+
+.task-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.task-stack .task-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.task-stack .task-left {
+  margin-left: 0;
+}
+
+/* The line over the cards starts where the cards start */
+.todo-strip {
+  margin-left: 0;
+  margin-right: 0;
+}

@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26l';
+const APP_VERSION = '2026-11-26m';
 
 let activeStream = null;
 
@@ -1224,7 +1224,7 @@ function renderTodo(now = Date.now()) {
     // The whole card is the button. One line: the place, its pins, and how long is left beside them
     btn.innerHTML = `
       <span class="task-time">${timeBadge(round.time)}</span>
-      <span class="task-location task-oneline">${round.location} <span class="task-point">${pinsLine}</span> <span class="task-left">${deadline}</span></span>
+      <span class="task-location task-stack"><span class="task-line">${round.location} <span class="task-point">${pinsLine}</span></span><span class="task-left">${deadline}</span></span>
       ${recording ? `<span class="task-action"><span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span></span>` : ''}
     `;
     li.appendChild(btn);
@@ -1240,7 +1240,7 @@ function renderTodo(now = Date.now()) {
     btn.onclick = () => startTask(task);
     btn.innerHTML = `
       <span class="task-time">${timeBadge(task.time)}</span>
-      <span class="task-location">${task.location}
+      <span class="task-location task-stack"><span class="task-line">${task.location}</span>
         <span class="task-left">${currentLang === 'BM' ? `${minutesLeft} min lagi` : `${minutesLeft} min left`}</span>
       </span>
     `;
