@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-20w';
+const APP_VERSION = '2026-11-26a';
 
 let activeStream = null;
 
@@ -1571,6 +1571,8 @@ async function submitTask() {
     refreshTaskSchedule();
     return;
   }
+  // A road track recording for this task that has not moved: walk first, or cancel the track
+  if (activeRoute && activeRoute.logId === pendingTask.logId && routeNotWalked()) { sayRouteNotWalked(); return; }
   const submitBtn = document.getElementById('sheet-submit');
   submitBtn.disabled = true;
   submitBtn.textContent = currentLang === 'BM' ? 'Menghantar...' : 'Submitting...';
@@ -1697,6 +1699,32 @@ async function loadPhoto(id) {
 // can record the route; stopping the route (or tapping Finish) moves the task to History.
 const ROUTE_MIN_STEP_M = 10;        // ignore GPS jitter smaller than this
 const ROUTE_MAX_ACCURACY_M = 50;    // ignore fixes less accurate than this
+// A road track that has not moved is not a patrol: it cannot be stopped and saved, and the task
+// cannot be submitted over it. The guard walks first, or cancels the track and starts again.
+const ROUTE_MIN_WALK_M = 20;
+function routeNotWalked() {
+  return !!activeRoute && (activeRoute.distance || 0) < ROUTE_MIN_WALK_M;
+}
+// Cancel Road Track: throws the recording away without saving it. The task itself is untouched
+// (a submitted one stays in the To-Do List with Start Road Track and Finish), and a new track can be started.
+async function cancelRoadTrack() {
+  if (!activeRoute) return;
+  if (!confirm(currentLang === 'BM'
+    ? 'Batal jejak laluan ini? Laluan yang direkod akan dibuang dan tidak disimpan.'
+    : 'Cancel this road track? The recorded route will be thrown away and not saved.')) return;
+  await stopRouteTracking({ discard: true });
+  renderTasks();
+  renderRoundRoute();
+  renderSheetRoute();
+}
+function cancelRoadTrackLabel() {
+  return currentLang === 'BM' ? 'Batal Jejak Laluan' : 'Cancel Road Track';
+}
+function sayRouteNotWalked() {
+  alert(currentLang === 'BM'
+    ? `Jejak laluan belum bergerak (kurang daripada ${ROUTE_MIN_WALK_M} m). Sila buat rondaan dahulu, kemudian hantar. Jika tidak mahu merekod laluan, tekan Batal Jejak Laluan.`
+    : `The road track has not moved yet (under ${ROUTE_MIN_WALK_M} m). Please walk the patrol first, then submit. If you do not want to record a route, press Cancel Road Track.`);
+}
 
 let activeRoute = null;
 let routeWatchId = null;
@@ -1850,7 +1878,7 @@ function buildInProgressTask(log) {
       </li>
     </ul>
     <div class="sheet-actions">
-      ${tracking ? '' : `<button type="button" class="btn btn-secondary task-finish">${currentLang === 'BM' ? 'Selesai' : 'Finish'}</button>`}
+      ${tracking ? `<button type="button" class="btn btn-secondary task-route-cancel">${cancelRoadTrackLabel()}</button>` : `<button type="button" class="btn btn-secondary task-finish">${currentLang === 'BM' ? 'Selesai' : 'Finish'}</button>`}
       <button type="button" class="btn task-route-toggle ${tracking ? 'btn-stop' : ''}" ${otherTracking ? 'disabled' : ''}>${tracking
         ? (currentLang === 'BM' ? 'Henti Jejak Laluan' : 'Stop Road Track')
         : (currentLang === 'BM' ? 'Mula Jejak Laluan' : 'Start Road Track')}</button>
@@ -1865,9 +1893,15 @@ function buildInProgressTask(log) {
   }).catch(() => {});
 
   if (tracking) li.querySelector('.route-map-slot').appendChild(liveRouteMapEl);
-  li.querySelector('.task-route-toggle').onclick = () => (tracking ? stopRouteTracking() : startRouteTracking(log.id));
+  li.querySelector('.task-route-toggle').onclick = () => {
+    if (!tracking) { startRouteTracking(log.id); return; }
+    if (routeNotWalked()) { sayRouteNotWalked(); return; }
+    stopRouteTracking();
+  };
   const finish = li.querySelector('.task-finish');
   if (finish) finish.onclick = () => finishTask(log.id);
+  const cancelTrack = li.querySelector('.task-route-cancel');
+  if (cancelTrack) cancelTrack.onclick = () => cancelRoadTrack();
   return li;
 }
 
@@ -2073,6 +2107,8 @@ function backRoundSheet() {
 function closeRoundSheet() {
   // Submit: every pin checked in and the road track still running means the walk is over, so it is stopped and kept
   if (openRound && roundRecording(openRound) && roundTasks(openRound).every(task => task.log && task.log.status !== 'missed')) {
+    // A track that has not moved is not saved: the guard walks first, or cancels it
+    if (routeNotWalked()) { sayRouteNotWalked(); return; }
     stopRouteTracking();
   }
   hideRoundSheet();
@@ -2147,6 +2183,8 @@ function renderRoundRoute() {
   step.hidden = !can('gps');
   if (step.hidden) return;
   const toggle = document.getElementById('round-route-toggle');
+  const cancelBtn = document.getElementById('round-route-cancel');
+  if (cancelBtn) { cancelBtn.hidden = !recording; cancelBtn.textContent = cancelRoadTrackLabel(); }
   const state = document.getElementById('round-route-state');
   const status = document.getElementById('round-route-status');
   const recording = roundRecording(r);
@@ -2250,7 +2288,11 @@ function checkInPin(point) {
 
 function toggleRoundRoute() {
   if (!openRound || !can('gps')) return;
-  if (roundRecording(openRound)) { stopRouteTracking(); return; }
+  if (roundRecording(openRound)) {
+    if (routeNotWalked()) { sayRouteNotWalked(); return; }
+    stopRouteTracking();
+    return;
+  }
   if (activeRoute) return;
   startRouteTracking(roundKey(openRound), openRound).then(() => { renderRoundRoute(); renderTodo(); });
 }
@@ -2260,6 +2302,8 @@ function renderSheetRoute() {
   const recording = activeRoute && activeRoute.logId === pendingTask.logId;
   const otherRecording = activeRoute && !recording;
   const toggle = document.getElementById('sheet-route-toggle');
+  const cancelBtn = document.getElementById('sheet-route-cancel');
+  if (cancelBtn) { cancelBtn.hidden = !recording; cancelBtn.textContent = cancelRoadTrackLabel(); }
   const state = document.getElementById('sheet-route-state');
   const status = document.getElementById('sheet-route-status');
   const slot = document.getElementById('sheet-route-slot');
@@ -2298,8 +2342,10 @@ function renderSheetRoute() {
 
 function toggleSheetRoute() {
   if (!pendingTask || !can('gps') || pendingTask.point) return;
-  if (activeRoute && activeRoute.logId === pendingTask.logId) stopRouteTracking();
-  else startRouteTracking(pendingTask.logId);
+  if (activeRoute && activeRoute.logId === pendingTask.logId) {
+    if (routeNotWalked()) { sayRouteNotWalked(); return; }
+    stopRouteTracking();
+  } else startRouteTracking(pendingTask.logId);
 }
 
 function onRoutePosition(position) {
