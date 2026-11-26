@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="apple-touch-icon" href="icon-180.png">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-20w">
+  <link rel="stylesheet" href="styles.css?v=2026-11-26d">
 </head>
 <body>
 
@@ -101,6 +101,7 @@
         <!-- One box: the button IS the road track. While it records, or once it has stopped, the line under it says how far -->
         <section class="sheet-step round-route-box" id="round-step-route">
           <button type="button" class="btn sheet-route-toggle" onclick="toggleRoundRoute()" id="round-route-toggle">Start Road Track</button>
+          <button type="button" class="btn btn-secondary sheet-route-toggle" onclick="cancelRoadTrack()" id="round-route-cancel" hidden>Cancel Road Track</button>
           <p class="round-route-state" id="round-route-state"></p>
           <p class="route-status" id="round-route-status" aria-live="polite"></p>
         </section>
@@ -108,10 +109,8 @@
           <div class="sheet-step-head"><svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span id="round-lbl-pins">Pins to visit</span></div>
           <ul class="round-pins" id="round-pins"></ul>
         </section>
+        <!-- No Submit here: each pin is submitted on its own check-in, the track is ended with Stop, and Back leaves -->
         <div class="round-map" id="round-map"></div>
-        <div class="sheet-actions">
-          <button type="button" class="btn btn-secondary" onclick="closeRoundSheet()" id="round-close">Submit</button>
-        </div>
       </div>
     </div>
 
@@ -145,6 +144,7 @@
           <div class="route-map-slot" id="sheet-route-slot"></div>
           <p class="route-status" id="sheet-route-status" aria-live="polite"></p>
           <button type="button" class="btn btn-secondary sheet-route-toggle" onclick="toggleSheetRoute()" id="sheet-route-toggle">Start Road Track</button>
+          <button type="button" class="btn btn-secondary sheet-route-toggle" onclick="cancelRoadTrack()" id="sheet-route-cancel" hidden>Cancel Road Track</button>
         </section>
 
         <div class="sheet-actions">
@@ -345,6 +345,6 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-20w"></script>
+  <script src="app.js?v=2026-11-26d"></script>
 </body>
 </html>
