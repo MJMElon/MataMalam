@@ -2347,3 +2347,7 @@ main > .header-row2 {
 @media (prefers-reduced-motion: reduce) {
   .celebrate, .celebrate-card { animation: none; }
 }
+
+/* Footer: can this phone open the app with no signal */
+.offline-ok { color: #3fb950; }
+.offline-no { color: #d29922; }

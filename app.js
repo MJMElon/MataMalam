@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26t';
+const APP_VERSION = '2026-11-27a';
 
 let activeStream = null;
 
@@ -3142,6 +3142,7 @@ function toggleLanguage() {
     document.getElementById('settings-save').textContent = 'Simpan';
     document.getElementById('footer-rights').textContent = 'Hak cipta terpelihara.';
     document.getElementById('footer-version-label').textContent = 'Versi';
+    showOfflineReady();
     document.getElementById('update-banner-text').textContent = 'Versi baharu tersedia.';
     document.getElementById('update-banner-btn').textContent = 'Kemas Kini';
     
@@ -3195,6 +3196,7 @@ function toggleLanguage() {
     document.getElementById('settings-save').textContent = 'Save';
     document.getElementById('footer-rights').textContent = 'All rights reserved.';
     document.getElementById('footer-version-label').textContent = 'Version';
+    showOfflineReady();
     document.getElementById('update-banner-text').textContent = 'A new version is available.';
     document.getElementById('update-banner-btn').textContent = 'Update';
 
@@ -3730,7 +3732,27 @@ setInterval(checkForUpdate, 5 * 60 * 1000);
 // Offline: sw.js keeps the app (and the map pictures already seen) on the phone, so Mata Malam
 // opens and works with no signal; check-ins wait on the phone and are sent when signal returns.
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').then(showOfflineReady).catch(() => showOfflineReady());
+  });
+}
+// The footer says whether THIS phone can open Mata Malam with no signal: the app is kept on it
+// (the service worker is running and has the page). Shown so it can be checked before going offline.
+async function showOfflineReady() {
+  const el = document.getElementById('offline-ready');
+  if (!el) return;
+  let ready = false;
+  try {
+    if ('serviceWorker' in navigator && 'caches' in window) {
+      await navigator.serviceWorker.ready;
+      ready = !!(await caches.match(new URL('index.html', location.href).toString()));
+    }
+  } catch (err) {}
+  el.dataset.ready = ready ? '1' : '';
+  el.textContent = ready
+    ? (currentLang === 'BM' ? '• Sedia luar talian ✓' : '• Offline ready ✓')
+    : (currentLang === 'BM' ? '• Belum sedia luar talian' : '• Not offline ready yet');
+  el.className = ready ? 'offline-ok' : 'offline-no';
 }
 
 window.onload = function() {
