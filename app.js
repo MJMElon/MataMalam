@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26e';
+const APP_VERSION = '2026-11-26f';
 
 let activeStream = null;
 
@@ -547,9 +547,20 @@ function isLocationActive(code) {
   return setting && typeof setting.active === 'boolean' ? setting.active : isMainNursery(code);
 }
 
-// Codes of the locations that get check-in tasks, in display order
+// The locations this worker is filed under on the Worker Namelist (mata_malam_my_locations).
+// No answer, an Others worker, or one filed under no location: every location.
+function myLocationScope() {
+  const s = getSession();
+  return s && Array.isArray(s.myLocations) ? s.myLocations.map(locationCode) : null;
+}
+function isMyLocation(code) {
+  const scope = myLocationScope();
+  return !scope || scope.includes(locationCode(code));
+}
+
+// Codes of the locations that get check-in tasks, in display order: only this worker own
 function getActiveLocations() {
-  return getLocations().map(l => l.code).filter(isLocationActive);
+  return getLocations().map(l => l.code).filter(isLocationActive).filter(isMyLocation);
 }
 
 function locationOrder(code) {
@@ -1217,7 +1228,7 @@ function renderHistory(now = Date.now()) {
   const dates = [];
   for (let i = 0; i < HISTORY_SHIFTS; i++) dates.push(getShiftDate(new Date(now - i * DAY_MS)));
   const all = getLogs()
-    .filter(log => dates.includes(log.date) && !log.patrolOpen && !Number.isNaN(parseSlotLabel(log.time)))
+    .filter(log => dates.includes(log.date) && isMyLocation(log.location) && !log.patrolOpen && !Number.isNaN(parseSlotLabel(log.time)))
     .map(log => ({ log, ...getTaskWindow(log.date, log.time) }))
     .sort((a, b) => b.scheduledAt - a.scheduledAt || locationOrder(a.log.location) - locationOrder(b.log.location));
 
@@ -2553,8 +2564,8 @@ function populateReportLocations() {
   const select = document.getElementById('report-module-select');
   if (!select) return;
   const selected = select.value || 'ALL';
-  const names = new Map(getLocations().map(l => [l.code, l.name]));
-  getLogs().forEach(log => { if (log.location && !names.has(log.location)) names.set(log.location, log.location); });
+  const names = new Map(getLocations().filter(l => isMyLocation(l.code)).map(l => [l.code, l.name]));
+  getLogs().forEach(log => { if (log.location && isMyLocation(log.location) && !names.has(log.location)) names.set(log.location, log.location); });
   select.innerHTML = '';
   const all = document.createElement('option');
   all.value = 'ALL';
@@ -3191,6 +3202,8 @@ async function syncNow({ manual = false } = {}) {
         token: session.token,
         worker: { id: state.worker.id, name: state.worker.name, role: state.worker.role || '' },
         canEdit: !!state.can_edit,
+        // The location the Worker Namelist files this worker under; null is every location
+        myLocations: Array.isArray(state.my_locations) ? state.my_locations : null,
         ...(state.access && typeof state.access === 'object' ? { access: state.access } : (session.access ? { access: session.access } : {})),
         ...(session.fromPortal ? { fromPortal: true } : {})
       }));
