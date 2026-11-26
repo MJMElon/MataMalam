@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26s';
+const APP_VERSION = '2026-11-26t';
 
 let activeStream = null;
 
@@ -258,7 +258,7 @@ function initCheckpointMap() {
     return;
   }
   checkpointMap = L.map(container);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { crossOrigin: true,
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(checkpointMap);
@@ -1853,7 +1853,7 @@ function drawRouteMap(container, points, photoLatLng = null) {
     return null;
   }
   const map = L.map(container);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { crossOrigin: true,
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
@@ -2196,7 +2196,7 @@ function drawRoundMap() {
   roundMap.on('dragstart zoomstart', () => { if (!roundAutoMove) roundUserMovedAt = Date.now(); });
   // + / − sit at the bottom right: the top of the map is where the arrow to the next pin shows
   roundMap.zoomControl.setPosition('bottomright');
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 21, maxNativeZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(roundMap);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { crossOrigin: true, maxZoom: 21, maxNativeZoom: 19, attribution: '&copy; OpenStreetMap contributors' }).addTo(roundMap);
   let bounds = null;
   const grow = b => { if (b && b.isValid()) bounds = bounds ? bounds.extend(b) : L.latLngBounds(b.getSouthWest(), b.getNorthEast()); };
   // The boundary of this location, drawn strongly; the others faintly, so the guard knows where the edge is
@@ -3345,7 +3345,8 @@ async function startSession() {
   const current = getSession();
   if (handed && !(current && current.token === handed)) {
     try {
-      const who = await rpc('worker_whoami', { p_token: handed });
+      // Short wait: with no or weak signal the guard carries on as who was signed in on this phone
+      const who = await rpc('worker_whoami', { p_token: handed }, 6000);
       if (who && who.token && who.worker && who.worker.name) {
         // fromPortal: the session is the Worker Portal's too, so signing out here must not end it there
         localStorage.setItem('mata_malam_session', JSON.stringify({
@@ -3726,6 +3727,12 @@ window.addEventListener('pageshow', (event) => {
 setInterval(checkForUpdate, 5 * 60 * 1000);
 
 // Initialize state on load
+// Offline: sw.js keeps the app (and the map pictures already seen) on the phone, so Mata Malam
+// opens and works with no signal; check-ins wait on the phone and are sent when signal returns.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+}
+
 window.onload = function() {
   document.getElementById('app-version').textContent = APP_VERSION;
   checkForUpdate();
