@@ -1812,3 +1812,134 @@ img.photo-open { cursor: zoom-in; }
 .sheet-route-toggle + .sheet-route-toggle {
   margin-top: 0.5rem;
 }
+
+/* Header as an icon bar, like the FC Portal: Synchronize left, title centre, language and portal right */
+header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.header-bar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-side {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-side-end {
+  justify-content: flex-end;
+}
+
+header .brand {
+  justify-content: center;
+  white-space: nowrap;
+}
+
+header nav ul {
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.icon-btn,
+nav a.icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background-color: var(--bg-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.icon-btn:hover,
+nav a.icon-btn:hover {
+  color: var(--accent-color);
+  border-color: var(--accent-color);
+}
+
+.icon-btn[hidden] {
+  display: none;
+}
+
+.icon-btn-accent {
+  color: var(--accent-color);
+  background-color: rgba(88, 166, 255, 0.12);
+  border-color: transparent;
+}
+
+.icon-btn:disabled {
+  cursor: default;
+}
+
+.icon-btn.syncing svg {
+  animation: syncSpin 1s linear infinite;
+}
+
+@keyframes syncSpin {
+  to { transform: rotate(360deg); }
+}
+
+.sync-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #d29922;
+  border: 2px solid var(--card-bg);
+}
+
+.sync-dot[hidden] {
+  display: none;
+}
+
+.lang-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 44px;
+  padding: 0 0.8rem;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.lang-pill svg {
+  color: var(--accent-color);
+}
+
+.lang-pill:hover {
+  border-color: var(--accent-color);
+}
+
+@media (max-width: 430px) {
+  header { padding: 0.75rem 0.6rem; }
+  header .brand { font-size: 1.25rem; }
+  .lang-pill { padding: 0 0.6rem; }
+}
+
+body.signed-out .header-side {
+  visibility: hidden;
+}

@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26f';
+const APP_VERSION = '2026-11-26g';
 
 let activeStream = null;
 
@@ -2700,12 +2700,22 @@ function handleClick() {
   syncNow({ manual: true });
 }
 
+// The header buttons are icons: their name is what a screen reader says and what a long press shows
+function setIconLabel(id, label) {
+  const el = document.getElementById(id);
+  el.setAttribute('aria-label', label);
+  el.title = label;
+}
+
 // Language Toggle logic
 let currentLang = 'EN';
 function toggleLanguage() {
   currentLang = currentLang === 'EN' ? 'BM' : 'EN';
+  // The pill names the language a tap switches TO, like the FC Portal
   const langBtn = document.getElementById('nav-lang');
-  langBtn.textContent = `Language (${currentLang})`;
+  document.getElementById('nav-lang-code').textContent = currentLang === 'EN' ? 'BM' : 'EN';
+  setIconLabel('nav-lang', currentLang === 'EN' ? 'Tukar ke Bahasa Melayu' : 'Switch to English');
+  setIconLabel('nav-portal', currentLang === 'BM' ? 'Kembali ke Worker Portal' : 'Back to Worker Portal');
 
   if (currentLang === 'BM') {
     document.getElementById('signin-hint').textContent = 'Buka Mata Malam dari 555 Worker Portal.';
@@ -2714,7 +2724,7 @@ function toggleLanguage() {
     document.getElementById('th-guard').textContent = 'Pengawal';
     document.getElementById('todo-title').textContent = 'Senarai Tugasan';
     document.getElementById('done-title').textContent = 'Sejarah';
-    document.getElementById('nav-done').textContent = 'Sejarah';
+    setIconLabel('nav-done', 'Sejarah');
     document.getElementById('back-home-done').textContent = '← Kembali ke Senarai Tugasan';
     document.getElementById('sheet-cancel').textContent = 'Batal';
     document.getElementById('sheet-retake').textContent = 'Ambil Semula';
@@ -2723,8 +2733,8 @@ function toggleLanguage() {
     document.getElementById('sheet-lbl-location').textContent = 'Lokasi';
     document.getElementById('sheet-lbl-route').textContent = 'Jejak Laluan';
     document.getElementById('sheet-submit').textContent = 'Hantar';
-    document.getElementById('nav-about').textContent = 'Laporan';
-    document.getElementById('nav-settings').textContent = 'Tetapan';
+    setIconLabel('nav-about', 'Laporan');
+    setIconLabel('nav-settings', 'Tetapan');
     document.getElementById('back-home-settings').textContent = '← Kembali ke Senarai Tugasan';
     document.getElementById('settings-title').textContent = 'Tetapan';
     document.getElementById('tab-btn-task-timing').textContent = 'Masa Tugasan';
@@ -2769,7 +2779,7 @@ function toggleLanguage() {
     document.getElementById('th-guard').textContent = 'Guards';
     document.getElementById('todo-title').textContent = 'To-Do List';
     document.getElementById('done-title').textContent = 'History';
-    document.getElementById('nav-done').textContent = 'History';
+    setIconLabel('nav-done', 'History');
     document.getElementById('back-home-done').textContent = '← Back to To-Do List';
     document.getElementById('sheet-cancel').textContent = 'Cancel';
     document.getElementById('sheet-retake').textContent = 'Retake';
@@ -2778,8 +2788,8 @@ function toggleLanguage() {
     document.getElementById('sheet-lbl-location').textContent = 'Location';
     document.getElementById('sheet-lbl-route').textContent = 'Road Track';
     document.getElementById('sheet-submit').textContent = 'Submit';
-    document.getElementById('nav-about').textContent = 'Report';
-    document.getElementById('nav-settings').textContent = 'Settings';
+    setIconLabel('nav-about', 'Report');
+    setIconLabel('nav-settings', 'Settings');
     document.getElementById('back-home-settings').textContent = '← Back to To-Do List';
     document.getElementById('settings-title').textContent = 'Settings';
     document.getElementById('tab-btn-task-timing').textContent = 'Task Timing';
@@ -2982,7 +2992,7 @@ function renderUser() {
   const session = getSession();
   document.getElementById('nav-user').textContent = session ? session.worker.name : '';
   // A guard who came in from the Worker Portal has a way back to it (same tab: the portal keeps its own sign in)
-  document.getElementById('nav-portal').closest('.portal-back').hidden = !session;
+  document.getElementById('nav-portal').hidden = !session;
   // Settings is only for the people who may change it; everybody else has nothing to do there
   const settingsLink = document.getElementById('nav-settings');
   (settingsLink.closest('li') || settingsLink).hidden = !canEditSettings();
@@ -3262,7 +3272,10 @@ function renderSyncStatus() {
   const stuck = pendingLogs().filter(l => l.syncError).length;
   const last = Number(localStorage.getItem('mata_malam_last_sync'));
   button.disabled = syncState === 'working';
-  button.textContent = syncState === 'working' ? (bm ? 'Menyelaras…' : 'Synchronizing…') : (bm ? 'Selaraskan Data' : 'Synchronize Data');
+  // The button is an icon in the header: it spins while synchronizing and carries a dot while something waits
+  button.classList.toggle('syncing', syncState === 'working');
+  setIconLabel('hero-btn', syncState === 'working' ? (bm ? 'Menyelaras…' : 'Synchronizing…') : (bm ? 'Selaraskan Data' : 'Synchronize Data'));
+  document.getElementById('sync-dot').hidden = !(syncState === 'offline' || waiting > 0);
   const parts = [];
   if (syncState === 'offline') parts.push(bm ? 'Tiada isyarat — disimpan pada telefon ini' : 'No signal — saved on this phone');
   if (waiting) parts.push(bm ? `${waiting} belum dihantar` : `${waiting} waiting to send`);
