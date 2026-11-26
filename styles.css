@@ -2031,3 +2031,16 @@ body.signed-out .header-row2 {
   .time-chip { width: 36px; height: 36px; border-radius: 10px; }
   .task-time { gap: 0.45rem; }
 }
+
+/* The back / History / Report row now sits under the header line, at the top of the page */
+main {
+  padding-top: 1rem;
+}
+
+main > .header-row2 {
+  margin-bottom: 1.25rem;
+}
+
+main > .header-row2 nav ul {
+  gap: 0.6rem;
+}
