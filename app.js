@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26c';
+const APP_VERSION = '2026-11-26d';
 
 let activeStream = null;
 
@@ -2109,19 +2109,6 @@ function backRoundSheet() {
   openRound = null;
   renderTasks();
 }
-// Closing only leaves the screen: a road track that is recording carries on, and the task stays in the To-Do List
-function closeRoundSheet() {
-  // Submit: every pin checked in and the road track still running means the walk is over, so it is stopped and kept
-  if (openRound && roundRecording(openRound) && roundTasks(openRound).every(task => task.log && task.log.status !== 'missed')) {
-    // A track that has not moved is not saved: the guard walks first, or cancels it
-    if (routeNotWalked()) { sayRouteNotWalked(); return; }
-    stopRouteTracking();
-  }
-  hideRoundSheet();
-  openRound = null;
-  renderTasks();
-}
-
 function drawRoundMap() {
   const el = document.getElementById('round-map');
   if (roundMap) roundMap.remove();
@@ -2176,7 +2163,6 @@ function renderRoundSheet() {
     ? `${done} / ${tasks.length} pin`
     : `${done} / ${tasks.length} pins`;
   document.getElementById('round-lbl-pins').textContent = currentLang === 'BM' ? 'Pin untuk dilawati' : 'Pins to visit';
-  document.getElementById('round-close').textContent = currentLang === 'BM' ? 'Hantar' : 'Submit';
   document.getElementById('round-back').textContent = currentLang === 'BM' ? '← Kembali' : '← Back';
   renderRoundRoute();
   renderRoundPins();
@@ -2207,7 +2193,11 @@ function renderRoundRoute() {
   status.classList.toggle('route-status-warning', !!(recording && routeWarning));
   if (recording) {
     state.innerHTML = `<span class="route-recording">● ${currentLang === 'BM' ? 'Merekod' : 'Recording'}</span> ${formatDistance(activeRoute.distance)} • ${formatElapsed(Date.now() - activeRoute.startedAt)}`;
-    status.textContent = routeWarning || '';
+    // Every pin checked in: the one thing left is to stop the track, and the task is done
+    const allIn = roundTasks(r).every(task => task.log && task.log.status !== 'missed');
+    status.textContent = routeWarning || (allIn
+      ? (currentLang === 'BM' ? 'Semua pin sudah didaftar masuk. Tekan Henti Jejak Laluan untuk selesai.' : 'All pins checked in. Press Stop Road Track to finish.')
+      : '');
   } else if (finished) {
     state.textContent = `✓ ${formatDistance(finished.routeDistance || 0)} • ${formatElapsed(finished.routeDuration || 0)}`;
     status.textContent = currentLang === 'BM'
