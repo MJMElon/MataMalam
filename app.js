@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-26r';
+const APP_VERSION = '2026-11-26s';
 
 let activeStream = null;
 
@@ -2352,6 +2352,77 @@ function sayRoundNotice(text) {
   setTimeout(() => { if (Date.now() - roundNoticeAt >= 3900) renderRoundPins(); }, 4000);
 }
 
+// ── Alerts while walking, so the guard need not watch the screen ──
+// Getting close to the next pin: one short buzz at 25 m, two at 10 m. Reached it (Capture opens):
+// a long buzz pattern, a chime and a spoken "Pin 1 reached, take the photo". The colours on the map stay.
+// (Vibration works on Android phones; iPhones do not let a web page vibrate, so they get the chime and voice.)
+let alertAudio = null;
+let roundAlert = { point: null, level: 0 };
+// Sound may only start from a press: the Start Road Track press opens it for the rest of the patrol
+function unlockAlertAudio() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!alertAudio) alertAudio = new Ctx();
+    if (alertAudio.state === 'suspended') alertAudio.resume();
+  } catch (err) {}
+}
+function buzz(pattern) {
+  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (err) {}
+}
+function chime() {
+  if (!alertAudio) return;
+  try {
+    if (alertAudio.state === 'suspended') alertAudio.resume();
+    const start = alertAudio.currentTime + 0.02;
+    [880, 1175, 1568].forEach((freq, i) => {
+      const osc = alertAudio.createOscillator();
+      const gain = alertAudio.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const t = start + i * 0.16;
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      osc.connect(gain).connect(alertAudio.destination);
+      osc.start(t);
+      osc.stop(t + 0.4);
+    });
+  } catch (err) {}
+}
+function say(text) {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const words = new SpeechSynthesisUtterance(text);
+    words.lang = currentLang === 'BM' ? 'ms-MY' : 'en-US';
+    window.speechSynthesis.speak(words);
+  } catch (err) {}
+}
+// Called on every GPS fix with the next pin: alerts only when the guard crosses into a closer band
+function roundProximityAlert(r, row, ready) {
+  if (!row || !row.pin || !roundRecording(r) || row.away === null) { roundAlert = { point: null, level: 0 }; return; }
+  const level = ready ? 3 : Math.round(row.away) <= 10 ? 2 : Math.round(row.away) <= 25 ? 1 : 0;
+  if (roundAlert.point !== row.task.point) roundAlert = { point: row.task.point, level: 0, readyAt: 0 };
+  if (level <= roundAlert.level) {
+    // Walked away again: the next approach alerts again
+    if (level < roundAlert.level - 1 || (roundAlert.level === 3 && level < 3)) roundAlert.level = level;
+    return;
+  }
+  roundAlert.level = level;
+  const no = row.index + 1;
+  if (level === 1) buzz(200);
+  else if (level === 2) buzz([200, 120, 200]);
+  else {
+    // GPS hovering around 3 m: the arrival alert once, not again within 20 s
+    if (Date.now() - (roundAlert.readyAt || 0) < 20000) return;
+    roundAlert.readyAt = Date.now();
+    buzz([500, 150, 500, 150, 500]);
+    chime();
+    setTimeout(() => say(currentLang === 'BM' ? `Sampai di pin ${no}. Ambil gambar.` : `Pin ${no} reached. Take the photo.`), 600);
+  }
+}
+
 // The pins live on the map only: red with a number to visit, blue for the one the arrow points to,
 // green with a camera once the guard is within 3 m (pressing it opens the camera), green ✓ when done
 function renderRoundPins() {
@@ -2375,6 +2446,7 @@ function renderRoundPins() {
   const target = nextRow && nextRow.pin ? nextRow : null;
   const canCapture = roundCanCapture(r);
   const ready = nextRow && nextRow.near && canCapture ? nextRow : null;
+  roundProximityAlert(r, nextRow, ready);
 
   if (roundLayers) {
     const markers = roundLayers.markers || (roundLayers.markers = {});
@@ -2501,6 +2573,8 @@ function toggleRoundRoute() {
   }
   if (activeRoute) return;
   if (!roundGpsReady()) { renderRoundRoute(); return; }
+  unlockAlertAudio();
+  roundAlert = { point: null, level: 0 };
   startRouteTracking(roundKey(openRound), openRound).then(() => { renderRoundRoute(); renderRoundPins(); renderTodo(); });
 }
 
