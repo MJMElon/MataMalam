@@ -2632,3 +2632,29 @@ main > .header-row2 {
   border-radius: 12px;
   font-size: 1.2rem;
 }
+
+/* Five pin photos fit on one row on any phone: five equal squares, never wider than 48 px */
+.hcard-pins {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 48px));
+  gap: 0.55rem;
+}
+.hpin,
+.hpin-photo,
+.hpin .task-thumb-none {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+}
+.hpin-photo,
+.hpin .task-thumb-none {
+  border-radius: 10px;
+}
+.hpin-x { font-size: 0.95rem; }
+.hpin-no {
+  top: -5px;
+  left: -5px;
+  min-width: 18px;
+  height: 18px;
+  font-size: 0.68rem;
+}
