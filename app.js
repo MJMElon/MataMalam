@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-27a';
+const APP_VERSION = '2026-11-27b';
 
 let activeStream = null;
 
@@ -2051,15 +2051,21 @@ let roundGpsError = null;
 function roundGpsReady() {
   return !!roundHere && Date.now() - roundHereAt <= 2 * 60 * 1000 && roundHereAccuracy <= ROUTE_MAX_ACCURACY_M;
 }
-// A pin opens only for somebody standing within this distance of it (3 m). Far away, or with no
-// GPS fix yet, the row is shown and cannot be pressed. Asked again when the row is pressed.
-const PIN_RANGE_M = 3;
+// A pin opens only for somebody standing within this distance of it. The office sets it (System
+// Setting > Mata Malam > Capture photo within, timing.pinRangeMeters); not set is 3 m, what it was
+// before it could be set. Far away, or with no GPS fix yet, the row is shown and cannot be pressed.
+// Asked again when the row is pressed.
+const PIN_RANGE_DEFAULT_M = 3;
+function getPinRangeMeters() {
+  const value = Number(getTaskSettings().pinRangeMeters);
+  return Number.isFinite(value) && value > 0 ? Math.round(value) : PIN_RANGE_DEFAULT_M;
+}
 function pinInRange(location, point) {
   const pin = getLocationPins(location).find(p => p.name === point);
   if (!pin) return true;                 // a pin the map cannot place is not held back by the map
   // A position more than two minutes old says nothing about where the guard is now
   if (!roundHere || Date.now() - roundHereAt > 2 * 60 * 1000) return false;
-  return Math.round(distanceMeters(roundHere, [pin.lat, pin.lng])) <= PIN_RANGE_M;
+  return Math.round(distanceMeters(roundHere, [pin.lat, pin.lng])) <= getPinRangeMeters();
 }
 
 function roundKey(r) { return `round:${r.location}|${r.date}|${r.time}`; }
@@ -2499,7 +2505,7 @@ function renderRoundPins() {
       guide.innerHTML = `<span class="guide-arrow" style="transform: rotate(${deg.toFixed(0)}deg)">${GUIDE_ARROW_SVG}</span><span class="guide-text"><strong>${pinBadge(target.index)}<span class="guide-away">${formatDistance(target.away)}</span></strong><small></small></span>`;
       guide.querySelector('small').textContent = notice || (!canCapture
         ? (bm ? 'Tekan Mula Jejak Laluan dahulu, kemudian mula dari pin ini.' : 'Press Start Road Track first, then begin at this pin.')
-        : (bm ? `Pada ${PIN_RANGE_M} m, Ambil Gambar dibuka.` : `At ${PIN_RANGE_M} m, Capture opens.`));
+        : (bm ? `Pada ${getPinRangeMeters()} m, Ambil Gambar dibuka.` : `At ${getPinRangeMeters()} m, Capture opens.`));
     }
   }
 
@@ -2535,7 +2541,7 @@ function tapRoundPin(point) {
     return;
   }
   if (pinInRange(openRound.location, point)) { checkInPin(point); return; }
-  sayRoundNotice(bm ? `Dekati pin ini sehingga ${PIN_RANGE_M} m untuk Ambil Gambar.` : `Come within ${PIN_RANGE_M} m of this pin to Capture.`);
+  sayRoundNotice(bm ? `Dekati pin ini sehingga ${getPinRangeMeters()} m untuk Ambil Gambar.` : `Come within ${getPinRangeMeters()} m of this pin to Capture.`);
 }
 
 // One pin: the photo sheet for that pin. The task's screen comes back when it is submitted or cancelled.
@@ -3456,10 +3462,13 @@ function applyRemoteSettings(settings, stamp) {
   if (timingOk) {
     // The shortest road track is optional: kept only when the office has set a number (0 = no minimum)
     const min = Number(timing.minTrackMeters);
+    // How close a guard must stand to a pin to capture it: kept only when the office has set one
+    const range = Number(timing.pinRangeMeters);
     localStorage.setItem('mata_malam_task_settings', JSON.stringify({
       opensBeforeMinutes: timing.opensBeforeMinutes,
       windowMinutes: timing.windowMinutes,
-      ...(Number.isFinite(min) && min >= 0 ? { minTrackMeters: Math.round(min) } : {})
+      ...(Number.isFinite(min) && min >= 0 ? { minTrackMeters: Math.round(min) } : {}),
+      ...(Number.isFinite(range) && range > 0 ? { pinRangeMeters: Math.round(range) } : {})
     }));
   }
   // Where each location's pins are, set on the office map: a list, any number per location.
