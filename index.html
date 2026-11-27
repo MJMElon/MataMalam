@@ -100,11 +100,10 @@
     <!-- Page View 2: Standalone History Page -->
     <div id="done-module-page" class="page-view module-page">
 
-      <section class="task-section">
-        <div class="task-section-header">
-          <h2 id="done-title">History</h2>
-          <span class="task-meta" id="done-meta"></span>
-        </div>
+      <!-- No outer box and no big title (the History icon above says where you are): a quiet count, the filters, the cards -->
+      <section class="history-plain">
+        <h2 id="done-title" class="visually-hidden">History</h2>
+        <p class="todo-strip"><span class="task-meta" id="done-meta"></span></p>
         <!-- Filters: drawn from what the list holds, so every choice has something under it -->
         <div class="history-filters">
           <select class="select-input" id="history-date" onchange="renderHistory()" aria-label="Date"></select>

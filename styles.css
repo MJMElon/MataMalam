@@ -2465,3 +2465,170 @@ main > .header-row2 {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-5px); }
 }
+
+/* History: no outer box, cards straight on the page like the To-Do List */
+#done-module-page .history-plain {
+  margin-bottom: 1.5rem;
+}
+
+#done-list {
+  gap: 0.75rem;
+}
+
+#done-list .task-date-heading {
+  margin: 0.75rem 0 -0.15rem;
+  padding: 0 0.1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+#done-list .task-date-heading:first-child {
+  margin-top: 0;
+}
+
+#done-list .hcard {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-left: 4px solid #3fb950;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  cursor: default;
+}
+
+#done-list .hcard-no { border-left-color: var(--error-color); }
+#done-list .hcard-part { border-left-color: #d29922; }
+
+.hcard-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hcard-place {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.hcard-place strong {
+  font-size: 1rem;
+}
+
+.hcard-place small {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hcard-place small:empty {
+  display: none;
+}
+
+.hcard-status {
+  flex: 0 0 auto;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: #3fb950;
+  background-color: rgba(63, 185, 80, 0.14);
+}
+
+.hcard-no .hcard-status { color: #ff7b72; background-color: rgba(248, 81, 73, 0.14); }
+.hcard-part .hcard-status { color: #d29922; background-color: rgba(210, 153, 34, 0.16); }
+
+/* The pins: small photos in a row, each with its number; ✕ where it was not done */
+.hcard-pins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.hcard-pins:empty {
+  display: none;
+}
+
+.hpin {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+}
+
+.hpin-photo {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  object-fit: cover;
+  display: block;
+  background-color: var(--bg-color);
+}
+
+.hpin-x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px dashed rgba(248, 81, 73, 0.55);
+  color: #ff7b72;
+  font-size: 1.1rem;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+
+.hpin-no {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background-color: #3fb950;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--card-bg);
+}
+
+.hpin.missed .hpin-no {
+  background-color: #6e7681;
+}
+
+#done-list .history-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+#done-list .history-route .btn {
+  padding: 0.35rem 0.9rem;
+  width: auto;
+}
+
+.hpin .task-thumb-none {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  font-size: 1.2rem;
+}

@@ -1337,72 +1337,69 @@ function renderHistory(now = Date.now()) {
     }).catch(() => { if (log.photoUrl) img.src = log.photoUrl; else noPhotoThumb(img); });
   };
 
+  // A day heading reads like a date, not a code: "Thu, 26 Nov"
+  const dayLabel = date => {
+    const [y, m, day] = date.split('-').map(Number);
+    const days = bm ? ['Ahd', 'Isn', 'Sel', 'Rab', 'Kha', 'Jum', 'Sab'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = bm ? ['Jan', 'Feb', 'Mac', 'Apr', 'Mei', 'Jun', 'Jul', 'Ogo', 'Sep', 'Okt', 'Nov', 'Dis'] : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${days[new Date(y, m - 1, day).getDay()]}, ${day} ${months[m - 1]}`;
+  };
+
+  // ONE CARD: the time with its picture, the place and who did it, one small status on the right;
+  // under it each pin as a small photo with its number (✕ when not done). No box inside a box.
   let currentDate = null;
   groups.forEach(g => {
     if (g.date !== currentDate) {
       currentDate = g.date;
       const heading = document.createElement('li');
       heading.className = 'task-date-heading';
-      heading.textContent = g.date;
+      heading.textContent = dayLabel(g.date);
       doneList.appendChild(heading);
     }
-    const pinned = g.logs.some(l => l.point);
-    const first = g.done[0];
     const last = g.done.map(l => l.submittedAt).filter(Boolean).sort().pop();
     const li = document.createElement('li');
-    li.className = 'task-item task-done' + (g.state === 'no' ? ' task-missed' : '') + (g.state === 'part' ? ' task-part' : '');
-    const remark = g.state === 'no'
-      ? `<span class="task-remark-missed">${currentLang === 'BM' ? 'Kerja Tidak Disiapkan' : 'Work Not Completed'}</span>`
-      : (g.state === 'part'
-        ? `<span class="task-remark-part">${currentLang === 'BM' ? 'Tidak Lengkap' : 'Not Completed'}</span>`
-        : `<span class="task-submitted"><span class="task-check">✓</span> ${last ? formatClock(last) : ''}</span>`);
+    li.className = `task-item task-done hcard hcard-${g.state}`;
+    const status = g.state === 'ok'
+      ? `✓ ${last ? formatClock(last) : ''}`
+      : g.state === 'part'
+        ? `${g.done.length}/${g.logs.length}`
+        : (bm ? 'Tidak dibuat' : 'Not done');
     li.innerHTML = `
-      ${pinned ? '' : (first ? '<img class="task-thumb" alt="">' : '<span class="task-thumb task-thumb-missed" aria-hidden="true">✕</span>')}
-      <span class="task-time">${formatSlotTime(g.time)}</span>
-      <span class="task-location">${g.location}${pinned ? ` <span class="task-point">📍 ${g.done.length}/${g.logs.length}</span>` : ''}<span class="task-deadline task-by"></span></span>
-      <span class="task-action">${remark}</span>
+      <div class="hcard-head">
+        <span class="task-time">${timeBadge(g.time)}</span>
+        <span class="hcard-place"><strong></strong><small class="task-by"></small></span>
+        <span class="hcard-status">${status}</span>
+      </div>
+      <div class="hcard-pins"></div>
     `;
+    li.querySelector('.hcard-place strong').textContent = g.location;
     li.querySelector('.task-by').textContent = [...new Set(g.done.map(l => l.workerName).filter(Boolean))].join(', ');
-    // A pinned card shows each pin's own photo below, so the head carries none
-    if (first && !pinned) showPhoto(li.querySelector('img'), first);
 
-    // The task's one road track
+    const pins = li.querySelector('.hcard-pins');
+    g.logs.forEach((log, index) => {
+      const missed = log.status === 'missed';
+      const cell = document.createElement('div');
+      cell.className = 'hpin' + (missed ? ' missed' : '');
+      cell.title = `${log.point || log.location}${missed ? '' : (log.submittedAt ? ' • ' + formatClock(log.submittedAt) : '')}`;
+      cell.innerHTML = `${missed ? '<span class="hpin-photo hpin-x" aria-hidden="true">✕</span>' : '<img class="hpin-photo" alt="">'}<span class="hpin-no">${index + 1}</span>`;
+      const img = cell.querySelector('img');
+      if (img) showPhoto(img, log);
+      pins.appendChild(cell);
+    });
+
+    // The task's one road track: one quiet line under the pins
     const routed = g.done.find(l => l.routeId || l.hasRoute);
     if (routed) {
-      li.classList.add('task-has-route');
       li.insertAdjacentHTML('beforeend', `
         <div class="history-route">
           <span class="icon-text">${ICONS.route} ${formatDistance(routed.routeDistance || 0)} • ${formatElapsed(routed.routeDuration || 0)}</span>
-          <button type="button" class="btn btn-secondary history-route-btn">${currentLang === 'BM' ? 'Peta' : 'Map'}</button>
+          <button type="button" class="btn btn-secondary history-route-btn">${bm ? 'Peta' : 'Map'}</button>
         </div>
         <div class="history-route-map" hidden>
           <div class="route-map"></div>
         </div>
       `);
       li.querySelector('.history-route-btn').onclick = (event) => toggleHistoryRoute(event.currentTarget, routed);
-    }
-
-    // Each pin of it: its photo, who, when, or that it was not done
-    if (pinned) {
-      li.classList.add('task-has-pins');
-      const list = document.createElement('ul');
-      list.className = 'history-pins';
-      g.logs.forEach(log => {
-        const missed = log.status === 'missed';
-        const row = document.createElement('li');
-        row.className = 'history-pin' + (missed ? ' missed' : '');
-        row.innerHTML = `${missed ? '<span class="history-pin-thumb missed" aria-hidden="true">✕</span>' : '<img class="history-pin-thumb" alt="">'}
-          <span class="history-pin-name"><strong></strong><small></small></span>
-          <span class="history-pin-when">${missed
-            ? `<span class="task-remark-missed">${currentLang === 'BM' ? 'Tidak dibuat' : 'Not done'}</span>`
-            : `<span class="task-check">✓</span> ${log.submittedAt ? formatClock(log.submittedAt) : ''}`}</span>`;
-        row.querySelector('strong').textContent = log.point || log.location;
-        row.querySelector('small').textContent = missed ? '' : (log.workerName || '');
-        const img = row.querySelector('img');
-        if (img) showPhoto(img, log);
-        list.appendChild(row);
-      });
-      li.appendChild(list);
     }
     doneList.appendChild(li);
   });
