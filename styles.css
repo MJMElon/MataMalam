@@ -2411,3 +2411,57 @@ main > .header-row2 {
 @media (prefers-reduced-motion: reduce) {
   .mm-splash-img, .mm-splash-title, .mm-splash-glow { animation: none; }
 }
+
+/* Task map pins: a map-pin shape (round head, point on the spot) with the number in the head */
+.round-pin2 {
+  position: relative;
+  cursor: pointer;
+}
+.round-pin2 .round-pin-shape {
+  position: absolute;
+  inset: 0;
+  width: 36px;
+  height: 48px;
+  overflow: visible;
+  z-index: 0;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+.round-pin2 .round-pin-shape path {
+  fill: #d93025;
+  stroke: #ffffff;
+  stroke-width: 2.5;
+}
+.round-pin2.ready .round-pin-shape path { fill: #2ea043; }
+.round-pin2.done .round-pin-shape path { fill: #2e7d32; }
+.round-pin2.closed .round-pin-shape path { fill: #6e7681; }
+.round-pin2 span,
+.round-pin2.target span,
+.round-pin2.ready span,
+.round-pin2.done span,
+.round-pin2.closed span {
+  position: absolute;
+  left: 0;
+  top: 3px;
+  width: 36px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+  transform: none;
+  animation: none;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.95rem;
+  z-index: 1;
+}
+.round-pin2 span svg { width: 16px; height: 16px; }
+.round-pin2.ready .round-pin-shape { animation: pinBounce 1s ease-in-out infinite; transform-origin: 50% 100%; }
+.round-pin2.ready span { animation: pinBounce 1s ease-in-out infinite; transform-origin: 50% 100%; }
+@keyframes pinBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}

@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-27d';
+const APP_VERSION = '2026-11-27e';
 
 let activeStream = null;
 
@@ -2316,6 +2316,7 @@ function roundMapMove(move) {
   roundAutoMove = true;
   try { move(); } finally { setTimeout(() => { roundAutoMove = false; }, 400); }
 }
+const PIN_SHAPE_SVG = '<svg class="round-pin-shape" viewBox="0 0 36 48" aria-hidden="true"><path d="M18 46C18 46 3 29.5 3 18a15 15 0 0 1 30 0c0 11.5-15 28-15 28z"/></svg>';
 const PIN_SVG_SMALL = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>';
 // A pin is named by its number on a small badge, not its long name
 function pinBadge(index) {
@@ -2360,8 +2361,8 @@ function sayRoundNotice(text) {
 
 // ── Alerts while walking, so the guard need not watch the screen ──
 // Getting close to the next pin: one short buzz at 25 m, two at 10 m. Reached it (Capture opens):
-// a long buzz pattern, a chime and a spoken "Pin 1 reached, take the photo". The colours on the map stay.
-// (Vibration works on Android phones; iPhones do not let a web page vibrate, so they get the chime and voice.)
+// a long buzz pattern and a bell, ding ding ding. The colours on the map stay.
+// (Vibration works on Android phones; iPhones do not let a web page vibrate, so they get the bell.)
 let alertAudio = null;
 let roundAlert = { point: null, level: 0 };
 // Sound may only start from a press: the Start Road Track press opens it for the rest of the patrol
@@ -2376,33 +2377,28 @@ function unlockAlertAudio() {
 function buzz(pattern) {
   try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (err) {}
 }
+// A bell: "ding ding ding". Each ding is a struck-bell tone (a main note with the bright,
+// slightly out-of-tune overtones of a real bell) that rings out and fades.
 function chime() {
   if (!alertAudio) return;
   try {
     if (alertAudio.state === 'suspended') alertAudio.resume();
     const start = alertAudio.currentTime + 0.02;
-    [880, 1175, 1568].forEach((freq, i) => {
-      const osc = alertAudio.createOscillator();
-      const gain = alertAudio.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      const t = start + i * 0.16;
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-      osc.connect(gain).connect(alertAudio.destination);
-      osc.start(t);
-      osc.stop(t + 0.4);
-    });
-  } catch (err) {}
-}
-function say(text) {
-  try {
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const words = new SpeechSynthesisUtterance(text);
-    words.lang = currentLang === 'BM' ? 'ms-MY' : 'en-US';
-    window.speechSynthesis.speak(words);
+    for (let ding = 0; ding < 3; ding++) {
+      const t = start + ding * 0.45;
+      [[1, 0.5, 1.4], [2.76, 0.18, 0.7], [5.4, 0.08, 0.35]].forEach(([ratio, level, ring]) => {
+        const osc = alertAudio.createOscillator();
+        const gain = alertAudio.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 1320 * ratio;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(level, t + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + ring);
+        osc.connect(gain).connect(alertAudio.destination);
+        osc.start(t);
+        osc.stop(t + ring + 0.05);
+      });
+    }
   } catch (err) {}
 }
 // Called on every GPS fix with the next pin: alerts only when the guard crosses into a closer band
@@ -2425,7 +2421,6 @@ function roundProximityAlert(r, row, ready) {
     roundAlert.readyAt = Date.now();
     buzz([500, 150, 500, 150, 500]);
     chime();
-    setTimeout(() => say(currentLang === 'BM' ? `Sampai di pin ${no}. Ambil gambar.` : `Pin ${no} reached. Take the photo.`), 600);
   }
 }
 
@@ -2469,7 +2464,8 @@ function renderRoundPins() {
       if (marker.pinState !== state) {
         marker.pinState = state;
         const label = state === 'done' ? '✓' : state === 'ready' ? ICONS.camera : String(x.index + 1);
-        marker.setIcon(L.divIcon({ className: `round-pin2 ${state}`, html: `<span>${label}</span>`, iconSize: [36, 36], iconAnchor: [18, 18] }));
+        // A map pin: the point sits exactly on the spot, the number (or ✓ / camera) in the round head
+        marker.setIcon(L.divIcon({ className: `round-pin2 ${state}`, html: `${PIN_SHAPE_SVG}<span>${label}</span>`, iconSize: [36, 48], iconAnchor: [18, 46] }));
         marker.setZIndexOffset(state === 'ready' ? 1000 : 0);
       }
     });
@@ -2574,7 +2570,12 @@ function toggleRoundRoute() {
     // Every pin captured (not just the time running out): fireworks once the track is saved
     const finished = { ...openRound };
     const allCaptured = roundTasks(finished).every(task => task.log && task.log.status !== 'missed');
-    Promise.resolve(stopRouteTracking()).then(() => { if (allCaptured) celebrateTask(finished); });
+    Promise.resolve(stopRouteTracking()).then(() => {
+      if (!allCaptured) return;
+      // Done: back to the To-Do List by itself (no Back to press), with the fireworks over it
+      if (openRound && roundKey(openRound) === roundKey(finished)) backRoundSheet();
+      celebrateTask(finished);
+    });
     return;
   }
   if (activeRoute) return;
