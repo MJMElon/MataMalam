@@ -3110,7 +3110,10 @@ function toggleLanguage() {
   const langBtn = document.getElementById('nav-lang');
   document.getElementById('nav-lang-code').textContent = currentLang === 'EN' ? 'BM' : 'EN';
   setIconLabel('nav-lang', currentLang === 'EN' ? 'Tukar ke Bahasa Melayu' : 'Switch to English');
-  setIconLabel('nav-portal', currentLang === 'BM' ? 'Kembali ke Worker Portal' : 'Back to Worker Portal');
+  const staffBack = (getSession() || {}).staff;
+  setIconLabel('nav-portal', staffBack
+    ? (currentLang === 'BM' ? 'Kembali ke FC Portal' : 'Back to FC Portal')
+    : (currentLang === 'BM' ? 'Kembali ke Worker Portal' : 'Back to Worker Portal'));
   setIconLabel('nav-home', currentLang === 'BM' ? 'Laman Utama' : 'Home');
 
   if (currentLang === 'BM') {
@@ -3355,14 +3358,19 @@ async function startSession() {
   if (handed && !(current && current.token === handed)) {
     try {
       // Short wait: with no or weak signal the guard carries on as who was signed in on this phone
-      const who = await rpc('worker_whoami', { p_token: handed }, 6000);
+      // mata_malam_whoami knows a worker PIN token AND a staff token handed over by the FC Portal.
+      // A database that has not had RUN_ME_mata_malam_staff.sql run has only worker_whoami.
+      let who;
+      try { who = await rpc('mata_malam_whoami', { p_token: handed }, 6000); }
+      catch (err) { who = await rpc('worker_whoami', { p_token: handed }, 6000); }
       if (who && who.token && who.worker && who.worker.name) {
         // fromPortal: the session is the Worker Portal's too, so signing out here must not end it there
         localStorage.setItem('mata_malam_session', JSON.stringify({
           token: who.token,
           worker: { id: who.worker.id, name: who.worker.name, role: who.worker.role || '' },
           canEdit: false,
-          fromPortal: true
+          fromPortal: true,
+          ...(who.staff ? { staff: true } : {})
         }));
       }
     } catch (err) {
@@ -3387,7 +3395,10 @@ function renderUser() {
   const session = getSession();
   document.getElementById('nav-user').textContent = session ? session.worker.name : '';
   // A guard who came in from the Worker Portal has a way back to it (same tab: the portal keeps its own sign in)
-  document.getElementById('nav-portal').hidden = !session;
+  const back = document.getElementById('nav-portal');
+  back.hidden = !session;
+  // A staff account came in from the FC Portal, so the way back is the FC Portal
+  back.href = session && session.staff ? 'https://scan.mjmnursery.com/#/' : 'https://scan.mjmnursery.com/#/worker';
   // Settings is only for the people who may change it; everybody else has nothing to do there
   const settingsLink = document.getElementById('nav-settings');
   (settingsLink.closest('li') || settingsLink).hidden = !canEditSettings();
@@ -3621,7 +3632,8 @@ async function syncNow({ manual = false } = {}) {
         // The location the Worker Namelist files this worker under; null is every location
         myLocations: Array.isArray(state.my_locations) ? state.my_locations : null,
         ...(state.access && typeof state.access === 'object' ? { access: state.access } : (session.access ? { access: session.access } : {})),
-        ...(session.fromPortal ? { fromPortal: true } : {})
+        ...(session.fromPortal ? { fromPortal: true } : {}),
+        ...(session.staff || (state.worker.id < 0) ? { staff: true } : {})
       }));
       const seen = new Set();
       const list = [];
