@@ -423,7 +423,14 @@ const MAX_TASK_SLOTS = 12;
 // within one hour of appearing. Admins can change both in Settings.
 const DEFAULT_TASK_SETTINGS = { opensBeforeMinutes: 15, windowMinutes: 60 };
 const MINUTE_MS = 60 * 1000;
-const HISTORY_SHIFTS = 7;
+// How many nights History shows, set by the office (timing.historyDays in System Setting > Mata Malam).
+// Not set: 7, what it always showed. The phone is handed 35 days of check-ins, so 35 is the most.
+const HISTORY_DEFAULT_DAYS = 7;
+const HISTORY_MAX_DAYS = 35;
+function getHistoryDays() {
+  const value = Number(getTaskSettings().historyDays);
+  return Number.isInteger(value) && value >= 1 ? Math.min(value, HISTORY_MAX_DAYS) : HISTORY_DEFAULT_DAYS;
+}
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 let pendingTask = null;
@@ -1241,7 +1248,7 @@ function renderTodo(now = Date.now()) {
 
 function renderHistory(now = Date.now()) {
   const dates = [];
-  for (let i = 0; i < HISTORY_SHIFTS; i++) dates.push(getShiftDate(new Date(now - i * DAY_MS)));
+  for (let i = 0, n = getHistoryDays(); i < n; i++) dates.push(getShiftDate(new Date(now - i * DAY_MS)));
   const all = getLogs()
     .filter(log => dates.includes(log.date) && isMyLocation(log.location) && !log.patrolOpen && !Number.isNaN(parseSlotLabel(log.time)))
     .map(log => ({ log, ...getTaskWindow(log.date, log.time) }))
@@ -3259,11 +3266,14 @@ function applyRemoteSettings(settings, stamp) {
     const min = Number(timing.minTrackMeters);
     // How close a guard must stand to a pin to capture it: kept only when the office has set one
     const range = Number(timing.pinRangeMeters);
+    // How many nights History shows: kept only when the office has set one
+    const days = Number(timing.historyDays);
     localStorage.setItem('mata_malam_task_settings', JSON.stringify({
       opensBeforeMinutes: timing.opensBeforeMinutes,
       windowMinutes: timing.windowMinutes,
       ...(Number.isFinite(min) && min >= 0 ? { minTrackMeters: Math.round(min) } : {}),
-      ...(Number.isFinite(range) && range > 0 ? { pinRangeMeters: Math.round(range) } : {})
+      ...(Number.isFinite(range) && range > 0 ? { pinRangeMeters: Math.round(range) } : {}),
+      ...(Number.isInteger(days) && days >= 1 ? { historyDays: Math.min(days, HISTORY_MAX_DAYS) } : {})
     }));
   }
   // Where each location's pins are, set on the office map: a list, any number per location.
