@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-27e';
+const APP_VERSION = '2026-11-27f';
 
 let activeStream = null;
 
@@ -70,20 +70,6 @@ function switchSettingsTab(tabName) {
     panel.classList.toggle('active', panel.id === `tab-${tabName}`);
   });
   if (tabName === 'locations') initCheckpointMap();
-}
-
-function showReportPage() {
-  if (!can('report')) { showHomePage(); return; }
-  stopActiveCamera();
-  document.querySelectorAll('.page-view').forEach(page => {
-    page.style.display = 'none';
-  });
-  document.getElementById('report-module-page').style.display = 'block';
-  document.getElementById('nav-home').hidden = false;
-  populateReportYearDropdown();
-  populateReportLocations();
-  generateReport();
-  window.scrollTo(0, 0);
 }
 
 function stopActiveCamera() {
@@ -2921,175 +2907,9 @@ function toggleHistoryRoute(button, log) {
   }).catch(() => {});
 }
 
-// ───────────────────────── Daily Work Report ─────────────────────────
-// ONE ROW PER DAY PER LOCATION. A location's day is complete when EVERY check-in time set for it on
-// System Setting was done, and a time is done when EVERY pin of it was checked in (the To-Do List's
-// own rule). Four times of five is not a day's work. The day is the shift day (it runs past midnight).
-// The times asked of a past day are the ones set NOW: a time added today is asked of last week too.
-let reportDefaulted = false;
-const reportFetched = new Set();
-
-function populateReportYearDropdown() {
-  const yearSelect = document.getElementById('report-year-select');
-  const monthSelect = document.getElementById('report-month-select');
-  const chosen = yearSelect.value;
-  const today = getShiftDate();
-  const years = new Set(getLogs().map(log => String(log.date || '').split('-')[0]).filter(Boolean));
-  years.add(today.slice(0, 4));
-  yearSelect.innerHTML = `<option value="" id="opt-all-years">${currentLang === 'BM' ? 'Semua Tahun' : 'All Years'}</option>`;
-  // Newest year first, so the latest is what the list opens on
-  [...years].sort().reverse().forEach(year => {
-    const opt = document.createElement('option');
-    opt.value = year;
-    opt.textContent = year;
-    yearSelect.appendChild(opt);
-  });
-  // Opens on this month: a daily report of every day ever is a list nobody reads
-  if (!reportDefaulted) {
-    reportDefaulted = true;
-    yearSelect.value = today.slice(0, 4);
-    monthSelect.value = today.slice(5, 7);
-  } else {
-    yearSelect.value = chosen;
-  }
-}
-
-// The report's location filter: the current locations, plus any older one that still has logs
-function populateReportLocations() {
-  const select = document.getElementById('report-module-select');
-  if (!select) return;
-  const selected = select.value || 'ALL';
-  const names = new Map(getLocations().filter(l => isMyLocation(l.code)).map(l => [l.code, l.name]));
-  getLogs().forEach(log => { if (log.location && isMyLocation(log.location) && !names.has(log.location)) names.set(log.location, log.location); });
-  select.innerHTML = '';
-  const all = document.createElement('option');
-  all.value = 'ALL';
-  all.id = 'opt-all';
-  all.textContent = currentLang === 'BM' ? 'Semua Lokasi' : 'All Locations';
-  select.appendChild(all);
-  names.forEach((name, code) => {
-    const opt = document.createElement('option');
-    opt.value = code;
-    opt.textContent = name;
-    select.appendChild(opt);
-  });
-  select.value = [...select.options].some(o => o.value === selected) ? selected : 'ALL';
-}
-
-function addDays(date, n) {
-  const [y, m, d] = date.split('-').map(Number);
-  const t = new Date(y, m - 1, d + n);
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-}
-
-// One location on one day: each time, whether it is done, and the day's answer
-function dailyWork(date, location, now = Date.now()) {
-  const tasks = getShiftTasks(date).filter(task => task.location === location);
-  const times = [];
-  tasks.forEach(task => {
-    let t = times.find(x => x.time === task.time);
-    if (!t) { t = { time: task.time, tasks: [], closesAt: 0 }; times.push(t); }
-    t.tasks.push(task);
-    t.closesAt = Math.max(t.closesAt, task.closesAt);
-  });
-  const guards = new Set();
-  times.forEach(t => {
-    t.done = t.tasks.every(task => task.log && task.log.status !== 'missed');
-    t.state = t.done ? 'ok' : (now < t.closesAt ? 'wait' : 'no');
-    t.tasks.forEach(task => { if (task.log && task.log.status !== 'missed' && task.log.workerName) guards.add(task.log.workerName); });
-  });
-  const done = times.filter(t => t.done).length;
-  const state = !times.length ? null : (done === times.length ? 'ok' : (times.some(t => t.state === 'wait') ? 'wait' : 'no'));
-  return { date, location, times, done, state, guards: [...guards] };
-}
-
-// A month older than the phone's own window is asked of the AI System once, so an old month is not
-// read as a month of missed work only because this phone never held its check-ins.
-async function fetchReportMonth(year, month) {
-  const session = getSession();
-  if (!session || !year || !month) return;
-  const key = `${year}-${month}`;
-  if (reportFetched.has(key)) return;
-  reportFetched.add(key);
-  try {
-    const state = await rpc('mata_malam_state', { p_token: session.token, p_from: `${key}-01` });
-    if (state && mergeRemoteLogs(state.logs) && document.getElementById('report-module-page').style.display === 'block') generateReport();
-  } catch (err) {
-    reportFetched.delete(key);
-  }
-}
-
-function generateReport() {
-  const logs = getLogs();
-  const selectedMonth = document.getElementById('report-month-select').value;
-  const selectedYear = document.getElementById('report-year-select').value;
-  const selectedModule = document.getElementById('report-module-select').value;
-  const BM = currentLang === 'BM';
-  const tbody = document.getElementById('report-table-body');
-  const summary = document.getElementById('report-summary');
-  tbody.innerHTML = '';
-  summary.innerHTML = '';
-  if (selectedMonth && selectedYear) fetchReportMonth(selectedYear, selectedMonth);
-
-  // From the first day anything was recorded to today: a day before the app was in use is not a missed day
-  const today = getShiftDate();
-  const dates = logs.map(l => l.date).filter(Boolean).sort();
-  let first = dates[0] || today;
-  if (selectedYear && selectedMonth) first = first > `${selectedYear}-${selectedMonth}-01` ? first : `${selectedYear}-${selectedMonth}-01`;
-  const locations = selectedModule === 'ALL' ? getActiveLocations() : [selectedModule];
-  const rows = [];
-  // Newest day first: the report opens on what happened last
-  for (let date = today; date >= first; date = addDays(date, -1)) {
-    const [year, month] = date.split('-');
-    if (selectedYear && year !== selectedYear) continue;
-    if (selectedMonth && month !== selectedMonth) continue;
-    locations.forEach(location => {
-      const day = dailyWork(date, location);
-      if (day.state) rows.push(day);
-    });
-  }
-
-  if (!rows.length) {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td colspan="6" style="text-align: center; color: var(--text-muted);">${BM ? 'Tiada hari untuk dilaporkan.' : 'No days to report.'}</td>`;
-    tbody.appendChild(tr);
-    return;
-  }
-
-  // Per location: complete days out of the days that are over (today, still running, is not counted)
-  locations.forEach(location => {
-    const mine = rows.filter(r => r.location === location && r.state !== 'wait');
-    if (!rows.some(r => r.location === location)) return;
-    const card = document.createElement('div');
-    card.className = 'report-sum-card';
-    const ok = mine.filter(r => r.state === 'ok').length;
-    card.innerHTML = `<strong></strong>${ok} / ${mine.length} ${BM ? 'hari lengkap' : 'days complete'}`;
-    card.querySelector('strong').textContent = location;
-    summary.appendChild(card);
-  });
-
-  const label = { ok: BM ? 'Lengkap' : 'Completed', no: BM ? 'Tidak Lengkap' : 'Not Completed', wait: BM ? 'Sedang Berjalan' : 'In Progress' };
-  rows.forEach(day => {
-    const tr = document.createElement('tr');
-    tr.className = `report-row-${day.state}`;
-    const head = id => document.getElementById(id).textContent;
-    tr.innerHTML = `
-      <td class="rc-date" style="white-space: nowrap;">${day.date}</td>
-      <td class="rc-loc"><strong></strong></td>
-      <td class="rc-times" data-label="${head('th-timeslot')}"><span class="report-times">${day.times.map(t => `<span class="report-time ${t.state}">${t.state === 'ok' ? '✓' : (t.state === 'no' ? '✕' : '…')} ${formatSlotTime(t.time)}</span>`).join('')}</span></td>
-      <td class="report-done rc-done" data-label="${head('th-coordinates')}">${day.done} / ${day.times.length}</td>
-      <td class="rc-day"><span class="report-day ${day.state}">${label[day.state]}</span></td>
-      <td class="report-guard rc-guard" data-label="${head('th-guard')}"></td>
-    `;
-    tr.querySelector('strong').textContent = day.location;
-    tr.querySelector('.report-guard').textContent = day.guards.length ? day.guards.join(', ') : '-';
-    tbody.appendChild(tr);
-  });
-}
-
-function printReport() {
-  window.print();
-}
+// The Daily Work Report left this app: it is in the office now, Nursery Operation Management >
+// Nursery Work & Schedule > Work Records > Monthly Night Watchman Record (watchman_report.js in
+// the MJM AI System), which reads the same check-ins under the same rules.
 
 function handleClick() {
   syncNow({ manual: true });
@@ -3120,7 +2940,6 @@ function toggleLanguage() {
     document.getElementById('signin-hint').textContent = 'Buka Mata Malam dari 555 Worker Portal.';
     document.getElementById('signin-btn').textContent = 'Pergi ke Worker Portal';
     document.getElementById('signin-lang').textContent = 'English';
-    document.getElementById('th-guard').textContent = 'Pengawal';
     document.getElementById('todo-title').textContent = 'Senarai Tugasan';
     document.getElementById('done-title').textContent = 'Sejarah';
     setIconLabel('nav-done', 'Sejarah');
@@ -3131,7 +2950,6 @@ function toggleLanguage() {
     document.getElementById('sheet-lbl-location').textContent = 'Lokasi';
     document.getElementById('sheet-lbl-route').textContent = 'Jejak Laluan';
     document.getElementById('sheet-submit').textContent = 'Hantar';
-    setIconLabel('nav-about', 'Laporan');
     setIconLabel('nav-settings', 'Tetapan');
     document.getElementById('settings-title').textContent = 'Tetapan';
     document.getElementById('tab-btn-task-timing').textContent = 'Masa Tugasan';
@@ -3155,26 +2973,11 @@ function toggleLanguage() {
     showOfflineReady();
     document.getElementById('update-banner-text').textContent = 'Versi baharu tersedia.';
     document.getElementById('update-banner-btn').textContent = 'Kemas Kini';
-    
-    // Report text translation
-    document.getElementById('report-title').textContent = 'Laporan';
-    document.getElementById('btn-print').textContent = 'Cetak Laporan';
-    document.getElementById('label-report-month').textContent = 'Pilih Bulan';
-    document.getElementById('label-report-year').textContent = 'Pilih Tahun';
-    document.getElementById('label-report-module').textContent = 'Pilih Lokasi';
-    document.getElementById('opt-all-months').textContent = 'Semua Bulan';
-    document.getElementById('opt-all-years').textContent = 'Semua Tahun';
-    document.getElementById('opt-all').textContent = 'Semua Lokasi';
-    document.getElementById('th-location').textContent = 'Lokasi';
-    document.getElementById('th-date').textContent = 'Tarikh';
-    document.getElementById('th-timeslot').textContent = 'Masa Daftar Masuk';
-    document.getElementById('th-coordinates').textContent = 'Selesai';
-    document.getElementById('th-status').textContent = 'Kerja Harian';
+
   } else {
     document.getElementById('signin-hint').textContent = 'Open Mata Malam from the 555 Worker Portal.';
     document.getElementById('signin-btn').textContent = 'Go to Worker Portal';
     document.getElementById('signin-lang').textContent = 'Bahasa Melayu';
-    document.getElementById('th-guard').textContent = 'Guards';
     document.getElementById('todo-title').textContent = 'To-Do List';
     document.getElementById('done-title').textContent = 'History';
     setIconLabel('nav-done', 'History');
@@ -3185,7 +2988,6 @@ function toggleLanguage() {
     document.getElementById('sheet-lbl-location').textContent = 'Location';
     document.getElementById('sheet-lbl-route').textContent = 'Road Track';
     document.getElementById('sheet-submit').textContent = 'Submit';
-    setIconLabel('nav-about', 'Report');
     setIconLabel('nav-settings', 'Settings');
     document.getElementById('settings-title').textContent = 'Settings';
     document.getElementById('tab-btn-task-timing').textContent = 'Task Timing';
@@ -3210,20 +3012,6 @@ function toggleLanguage() {
     document.getElementById('update-banner-text').textContent = 'A new version is available.';
     document.getElementById('update-banner-btn').textContent = 'Update';
 
-    // Report text translation
-    document.getElementById('report-title').textContent = 'Report';
-    document.getElementById('btn-print').textContent = 'Print Report';
-    document.getElementById('label-report-month').textContent = 'Select Month';
-    document.getElementById('label-report-year').textContent = 'Select Year';
-    document.getElementById('label-report-module').textContent = 'Select Location';
-    document.getElementById('opt-all-months').textContent = 'All Months';
-    document.getElementById('opt-all-years').textContent = 'All Years';
-    document.getElementById('opt-all').textContent = 'All Locations';
-    document.getElementById('th-location').textContent = 'Location';
-    document.getElementById('th-date').textContent = 'Date';
-    document.getElementById('th-timeslot').textContent = 'Check-in Times';
-    document.getElementById('th-coordinates').textContent = 'Done';
-    document.getElementById('th-status').textContent = 'Daily Work';
   }
   renderTasks();
   updateSettingsPreview();
@@ -3232,7 +3020,6 @@ function toggleLanguage() {
   renderSyncStatus();
   renderCheckpointPicker();
   drawSiteOutlines();
-  if (document.getElementById('report-module-page').style.display === 'block') { populateReportYearDropdown(); populateReportLocations(); generateReport(); }
 }
 
 // ───────────────────────── Link to the MJM AI System ─────────────────────────
@@ -3254,7 +3041,7 @@ function getSession() {
 // Estate Manager) and Worker Portal (everybody else), and the database says which one this person
 // reads. Nothing known yet (no signal, or a database from before the switches) means everything is
 // on: a switch nobody could read must not take the app away from a guard on shift.
-const ACCESS_FUNCTIONS = ['home', 'photo', 'gps', 'history', 'report'];
+const ACCESS_FUNCTIONS = ['home', 'photo', 'gps', 'history'];
 function getAccess() {
   const session = getSession();
   const access = session && session.access;
@@ -3276,9 +3063,8 @@ function applyAccess() {
     if (el) (el.closest('li') || el).hidden = hidden;
   };
   hide('nav-done', !can('history'));
-  hide('nav-about', !can('report'));
   const shown = (id) => document.getElementById(id).style.display === 'block';
-  if ((!can('history') && shown('done-module-page')) || (!can('report') && shown('report-module-page'))) showHomePage();
+  if (!can('history') && shown('done-module-page')) showHomePage();
 }
 
 // The settings are the office's: System Setting > Mata Malam on the MJM AI System is the one place
@@ -3675,10 +3461,8 @@ async function syncNow({ manual = false } = {}) {
   renderTasks();
   renderLocationSettings();
   renderScheduleLocations();
-  populateReportLocations();
   applySettingsAccess();
   renderSyncStatus();
-  if (manual && document.getElementById('report-module-page').style.display === 'block') generateReport();
 }
 
 function renderSyncStatus() {
