@@ -14,7 +14,7 @@ const TILE_CACHE = `mata-malam-tiles-${CACHE_VERSION}`;
 const MAX_TILES = 3000;
 const NETWORK_WAIT_MS = 4000;
 
-const APP_FILES = ['./', 'index.html', 'app.js', 'styles.css', 'icon.svg', 'icon-180.png', 'manifest.json'];
+const APP_FILES = ['./', 'index.html', 'app.js', 'styles.css', 'icon.svg', 'icon-180.png', 'manifest.json', 'splash.webp'];
 const LIB_FILES = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'

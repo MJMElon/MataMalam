@@ -9,9 +9,33 @@
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#161b22">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=2026-11-27a">
+  <link rel="stylesheet" href="styles.css?v=2026-11-27c">
 </head>
 <body>
+  <!-- Entry splash: shown for about two seconds when Mata Malam is opened (once per tab), tap to skip.
+       Not shown on the reload an update makes (?v= in the address), so an update does not replay it. -->
+  <div id="mm-splash" class="mm-splash" aria-hidden="true">
+    <div class="mm-splash-glow"></div>
+    <img class="mm-splash-img" src="splash.webp" alt="">
+    <div class="mm-splash-title">Mata Malam</div>
+  </div>
+  <script>
+    (function () {
+      var el = document.getElementById('mm-splash');
+      var seen = false;
+      try { seen = sessionStorage.getItem('mm_splash_seen') === '1'; sessionStorage.setItem('mm_splash_seen', '1'); } catch (e) {}
+      if (seen || /[?&]v=/.test(location.search)) { el.remove(); return; }
+      var quick = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      var gone = false;
+      function hide() {
+        if (gone) return; gone = true;
+        el.classList.add('mm-splash-out');
+        setTimeout(function () { el.remove(); }, 500);
+      }
+      el.addEventListener('click', hide);
+      setTimeout(hide, quick ? 1200 : 2200);
+    })();
+  </script>
 
   <header>
     <!-- Icon bar: back to the Worker Portal and Synchronize on the left, the title, the language on the right -->
@@ -341,6 +365,6 @@
   </footer>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="app.js?v=2026-11-27b"></script>
+  <script src="app.js?v=2026-11-27c"></script>
 </body>
 </html>
