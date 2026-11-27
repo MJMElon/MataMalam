@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-27g';
+const APP_VERSION = '2026-11-27h';
 
 let activeStream = null;
 
@@ -1380,14 +1380,20 @@ function renderHistory(now = Date.now()) {
       <div class="hcard-pins"></div>
     `;
     li.querySelector('.hcard-place strong').textContent = g.location;
-    li.querySelector('.task-by').textContent = [...new Set(g.done.map(l => l.workerName).filter(Boolean))].join(', ');
+    // Who did it: guards take turns, so the name is what tells the days apart
+    const who = [...new Set(g.done.map(l => l.workerName).filter(Boolean))];
+    const by = li.querySelector('.task-by');
+    if (who.length) {
+      by.innerHTML = `${PERSON_SVG}<span></span>`;
+      by.querySelector('span').textContent = who.join(', ');
+    }
 
     const pins = li.querySelector('.hcard-pins');
     g.logs.forEach((log, index) => {
       const missed = log.status === 'missed';
       const cell = document.createElement('div');
       cell.className = 'hpin' + (missed ? ' missed' : '');
-      cell.title = `${log.point || log.location}${missed ? '' : (log.submittedAt ? ' • ' + formatClock(log.submittedAt) : '')}`;
+      cell.title = `${log.point || log.location}${missed ? '' : `${log.submittedAt ? ' • ' + formatClock(log.submittedAt) : ''}${log.workerName ? ' • ' + log.workerName : ''}`}`;
       cell.innerHTML = `${missed ? '<span class="hpin-photo hpin-x" aria-hidden="true">✕</span>' : '<img class="hpin-photo" alt="">'}<span class="hpin-no">${index + 1}</span>`;
       const img = cell.querySelector('img');
       if (img) showPhoto(img, log);
@@ -2306,6 +2312,7 @@ function roundMapMove(move) {
   roundAutoMove = true;
   try { move(); } finally { setTimeout(() => { roundAutoMove = false; }, 400); }
 }
+const PERSON_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>';
 const PIN_SHAPE_SVG = '<svg class="round-pin-shape" viewBox="0 0 36 48" aria-hidden="true"><path d="M18 46C18 46 3 29.5 3 18a15 15 0 0 1 30 0c0 11.5-15 28-15 28z"/></svg>';
 const PIN_SVG_SMALL = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>';
 // A pin is named by its number on a small badge, not its long name

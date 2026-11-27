@@ -2658,3 +2658,18 @@ main > .header-row2 {
   height: 18px;
   font-size: 0.68rem;
 }
+
+/* History: who did it, with a person mark, clear enough to read at a glance */
+.hcard-place small.task-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #c9d1d9;
+}
+.hcard-place small.task-by svg {
+  flex: 0 0 auto;
+  color: var(--accent-color);
+}
