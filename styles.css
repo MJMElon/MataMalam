@@ -2705,3 +2705,11 @@ main > .header-row2 {
   margin-left: auto;
   flex: 0 0 auto;
 }
+
+.celebrate-next {
+  display: block;
+  margin-top: 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+.celebrate-next:empty { display: none; }

@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-27i';
+const APP_VERSION = '2026-11-27j';
 
 let activeStream = null;
 
@@ -2564,9 +2564,11 @@ function toggleRoundRoute() {
     const allCaptured = roundTasks(finished).every(task => task.log && task.log.status !== 'missed');
     Promise.resolve(stopRouteTracking()).then(() => {
       if (!allCaptured) return;
-      // Done: back to the To-Do List by itself (no Back to press), with the fireworks over it
-      if (openRound && roundKey(openRound) === roundKey(finished)) backRoundSheet();
-      celebrateTask(finished);
+      // Done: fireworks over the task, then back to the To-Do List by itself (no Back to press)
+      celebrateTask(finished, () => {
+        if (openRound && roundKey(openRound) === roundKey(finished)) backRoundSheet();
+        showHomePage();
+      });
     });
     return;
   }
@@ -2580,7 +2582,7 @@ function toggleRoundRoute() {
 // Fireworks over the screen and a "Task complete" card, for a patrol with every pin captured.
 // Tap anywhere to close; it closes by itself after a few seconds. Calm (no fireworks) for a phone
 // set to reduce motion.
-function celebrateTask(r) {
+function celebrateTask(r, afterwards = null) {
   const old = document.getElementById('celebrate');
   if (old) old.remove();
   const bm = currentLang === 'BM';
@@ -2594,19 +2596,32 @@ function celebrateTask(r) {
       <div class="celebrate-emoji" aria-hidden="true">🎉</div>
       <h3></h3>
       <p></p>
+      <small class="celebrate-next"></small>
     </div>`;
   box.querySelector('h3').textContent = bm ? 'Tugasan Selesai!' : 'Task Complete!';
   box.querySelector('p').textContent = bm
     ? `${formatSlotTime(r.time)} • ${r.location} — ${pins} pin diambil gambar dan jejak laluan disimpan.`
     : `${formatSlotTime(r.time)} • ${r.location} — ${pins} pin${pins > 1 ? 's' : ''} captured and road track saved.`;
+  // Counts down, then goes back to the To-Do List by itself; a tap goes at once
+  const next = box.querySelector('.celebrate-next');
+  let left = 4;
+  const sayLeft = () => {
+    next.textContent = afterwards
+      ? (bm ? `Kembali ke Senarai Tugasan dalam ${left}…` : `Back to the To-Do List in ${left}…`)
+      : '';
+  };
+  sayLeft();
+  const tick = setInterval(() => { left = Math.max(1, left - 1); sayLeft(); }, 1000);
   document.body.appendChild(box);
 
   let running = true;
   const close = () => {
     if (!running) return;
     running = false;
+    clearInterval(tick);
     box.classList.add('celebrate-out');
     setTimeout(() => box.remove(), 400);
+    if (afterwards) afterwards();
   };
   box.onclick = close;
   setTimeout(close, 4500);
