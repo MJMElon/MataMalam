@@ -2673,3 +2673,35 @@ main > .header-row2 {
   flex: 0 0 auto;
   color: var(--accent-color);
 }
+
+/* History card, bottom line: road track on the left, who did it, Map on the right */
+#done-list .history-route {
+  justify-content: flex-start;
+}
+#done-list .history-route .task-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #c9d1d9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#done-list .history-route .task-by svg {
+  flex: 0 0 auto;
+  color: var(--accent-color);
+}
+#done-list .history-route .task-by span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#done-list .history-route .hcard-track {
+  white-space: nowrap;
+}
+#done-list .history-route .history-route-btn {
+  margin-left: auto;
+  flex: 0 0 auto;
+}

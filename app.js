@@ -1,5 +1,5 @@
 // App version: keep in step with version.json and the ?v= tags in index.html when publishing
-const APP_VERSION = '2026-11-27h';
+const APP_VERSION = '2026-11-27i';
 
 let activeStream = null;
 
@@ -1374,7 +1374,7 @@ function renderHistory(now = Date.now()) {
     li.innerHTML = `
       <div class="hcard-head">
         <span class="task-time">${timeBadge(g.time)}</span>
-        <span class="hcard-place"><strong></strong><small class="task-by"></small></span>
+        <span class="hcard-place"><strong></strong></span>
         <span class="hcard-status">${status}</span>
       </div>
       <div class="hcard-pins"></div>
@@ -1382,11 +1382,6 @@ function renderHistory(now = Date.now()) {
     li.querySelector('.hcard-place strong').textContent = g.location;
     // Who did it: guards take turns, so the name is what tells the days apart
     const who = [...new Set(g.done.map(l => l.workerName).filter(Boolean))];
-    const by = li.querySelector('.task-by');
-    if (who.length) {
-      by.innerHTML = `${PERSON_SVG}<span></span>`;
-      by.querySelector('span').textContent = who.join(', ');
-    }
 
     const pins = li.querySelector('.hcard-pins');
     g.logs.forEach((log, index) => {
@@ -1400,19 +1395,19 @@ function renderHistory(now = Date.now()) {
       pins.appendChild(cell);
     });
 
-    // The task's one road track: one quiet line under the pins
+    // One line under the pins: the road track, who did it, and Map
     const routed = g.done.find(l => l.routeId || l.hasRoute);
-    if (routed) {
+    if (routed || who.length) {
       li.insertAdjacentHTML('beforeend', `
         <div class="history-route">
-          <span class="icon-text">${ICONS.route} ${formatDistance(routed.routeDistance || 0)} • ${formatElapsed(routed.routeDuration || 0)}</span>
-          <button type="button" class="btn btn-secondary history-route-btn">${bm ? 'Peta' : 'Map'}</button>
+          ${routed ? `<span class="icon-text hcard-track">${ICONS.route} ${formatDistance(routed.routeDistance || 0)} • ${formatElapsed(routed.routeDuration || 0)}</span>` : ''}
+          ${who.length ? `<span class="task-by">${PERSON_SVG}<span></span></span>` : ''}
+          ${routed ? `<button type="button" class="btn btn-secondary history-route-btn">${bm ? 'Peta' : 'Map'}</button>` : ''}
         </div>
-        <div class="history-route-map" hidden>
-          <div class="route-map"></div>
-        </div>
+        ${routed ? '<div class="history-route-map" hidden><div class="route-map"></div></div>' : ''}
       `);
-      li.querySelector('.history-route-btn').onclick = (event) => toggleHistoryRoute(event.currentTarget, routed);
+      if (who.length) li.querySelector('.task-by span').textContent = who.join(', ');
+      if (routed) li.querySelector('.history-route-btn').onclick = (event) => toggleHistoryRoute(event.currentTarget, routed);
     }
     doneList.appendChild(li);
   });
